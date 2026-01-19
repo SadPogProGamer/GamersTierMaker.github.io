@@ -1,2 +1,1 @@
-# GamersTierMaker.github.io
-Tier list for gamers
+https://sadpogprogamer.github.io/GamersTierMaker.github.io/ 
