@@ -424,7 +424,9 @@ async function loadTierListFromFirebase() {
 
     // Restore image positions
     const imagesBar = document.querySelector("#images-bar");
-    imagesBar.innerHTML = ""; // Clear existing images
+    
+    // Clear all images from the entire page (both bar and tiers)
+    document.querySelectorAll(".image").forEach(img => img.remove());
 
     tierListData.imagePositions.forEach((imgPos) => {
       const image = document.createElement("img");
@@ -1289,6 +1291,65 @@ function deleteImageFromModal() {
           alert('Failed to delete image. Please try again.');
         });
     }
+  }
+}
+
+async function deleteTierList() {
+  const confirmDelete = confirm("Are you sure you want to delete the entire tier list? This will remove all images from the tier list and Cloudinary. This action cannot be undone.");
+  if (!confirmDelete) {
+    return;
+  }
+
+  const confirmAgain = confirm("This will permanently delete ALL images from Cloudinary. Are you absolutely sure?");
+  if (!confirmAgain) {
+    return;
+  }
+
+  const loadingDiv = document.createElement("div");
+  loadingDiv.id = "delete-loading";
+  loadingDiv.style.cssText = "position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.8); color: white; padding: 20px 40px; border-radius: 8px; z-index: 10000; font-size: 16px;";
+  loadingDiv.textContent = "Deleting tier list...";
+  document.body.appendChild(loadingDiv);
+
+  try {
+    // Get all images from IndexedDB
+    const allImages = await getImagesFromIndexedDB();
+    
+    // Delete all images from Cloudinary
+    for (const image of allImages) {
+      const cloudinaryUrl = image.cloudinaryUrl || image.src;
+      await deleteFromCloudinary(cloudinaryUrl);
+    }
+
+    // Clear all images from IndexedDB
+    await clearImagesFromIndexedDB();
+    
+    // Delete all metadata from IndexedDB
+    const transaction = indexedDb.transaction(['imageMetadata'], 'readwrite');
+    const store = transaction.objectStore('imageMetadata');
+    await new Promise((resolve, reject) => {
+      const request = store.clear();
+      request.onerror = () => reject(request.error);
+      request.onsuccess = () => resolve();
+    });
+
+    // Remove all images from DOM
+    document.querySelectorAll(".image").forEach(img => img.remove());
+    
+    // Clear Firebase tier list if user is logged in
+    if (currentUser && firebaseDb) {
+      await firebaseDb.collection("tierLists").doc(currentUser.uid).delete();
+    }
+
+    loadingDiv.remove();
+    alert("Tier list deleted successfully. All images have been removed from Cloudinary and your tier list.");
+    
+    // Optionally reload the page to reset everything
+    location.reload();
+  } catch (err) {
+    console.error("Failed to delete tier list:", err);
+    loadingDiv.remove();
+    alert("Failed to delete tier list. Please try again.");
   }
 }
 
