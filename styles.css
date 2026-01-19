@@ -249,9 +249,10 @@ p {
   background-color: var(--tier-bg);
   border-top: 1px solid var(--black);
   border-bottom: 1px solid var(--black);
-  overflow-x: auto;
   display: flex;
-  align-items: center;
+  flex-wrap: wrap;
+  align-content: flex-start;
+  padding: 2px;
 }
 
 .tier-options {
