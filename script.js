@@ -1472,6 +1472,7 @@ function renderPlatformOptions() {
     "nintendo": ["nintendo", "game boy", "game boy advance", "ds", "3ds", "gamecube", "wii", "switch"],
     "switch": "switch",
     "wii": "wii",
+    "n64": "nintendo 64",
     "valve": ["valve index", "steam deck"],
   };
 
