@@ -416,7 +416,7 @@
             <input type="text" id="image-name" placeholder="Enter game name">
           </div>
           <div class="form-group">
-            <label for="image-date">Date Beaten/Dropped:</label>
+            <label for="image-date" id="image-date-label">Date Beaten:</label>
             <input type="text" id="image-date" placeholder="Enter date">
           </div>
           <div class="form-group">
@@ -442,7 +442,7 @@
           </div>
           <div class="form-group">
             <label for="image-status">Completion:</label>
-            <select id="image-status">
+            <select id="image-status" onchange="updateDateLabel()">
               <option value="">-- No status --</option>
               <option value="Story complete">Story complete</option>
               <option value="100% complete">100% complete</option>

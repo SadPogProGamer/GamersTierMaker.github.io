@@ -1234,6 +1234,9 @@ function openImageModal(imgElement) {
     document.getElementById("image-description").value = imageMetadata.description || "";
     document.getElementById("image-status").value = imageMetadata.status || "";
     
+    // Update the date label based on status
+    updateDateLabel();
+    
     // Load platform
     currentSelectedPlatform = imageMetadata.platform || null;
     document.getElementById("platform-search").value = "";
@@ -1245,6 +1248,20 @@ function openImageModal(imgElement) {
   }).catch(err => {
     console.error('Failed to load image metadata:', err);
   });
+}
+
+function updateDateLabel() {
+  const statusSelect = document.getElementById("image-status");
+  const dateLabel = document.getElementById("image-date-label");
+  const status = statusSelect.value;
+
+  if (status === "dropped") {
+    dateLabel.textContent = "Date Dropped:";
+  } else if (status === "Played") {
+    dateLabel.textContent = "Date Played:";
+  } else {
+    dateLabel.textContent = "Date Beaten:";
+  }
 }
 
 function closeImageModal() {
