@@ -1001,6 +1001,14 @@ function fileToDataURL(file) {
   });
 }
 
+// Helper function to compute file hash for duplicate detection
+async function computeFileHash(file) {
+  const buffer = await file.arrayBuffer();
+  const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
 function uploadImages(files) {
   const imagesBar = document.querySelector("#images-bar");
   const imageDataArray = [];
@@ -1012,6 +1020,20 @@ function uploadImages(files) {
   loadingDiv.style.cssText = "position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.8); color: white; padding: 20px 40px; border-radius: 8px; z-index: 10000; font-size: 16px;";
   loadingDiv.textContent = "Uploading images...";
   document.body.appendChild(loadingDiv);
+
+  // Check if IndexedDB is ready before proceeding
+  if (!indexedDb) {
+    console.warn("IndexedDB not ready, waiting...");
+    setTimeout(() => {
+      if (!indexedDb) {
+        loadingDiv.remove();
+        alert("Database not ready. Please try again in a moment.");
+        return;
+      }
+      uploadImages(files);
+    }, 1000);
+    return;
+  }
 
   // Get all existing images to check for duplicates
   getImagesFromIndexedDB().then((existingImages) => {
