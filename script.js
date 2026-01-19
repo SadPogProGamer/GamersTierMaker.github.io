@@ -985,12 +985,20 @@ async function deleteFromCloudinary(cloudinaryUrl) {
   }
 }
 
-// Helper function to compute file hash for duplicate detection
-async function computeFileHash(file) {
-  const buffer = await file.arrayBuffer();
-  const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+// Helper function to check if running locally
+function isRunningLocally() {
+  const hostname = window.location.hostname;
+  return hostname === 'localhost' || hostname === '127.0.0.1' || window.location.protocol === 'file:';
+}
+
+// Helper function to convert file to data URL
+function fileToDataURL(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
 }
 
 function uploadImages(files) {
@@ -1023,32 +1031,65 @@ function uploadImages(files) {
             return null; // Skip this image
           }
 
-          return uploadToCloudinary(file)
-            .then((cloudinaryUrl) => {
-              const uniqueId = "img_" + Date.now() + "_" + Math.random().toString(36).substr(2, 9);
-              const image = document.createElement("img");
-              image.src = cloudinaryUrl;
-              image.className = "image";
-              image.dataset.imageSrc = cloudinaryUrl;
-              image.dataset.imageId = uniqueId;
-              image.dataset.cloudinaryUrl = cloudinaryUrl;
-              image.onclick = () => openImageModal(image);
+          // Check if running locally
+          if (isRunningLocally()) {
+            // Use data URL for local storage
+            return fileToDataURL(file)
+              .then((dataUrl) => {
+                const uniqueId = "img_" + Date.now() + "_" + Math.random().toString(36).substr(2, 9);
+                const image = document.createElement("img");
+                image.src = dataUrl;
+                image.className = "image";
+                image.dataset.imageSrc = dataUrl;
+                image.dataset.imageId = uniqueId;
+                image.dataset.cloudinaryUrl = dataUrl;
+                image.onclick = () => openImageModal(image);
 
-              imagesBar.appendChild(image);
+                imagesBar.appendChild(image);
 
-              const imageData = {
-                src: cloudinaryUrl, // Store Cloudinary URL instead of base64
-                tier: -1,
-                id: uniqueId,
-                fileHash: fileHash, // Store file hash for duplicate detection
-                cloudinaryUrl: cloudinaryUrl, // Store for deletion later
-              };
+                const imageData = {
+                  src: dataUrl,
+                  tier: -1,
+                  id: uniqueId,
+                  fileHash: fileHash,
+                  cloudinaryUrl: dataUrl,
+                  isLocalStorage: true, // Mark as local storage
+                };
 
-              imageDataArray.push(imageData);
-              filesProcessed++;
+                imageDataArray.push(imageData);
+                filesProcessed++;
 
-              return imageData;
-            });
+                return imageData;
+              });
+          } else {
+            // Use Cloudinary for remote storage
+            return uploadToCloudinary(file)
+              .then((cloudinaryUrl) => {
+                const uniqueId = "img_" + Date.now() + "_" + Math.random().toString(36).substr(2, 9);
+                const image = document.createElement("img");
+                image.src = cloudinaryUrl;
+                image.className = "image";
+                image.dataset.imageSrc = cloudinaryUrl;
+                image.dataset.imageId = uniqueId;
+                image.dataset.cloudinaryUrl = cloudinaryUrl;
+                image.onclick = () => openImageModal(image);
+
+                imagesBar.appendChild(image);
+
+                const imageData = {
+                  src: cloudinaryUrl, // Store Cloudinary URL instead of base64
+                  tier: -1,
+                  id: uniqueId,
+                  fileHash: fileHash, // Store file hash for duplicate detection
+                  cloudinaryUrl: cloudinaryUrl, // Store for deletion later
+                };
+
+                imageDataArray.push(imageData);
+                filesProcessed++;
+
+                return imageData;
+              });
+          }
         })
         .catch((err) => {
           console.error(`Failed to process ${file.name}:`, err);
@@ -1064,7 +1105,10 @@ function uploadImages(files) {
         const successfulImages = imageDataArray.filter(img => img !== null);
 
         if (successfulImages.length === 0 && skippedCount === 0) {
-          alert("Failed to upload any images. Please check your Cloudinary configuration and try again.");
+          const errorMsg = isRunningLocally() 
+            ? "Failed to load any images. Please try again." 
+            : "Failed to upload any images. Please check your Cloudinary configuration and try again.";
+          alert(errorMsg);
           loadingDiv.remove();
           return;
         }
