@@ -1914,6 +1914,80 @@ function filterImages(searchQuery) {
   // Convert search query to lowercase for case-insensitive search
   const query = searchQuery.toLowerCase();
 
+  // Common game abbreviations map
+  const abbreviationsMap = {
+    "gta": "grand theft auto",
+    "rdr": "red dead redemption",
+    "ac": "assassin's creed",
+    "cod": "call of duty",
+    "mw": "modern warfare",
+    "bc": "battlefield",
+    "halo": "halo",
+    "doom": "doom",
+    "tlou": "last of us",
+    "ff": "final fantasy",
+    "dq": "dragon quest",
+    "dw": "dynasty warriors",
+    "mg": "metal gear",
+    "mgs": "metal gear solid",
+    "re": "resident evil",
+    "sf": "street fighter",
+    "mk": "mortal kombat",
+    "smash": "super smash bros",
+    "mario": "mario",
+    "zelda": "legend of zelda",
+    "pokemon": "pokemon",
+    "mc": "minecraft",
+    "ow": "overwatch",
+    "lol": "league of legends",
+    "dota": "dota 2",
+    "cs": "counter strike",
+    "hl": "half life",
+    "l4d": "left 4 dead",
+    "tf": "team fortress",
+    "tes": "elder scrolls",
+    "oblivion": "elder scrolls oblivion",
+    "skyrim": "elder scrolls skyrim",
+    "witcher": "witcher",
+    "rp": "road rash",
+    "gow": "god of war",
+    "kh": "kingdom hearts",
+    "dmc": "devil may cry",
+    "persona": "persona",
+    "smt": "shin megami tensei",
+    "fire emblem": "fire emblem",
+    "fe": "fire emblem",
+    "uncharted": "uncharted",
+    "gears": "gears of war",
+    "hg": "hunger games",
+    "twd": "walking dead"
+  };
+
+  // Function to check if a game name matches the query (including abbreviations)
+  function matchesQuery(gameName) {
+    const nameWords = gameName.toLowerCase().split(/\s+/);
+    
+    // Direct string match
+    if (gameName.toLowerCase().includes(query)) {
+      return true;
+    }
+    
+    // Check if query is an abbreviation that matches
+    if (abbreviationsMap[query]) {
+      const fullName = abbreviationsMap[query].toLowerCase();
+      if (gameName.toLowerCase().includes(fullName)) {
+        return true;
+      }
+    }
+    
+    // Check if any word in the game name starts with the query
+    if (nameWords.some(word => word.startsWith(query))) {
+      return true;
+    }
+    
+    return false;
+  }
+
   // Get all image metadata from IndexedDB
   getAllImageMetadataFromIndexedDB().then(allMetadata => {
     // Create a map of imageId to metadata for quick lookup
@@ -1928,12 +2002,12 @@ function filterImages(searchQuery) {
       tierImages.forEach((img) => {
         const imageId = img.dataset.imageId;
         const metadata = metadataMap[imageId] || { name: "", date: "", description: "", status: "", platform: null };
-        const imageName = metadata.name.toLowerCase();
-        const imagePlatform = metadata.platform ? metadata.platform.toLowerCase() : "";
+        const imageName = metadata.name;
+        const imagePlatform = metadata.platform ? metadata.platform : "";
 
         // Check if search query matches name or platform
-        const matchesName = query === "" || imageName.includes(query);
-        const matchesPlatform = query === "" || imagePlatform.includes(query);
+        const matchesName = query === "" || matchesQuery(imageName);
+        const matchesPlatform = query === "" || imagePlatform.toLowerCase().includes(query);
 
         if (matchesName || matchesPlatform) {
           img.style.display = "";
@@ -1948,12 +2022,12 @@ function filterImages(searchQuery) {
     barImages.forEach((img) => {
       const imageId = img.dataset.imageId;
       const metadata = metadataMap[imageId] || { name: "", date: "", description: "", status: "", platform: null };
-      const imageName = metadata.name.toLowerCase();
-      const imagePlatform = metadata.platform ? metadata.platform.toLowerCase() : "";
+      const imageName = metadata.name;
+      const imagePlatform = metadata.platform ? metadata.platform : "";
 
       // Check if search query matches name or platform
-      const matchesName = query === "" || imageName.includes(query);
-      const matchesPlatform = query === "" || imagePlatform.includes(query);
+      const matchesName = query === "" || matchesQuery(imageName);
+      const matchesPlatform = query === "" || imagePlatform.toLowerCase().includes(query);
 
       if (matchesName || matchesPlatform) {
         img.style.display = "";
