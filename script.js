@@ -477,19 +477,6 @@ document.addEventListener("DOMContentLoaded", () => {
   if (platformSearch) {
     platformSearch.addEventListener("keyup", renderPlatformOptions);
   }
-  
-  // Set up date dropdown listener
-  const dateSelect = document.getElementById("image-date");
-  if (dateSelect) {
-    dateSelect.addEventListener("change", function() {
-      const dateInputContainer = document.getElementById("date-input-container");
-      if (this.value === "month-year") {
-        dateInputContainer.style.display = "block";
-      } else {
-        dateInputContainer.style.display = "none";
-      }
-    });
-  }
 });
 
 function togglePlatformDropdown() {
@@ -1019,14 +1006,13 @@ function uploadImages(files) {
   // Get all existing images to check for duplicates
   getImagesFromIndexedDB().then((existingImages) => {
     const existingHashes = new Set(existingImages.map(img => img.fileHash).filter(h => h));
-    const uploadedHashes = new Set(); // Track hashes within this upload batch
     const duplicateFiles = [];
     let skippedCount = 0;
 
     const uploadPromises = Array.from(files).map((file) => {
       return computeFileHash(file)
         .then((fileHash) => {
-          // Check if this file hash already exists in the database
+          // Check if this file hash already exists
           if (existingHashes.has(fileHash)) {
             console.warn(`Image already imported: ${file.name}`);
             skippedCount++;
@@ -1034,18 +1020,6 @@ function uploadImages(files) {
             filesProcessed++;
             return null; // Skip this image
           }
-
-          // Check if this file hash is already being uploaded in this batch
-          if (uploadedHashes.has(fileHash)) {
-            console.warn(`Duplicate in current batch: ${file.name}`);
-            skippedCount++;
-            duplicateFiles.push(file.name);
-            filesProcessed++;
-            return null; // Skip this image
-          }
-
-          // Mark this hash as uploaded in this batch
-          uploadedHashes.add(fileHash);
 
           return uploadToCloudinary(file)
             .then((cloudinaryUrl) => {
@@ -1254,42 +1228,7 @@ function openImageModal(imgElement) {
   
   getImageMetadataFromIndexedDB(imageId).then(imageMetadata => {
     document.getElementById("image-name").value = imageMetadata.name || "";
-    
-    // Handle date field
-    const dateValue = imageMetadata.date || "";
-    const dateSelect = document.getElementById("image-date");
-    const customDateInput = document.getElementById("image-date-custom");
-    const dateInputContainer = document.getElementById("date-input-container");
-    
-    // Check if the stored date is one of the preset options
-    if (["childhood", "teens", "adulthood"].includes(dateValue)) {
-      dateSelect.value = dateValue;
-      dateInputContainer.style.display = "none";
-      customDateInput.value = "";
-    } else if (dateValue) {
-      // If it's a custom date
-      if (dateValue.match(/^\d{4}$/)) {
-        // Year only - don't show input
-        dateSelect.value = "year";
-        dateInputContainer.style.display = "none";
-        customDateInput.value = "";
-      } else if (dateValue.match(/^\d{4}-\d{2}$/)) {
-        // Already in month format
-        dateSelect.value = "month-year";
-        customDateInput.value = dateValue;
-        dateInputContainer.style.display = "block";
-      } else {
-        // Try to parse it as month format
-        dateSelect.value = "month-year";
-        customDateInput.value = dateValue;
-        dateInputContainer.style.display = "block";
-      }
-    } else {
-      dateSelect.value = "";
-      dateInputContainer.style.display = "none";
-      customDateInput.value = "";
-    }
-    
+    document.getElementById("image-date").value = imageMetadata.date || "";
     document.getElementById("image-description").value = imageMetadata.description || "";
     document.getElementById("image-status").value = imageMetadata.status || "";
     
@@ -1309,26 +1248,9 @@ function openImageModal(imgElement) {
 function closeImageModal() {
   const modal = document.getElementById("image-modal");
   const imageId = currentImageElement.dataset.imageId;
-  
-  // Get date value
-  const dateSelect = document.getElementById("image-date");
-  const customDateInput = document.getElementById("image-date-custom");
-  let dateValue = dateSelect.value;
-  
-  // If custom date option is selected, format the date appropriately
-  if (customDateInput.value) {
-    if (dateSelect.value === "year") {
-      // Extract just the year from YYYY-MM format
-      dateValue = customDateInput.value.split("-")[0];
-    } else if (dateSelect.value === "month-year") {
-      // Use the full YYYY-MM format
-      dateValue = customDateInput.value;
-    }
-  }
-  
   const imageMetadata = {
     name: document.getElementById("image-name").value,
-    date: dateValue,
+    date: document.getElementById("image-date").value,
     description: document.getElementById("image-description").value,
     status: document.getElementById("image-status").value,
     platform: currentSelectedPlatform,
