@@ -352,8 +352,24 @@ async function saveTierListToFirebase() {
       header: document.getElementById("main-title").textContent,
       tiers: [],
       imagePositions: [],
+      gameMetadata: {},
       lastUpdated: new Date()
     };
+
+    // Get all image metadata from IndexedDB
+    const allImages = await getImagesFromIndexedDB();
+    const metadataMap = {};
+    
+    for (const image of allImages) {
+      try {
+        const metadata = await getImageMetadataFromIndexedDB(image.id);
+        if (metadata) {
+          metadataMap[image.id] = metadata;
+        }
+      } catch (err) {
+        console.warn(`Failed to get metadata for image ${image.id}:`, err);
+      }
+    }
 
     // Save tier data
     const rows = document.querySelectorAll(".row");
@@ -368,11 +384,16 @@ async function saveTierListToFirebase() {
       });
 
       tierImages.forEach((img) => {
+        const imageId = img.dataset.imageId;
         tierListData.imagePositions.push({
-          imageId: img.dataset.imageId,
+          imageId: imageId,
           imageSrc: img.dataset.imageSrc,
           tier: tierIndex,
         });
+        // Include metadata if it exists
+        if (metadataMap[imageId]) {
+          tierListData.gameMetadata[imageId] = metadataMap[imageId];
+        }
       });
     });
 
@@ -380,11 +401,16 @@ async function saveTierListToFirebase() {
     const imagesBar = document.querySelector("#images-bar");
     const barImages = imagesBar.querySelectorAll(".image");
     barImages.forEach((img) => {
+      const imageId = img.dataset.imageId;
       tierListData.imagePositions.push({
-        imageId: img.dataset.imageId,
+        imageId: imageId,
         imageSrc: img.dataset.imageSrc,
         tier: -1,
       });
+      // Include metadata if it exists
+      if (metadataMap[imageId]) {
+        tierListData.gameMetadata[imageId] = metadataMap[imageId];
+      }
     });
 
     // Save to Firestore
@@ -422,7 +448,7 @@ async function loadTierListFromFirebase() {
       }
     });
 
-    // Restore image positions
+    // Restore image positions and metadata
     const imagesBar = document.querySelector("#images-bar");
     
     // Clear all images from the entire page (both bar and tiers)
@@ -441,6 +467,14 @@ async function loadTierListFromFirebase() {
         imagesBar.appendChild(image);
       } else if (rows[imgPos.tier]) {
         rows[imgPos.tier].children[1].appendChild(image);
+      }
+
+      // Restore metadata from Firebase to IndexedDB
+      if (tierListData.gameMetadata && tierListData.gameMetadata[imgPos.imageId]) {
+        const metadata = tierListData.gameMetadata[imgPos.imageId];
+        saveImageMetadataToIndexedDB(imgPos.imageId, metadata).catch(err => {
+          console.warn(`Failed to restore metadata for image ${imgPos.imageId}:`, err);
+        });
       }
     });
 
@@ -1346,6 +1380,14 @@ function closeImageModal() {
   saveImageMetadataToIndexedDB(imageId, imageMetadata).catch(err => {
     console.error('Failed to save image metadata:', err);
   });
+
+  // Sync metadata to Firebase if user is logged in
+  if (currentUser && firebaseDb) {
+    saveTierListToFirebase().catch(err => {
+      console.error('Failed to sync metadata to Firebase:', err);
+    });
+  }
+
   modal.classList.add("hidden");
   currentImageElement = null;
   currentSelectedPlatform = null;
@@ -1370,6 +1412,13 @@ function deleteImageFromModal() {
           currentImageElement.remove();
           closeImageModal();
           saveImagePositions();
+          
+          // Sync deletion to Firebase if user is logged in
+          if (currentUser && firebaseDb) {
+            saveTierListToFirebase().catch(err => {
+              console.error('Failed to sync deletion to Firebase:', err);
+            });
+          }
         })
         .catch(err => {
           console.error('Failed to delete image:', err);
