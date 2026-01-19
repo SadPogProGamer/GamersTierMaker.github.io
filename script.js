@@ -646,7 +646,7 @@ function addRow(tierName = "New tier", defaultColor = "lightslategray") {
 
   const deleteImage = document.createElement("img");
   deleteImage.className = "option-hover";
-  deleteImage.src = "assets/cog.png";
+  deleteImage.src = "assets/Cog.png";
   deleteImage.alt = "Menu";
   deleteImage.setAttribute("onclick", "openRowMenu(this, event)");
 
@@ -814,7 +814,7 @@ function createNewRow() {
 
   const deleteImage = document.createElement("img");
   deleteImage.className = "option-hover";
-  deleteImage.src = "assets/cog.png";
+  deleteImage.src = "assets/Cog.png";
   deleteImage.alt = "Menu";
   deleteImage.setAttribute("onclick", "openRowMenu(this, event)");
 
