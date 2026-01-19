@@ -1187,12 +1187,25 @@ function loadImagesFromStorage() {
   const rows = document.querySelectorAll(".row");
 
   getImagesFromIndexedDB().then((storedImages) => {
+    // Get all currently displayed images to avoid duplicates
+    const displayedImageIds = new Set();
+    document.querySelectorAll(".image").forEach(img => {
+      displayedImageIds.add(img.dataset.imageId);
+    });
+
     for (const imageObj of storedImages) {
+      // Skip if this image is already displayed
+      if (displayedImageIds.has(imageObj.id)) {
+        console.log("Skipping duplicate image:", imageObj.id);
+        continue;
+      }
+
       const image = document.createElement("img");
       image.src = imageObj.src;
       image.className = "image";
       image.dataset.imageSrc = imageObj.src;
       image.dataset.imageId = imageObj.id;
+      image.dataset.cloudinaryUrl = imageObj.cloudinaryUrl || imageObj.src;
       image.onclick = () => openImageModal(image);
 
       if (imageObj.tier === -1) {
