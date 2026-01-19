@@ -94,9 +94,6 @@ const platformOptions = {
     "Game Boy (Nintendo Switch Online)",
     "Game Boy Advance (Nintendo Switch Online)",
   ],
-  "Arcade": [
-    "Arcade"
-  ],
     "VR": [
     "Meta Quest 2",
     "Meta Quest 3",
@@ -109,6 +106,9 @@ const platformOptions = {
     "Valve Index",
     "Oculus Rift",
     "Oculus Rift S",
+  ],
+    "Arcade": [
+    "Arcade"
   ],
   "Mobile": [
     "Mobile"
