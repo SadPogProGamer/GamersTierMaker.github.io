@@ -1323,7 +1323,7 @@ function renderPlatformOptions() {
   const platformAliases = {
     "ps": "playstation",
     "xbox": "xbox",
-    "nintendo": ["nintendo", "game boy"],
+    "nintendo": ["nintendo", "game boy", "game boy advance", "ds", "3ds", "gamecube", "wii", "switch"],
     "switch": "switch",
     "wii": "wii",
     "valve": ["valve index", "steam deck"],
