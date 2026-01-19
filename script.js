@@ -92,7 +92,7 @@ const platformOptions = {
     "Nintendo 64 (Nintendo Switch Online)",
     "Sega Genesis (Nintendo Switch Online)",
     "Game Boy (Nintendo Switch Online)",
-    "Game Boy Color (Nintendo Switch Online)",
+    "Game Boy Advance (Nintendo Switch Online)",
   ],
   "Arcade": [
     "Arcade"
