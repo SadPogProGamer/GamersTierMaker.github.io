@@ -1324,7 +1324,7 @@ function updateDateLabel() {
   if (status === "dropped") {
     dateLabel.textContent = "Date Dropped:";
   } else if (status === "Played") {
-    dateLabel.textContent = "Date Played:";
+    dateLabel.textContent = "Date Last Played:";
   } else if (status === "") {
     dateLabel.textContent = "Date Beaten:";
   } else {
