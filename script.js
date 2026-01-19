@@ -940,6 +940,14 @@ async function uploadToCloudinary(file) {
   }
 }
 
+// Helper function to compute file hash for duplicate detection
+async function computeFileHash(file) {
+  const buffer = await file.arrayBuffer();
+  const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
 function uploadImages(files) {
   const imagesBar = document.querySelector("#images-bar");
   const imageDataArray = [];
@@ -954,15 +962,15 @@ function uploadImages(files) {
 
   // Get all existing images to check for duplicates
   getImagesFromIndexedDB().then((existingImages) => {
-    const existingUrls = new Set(existingImages.map(img => img.src));
+    const existingHashes = new Set(existingImages.map(img => img.fileHash).filter(h => h));
     const duplicateFiles = [];
     let skippedCount = 0;
 
     const uploadPromises = Array.from(files).map((file) => {
-      return uploadToCloudinary(file)
-        .then((cloudinaryUrl) => {
-          // Check if this URL already exists
-          if (existingUrls.has(cloudinaryUrl)) {
+      return computeFileHash(file)
+        .then((fileHash) => {
+          // Check if this file hash already exists
+          if (existingHashes.has(fileHash)) {
             console.warn(`Image already imported: ${file.name}`);
             skippedCount++;
             duplicateFiles.push(file.name);
@@ -970,30 +978,34 @@ function uploadImages(files) {
             return null; // Skip this image
           }
 
-          const uniqueId = "img_" + Date.now() + "_" + Math.random().toString(36).substr(2, 9);
-          const image = document.createElement("img");
-          image.src = cloudinaryUrl;
-          image.className = "image";
-          image.dataset.imageSrc = cloudinaryUrl;
-          image.dataset.imageId = uniqueId;
-          image.dataset.cloudinaryUrl = cloudinaryUrl;
-          image.onclick = () => openImageModal(image);
+          return uploadToCloudinary(file)
+            .then((cloudinaryUrl) => {
+              const uniqueId = "img_" + Date.now() + "_" + Math.random().toString(36).substr(2, 9);
+              const image = document.createElement("img");
+              image.src = cloudinaryUrl;
+              image.className = "image";
+              image.dataset.imageSrc = cloudinaryUrl;
+              image.dataset.imageId = uniqueId;
+              image.dataset.cloudinaryUrl = cloudinaryUrl;
+              image.onclick = () => openImageModal(image);
 
-          imagesBar.appendChild(image);
+              imagesBar.appendChild(image);
 
-          const imageData = {
-            src: cloudinaryUrl, // Store Cloudinary URL instead of base64
-            tier: -1,
-            id: uniqueId,
-          };
+              const imageData = {
+                src: cloudinaryUrl, // Store Cloudinary URL instead of base64
+                tier: -1,
+                id: uniqueId,
+                fileHash: fileHash, // Store file hash for duplicate detection
+              };
 
-          imageDataArray.push(imageData);
-          filesProcessed++;
+              imageDataArray.push(imageData);
+              filesProcessed++;
 
-          return imageData;
+              return imageData;
+            });
         })
         .catch((err) => {
-          console.error(`Failed to upload ${file.name}:`, err);
+          console.error(`Failed to process ${file.name}:`, err);
           filesProcessed++;
           // Continue processing other files even if one fails
           return null;
