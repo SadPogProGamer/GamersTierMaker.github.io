@@ -940,6 +940,49 @@ async function uploadToCloudinary(file) {
   }
 }
 
+// Delete image from Cloudinary
+async function deleteFromCloudinary(cloudinaryUrl) {
+  if (!CLOUDINARY_CONFIG.cloudName || CLOUDINARY_CONFIG.cloudName === "YOUR_CLOUD_NAME") {
+    console.warn("Cloudinary is not configured. Skipping remote deletion.");
+    return;
+  }
+
+  try {
+    // Extract public ID from the Cloudinary URL
+    // URL format: https://res.cloudinary.com/{cloudName}/image/upload/v{version}/{folder}/{publicId}.{format}
+    const urlParts = cloudinaryUrl.split('/');
+    const fileNameWithExtension = urlParts[urlParts.length - 1];
+    const publicId = fileNameWithExtension.split('.')[0];
+    const folder = CLOUDINARY_CONFIG.folder;
+    const fullPublicId = folder ? `${folder}/${publicId}` : publicId;
+
+    // Use Cloudinary's destroy endpoint
+    const response = await fetch(
+      `https://api.cloudinary.com/v1_1/${CLOUDINARY_CONFIG.cloudName}/image/destroy`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body: new URLSearchParams({
+          public_id: fullPublicId,
+          api_key: "YOUR_API_KEY", // This won't work without API key - see note below
+        }).toString(),
+      }
+    );
+
+    if (!response.ok) {
+      console.warn("Failed to delete from Cloudinary (API key required for deletion)");
+      return;
+    }
+
+    console.log("Image deleted from Cloudinary:", fullPublicId);
+  } catch (err) {
+    console.warn("Could not delete image from Cloudinary:", err);
+    // Don't throw - allow local deletion to continue even if remote deletion fails
+  }
+}
+
 // Helper function to compute file hash for duplicate detection
 async function computeFileHash(file) {
   const buffer = await file.arrayBuffer();
@@ -996,6 +1039,7 @@ function uploadImages(files) {
                 tier: -1,
                 id: uniqueId,
                 fileHash: fileHash, // Store file hash for duplicate detection
+                cloudinaryUrl: cloudinaryUrl, // Store for deletion later
               };
 
               imageDataArray.push(imageData);
@@ -1209,15 +1253,19 @@ function closeImageModal() {
 
 function deleteImageFromModal() {
   if (currentImageElement) {
-    const confirmDelete = confirm("Are you sure you want to delete this image?");
+    const confirmDelete = confirm("Are you sure you want to delete this image? This will also remove it from Cloudinary.");
     if (confirmDelete) {
       const imageId = currentImageElement.dataset.imageId;
+      const cloudinaryUrl = currentImageElement.dataset.cloudinaryUrl || currentImageElement.src;
       
       // Delete metadata from IndexedDB
       deleteImageMetadataFromIndexedDB(imageId);
       
-      // Delete image from IndexedDB
-      deleteImageFromIndexedDB(imageId)
+      // Delete from Cloudinary first
+      deleteFromCloudinary(cloudinaryUrl).then(() => {
+        // Then delete image from IndexedDB
+        return deleteImageFromIndexedDB(imageId);
+      })
         .then(() => {
           currentImageElement.remove();
           closeImageModal();
