@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Games I played tierlist</title>
+    <link rel="icon" href="assets/icon.svg" />
+    <link rel="stylesheet" href="styles.css" />
+    <script defer src="script.js"></script>
+
+    <link rel="preload" href="assets/check.svg" as="image" />
+    <style id="dynamic-styles"></style>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.2/jquery.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/dragula/3.7.3/dragula.min.css"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/@simonwep/pickr/dist/themes/monolith.min.css"
+    />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dragula/3.7.3/dragula.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@simonwep/pickr/dist/pickr.min.js"></script>
+    <script src="https://upload-widget.cloudinary.com/latest/global/loader.js"></script>
+    
+    <!-- Firebase (Compat SDK for backward compatibility) -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore-compat.js"></script>
+  </head>
+  <body>
+    <div class="top-bar">
+      <div class="top-bar-content">
+        <img src="assets/Logo.jpg" alt="Logo" class="logo">
+        <h1 class="top-title">GAMERS TIERMAKER</h1>
+        <div id="auth-container" style="margin-left: auto; display: flex; gap: 10px; align-items: center;">
+          <span id="user-name" style="color: white; display: none;"></span>
+          <button id="login-btn" onclick="signInWithGoogle()" style="padding: 8px 16px; background: #4285f4; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 14px;">Sign in with Google</button>
+          <button id="logout-btn" onclick="signOut()" style="padding: 8px 16px; background: #ea4335; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; display: none;">Sign Out</button>
+        </div>
+      </div>
+    </div>
+    <div class="header-container">
+      <h1 class="headerTitle" contenteditable="true" spellcheck="false" id="main-title">
+        Games I played tierlist
+      </h1>
+      <div class="search-container">
+        <input 
+          type="text" 
+          id="search-input" 
+          class="search-input" 
+          placeholder="Search game by name..."
+          onkeyup="filterImages(this.value)"
+        />
+      </div>
+    </div>
+   <main id="htmlContent">
+      <div class="row">
+        <div
+          class="tier-label"
+          contenteditable="true"
+          style="background-color: rgb(191, 255, 127);"
+        >
+          <p spellcheck="false">Top 10<br>(in order)</p>
+          <div class="tooltip" contenteditable="false">
+            <div class="color-picker"></div>
+          </div>
+        </div>
+        <div class="tier sort"></div>
+        <div class="tier-options">
+          <div class="options-container">
+            <div class="option delete">
+              <img
+                class="option-hover"
+                src="assets/cog.png"
+                alt="Menu"
+                onclick="openRowMenu(this, event)"
+              />
+            </div>
+            <div class="option">
+              <img
+                class="option-hover"
+                src="assets/chevron-up.svg"
+                alt="Up"
+                onclick="moveRow(this, -1)"
+              />
+            </div>
+            <div class="option">
+              <img
+                class="option-hover"
+                src="assets/chevron-down.svg"
+                alt="Down"
+                onclick="moveRow(this, 1)"
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="row">
+        <div
+          class="tier-label"
+          contenteditable="true"
+          style="background-color: rgb(255, 127, 127);"
+        >
+          <p spellcheck="false">S</p>
+          <div class="tooltip" contenteditable="false">
+            <div class="color-picker"></div>
+          </div>
+        </div>
+        <div class="tier sort"></div>
+        <div class="tier-options">
+          <div class="options-container">
+            <div class="option delete">
+              <img
+                class="option-hover"
+                src="assets/cog.png"
+                alt="Menu"
+                onclick="openRowMenu(this, event)"
+              />
+            </div>
+            <div class="option">
+              <img
+                class="option-hover"
+                src="assets/chevron-up.svg"
+                alt="Up"
+                onclick="moveRow(this, -1)"
+              />
+            </div>
+            <div class="option">
+              <img
+                class="option-hover"
+                src="assets/chevron-down.svg"
+                alt="Down"
+                onclick="moveRow(this, 1)"
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="row">
+        <div
+          class="tier-label"
+          contenteditable="true"
+          style="background-color: rgb(255, 191, 127);"
+        >
+          <p spellcheck="false">A</p>
+          <div class="tooltip" contenteditable="false">
+            <div class="color-picker"></div>
+          </div>
+        </div>
+        <div class="tier sort"></div>
+        <div class="tier-options">
+          <div class="options-container">
+            <div class="option delete">
+              <img
+                class="option-hover"
+                src="assets/cog.png"
+                alt="Menu"
+                onclick="openRowMenu(this, event)"
+              />
+            </div>
+            <div class="option">
+              <img
+                class="option-hover"
+                src="assets/chevron-up.svg"
+                alt="Up"
+                onclick="moveRow(this, -1)"
+              />
+            </div>
+            <div class="option">
+              <img
+                class="option-hover"
+                src="assets/chevron-down.svg"
+                alt="Down"
+                onclick="moveRow(this, 1)"
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="row">
+        <div
+          class="tier-label"
+          contenteditable="true"
+          style="background-color: rgb(255, 223, 127);"
+        >
+          <p spellcheck="false">B</p>
+          <div class="tooltip" contenteditable="false">
+            <div class="color-picker"></div>
+          </div>
+        </div>
+        <div class="tier sort"></div>
+        <div class="tier-options">
+          <div class="options-container">
+            <div class="option delete">
+              <img
+                class="option-hover"
+                src="assets/cog.png"
+                alt="Menu"
+                onclick="openRowMenu(this, event)"
+              />
+            </div>
+            <div class="option">
+              <img
+                class="option-hover"
+                src="assets/chevron-up.svg"
+                alt="Up"
+                onclick="moveRow(this, -1)"
+              />
+            </div>
+            <div class="option">
+              <img
+                class="option-hover"
+                src="assets/chevron-down.svg"
+                alt="Down"
+                onclick="moveRow(this, 1)"
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="row">
+        <div
+          class="tier-label"
+          contenteditable="true"
+          style="background-color:#FFFF7F"
+        >
+          <p spellcheck="false">C</p>
+          <div class="tooltip" contenteditable="false">
+            <div class="color-picker"></div>
+          </div>
+        </div>
+        <div class="tier sort"></div>
+        <div class="tier-options">
+          <div class="options-container">
+            <div class="option delete">
+              <img
+                class="option-hover"
+                src="assets/cog.png"
+                alt="Menu"
+                onclick="openRowMenu(this, event)"
+              />
+            </div>
+            <div class="option">
+              <img
+                class="option-hover"
+                src="assets/chevron-up.svg"
+                alt="Up"
+                onclick="moveRow(this, -1)"
+              />
+            </div>
+            <div class="option">
+              <img
+                class="option-hover"
+                src="assets/chevron-down.svg"
+                alt="Down"
+                onclick="moveRow(this, 1)"
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="row">
+        <div
+          class="tier-label"
+          contenteditable="true"
+          style="background-color: rgb(191, 255, 127);"
+        >
+          <p spellcheck="false">D</p>
+          <div class="tooltip" contenteditable="false">
+            <div class="color-picker"></div>
+          </div>
+        </div>
+        <div class="tier sort"></div>
+        <div class="tier-options">
+          <div class="options-container">
+            <div class="option delete">
+              <img
+                class="option-hover"
+                src="assets/cog.png"
+                alt="Menu"
+                onclick="openRowMenu(this, event)"
+              />
+            </div>
+            <div class="option">
+              <img
+                class="option-hover"
+                src="assets/chevron-up.svg"
+                alt="Up"
+                onclick="moveRow(this, -1)"
+              />
+            </div>
+            <div class="option">
+              <img
+                class="option-hover"
+                src="assets/chevron-down.svg"
+                alt="Down"
+                onclick="moveRow(this, 1)"
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="row">
+        <div
+          class="tier-label"
+          contenteditable="true"
+          style="background-color: rgb(127, 255, 127);"
+        >
+          <p spellcheck="false">F</p>
+          <div class="tooltip" contenteditable="false">
+            <div class="color-picker"></div>
+          </div>
+        </div>
+        <div class="tier sort"></div>
+        <div class="tier-options">
+          <div class="options-container">
+            <div class="option delete">
+              <img
+                class="option-hover"
+                src="assets/cog.png"
+                alt="Menu"
+                onclick="openRowMenu(this, event)"
+              />
+            </div>
+            <div class="option">
+              <img
+                class="option-hover"
+                src="assets/chevron-up.svg"
+                alt="Up"
+                onclick="moveRow(this, -1)"
+              />
+            </div>
+            <div class="option">
+              <img
+                class="option-hover"
+                src="assets/chevron-down.svg"
+                alt="Down"
+                onclick="moveRow(this, 1)"
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="row">
+        <div
+          class="tier-label"
+          contenteditable="true"
+          style="background-color: rgb(255, 127, 255);"
+        >
+          <p spellcheck="false">The world would have been better without</p>
+          <div class="tooltip" contenteditable="false">
+            <div class="color-picker"></div>
+          </div>
+        </div>
+        <div class="tier sort"></div>
+        <div class="tier-options">
+          <div class="options-container">
+            <div class="option delete">
+              <img
+                class="option-hover"
+                src="assets/cog.png"
+                alt="Menu"
+                onclick="openRowMenu(this, event)"
+              />
+            </div>
+            <div class="option">
+              <img
+                class="option-hover"
+                src="assets/chevron-up.svg"
+                alt="Up"
+                onclick="moveRow(this, -1)"
+              />
+            </div>
+            <div class="option">
+              <img
+                class="option-hover"
+                src="assets/chevron-down.svg"
+                alt="Down"
+                onclick="moveRow(this, 1)"
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <div id="images-bar" class="sort"></div>
+    <div id="buttons-container">
+      <button type="button" onclick="selectImages()">Click here to add images</button>
+      <button id="btn" type="button">Download Tierlist</button>
+    </div>
+
+    <div id="image-modal" class="modal hidden">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>Image Details</h2>
+          <button class="modal-close" onclick="closeImageModal()">✕</button>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label for="image-name">Name:</label>
+            <input type="text" id="image-name" placeholder="Enter game name">
+          </div>
+          <div class="form-group">
+            <label for="image-date">Date Beaten/Dropped:</label>
+            <input type="text" id="image-date" placeholder="Enter date">
+          </div>
+          <div class="form-group">
+            <label for="image-description">Personal Review:</label>
+            <textarea id="image-description" placeholder="Enter review description"></textarea>
+          </div>
+          <div class="form-group">
+            <label>Platform:</label>
+            <div class="platform-dropdown">
+              <button type="button" class="platform-dropdown-btn" id="platform-btn" onclick="togglePlatformDropdown()">
+                Select Platform ▼
+              </button>
+              <div id="platform-dropdown-menu" class="platform-dropdown-menu hidden">
+                <input 
+                  type="text" 
+                  id="platform-search" 
+                  class="platform-search" 
+                  placeholder="Search for a console or platform..."
+                />
+                <div id="platform-options" class="platform-options"></div>
+              </div>
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="image-status">Completion:</label>
+            <select id="image-status">
+              <option value="">-- No status --</option>
+              <option value="Story complete">Story complete</option>
+              <option value="100% complete">100% complete</option>
+              <option value="dropped">Dropped</option>
+            </select>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn-close" onclick="closeImageModal()">Save</button>
+          <button class="btn-delete" onclick="deleteImageFromModal()">Delete Image</button>
+        </div>
+      </div>
+    </div>
+    <script>
+      const elementcap = document.getElementById("htmlContent");
+      const downloadbtn = document.getElementById("btn");
+
+      downloadbtn.addEventListener("click", function () {
+        html2canvas(elementcap, {
+          allowTaint: true,
+          useCORS: true,
+        }).then((canvas) => {
+          const downloadLink = document.createElement("a");
+          downloadLink.href = canvas.toDataURL("image/png");
+          downloadLink.download = "Tier-Ranking.png";
+          downloadLink.click();
+        });
+      });
+    </script>
+  </body>
+</html>
