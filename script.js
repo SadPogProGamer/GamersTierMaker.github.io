@@ -952,62 +952,95 @@ function uploadImages(files) {
   loadingDiv.textContent = "Uploading images...";
   document.body.appendChild(loadingDiv);
 
-  const uploadPromises = Array.from(files).map((file) => {
-    return uploadToCloudinary(file)
-      .then((cloudinaryUrl) => {
-        const uniqueId = "img_" + Date.now() + "_" + Math.random().toString(36).substr(2, 9);
-        const image = document.createElement("img");
-        image.src = cloudinaryUrl;
-        image.className = "image";
-        image.dataset.imageSrc = cloudinaryUrl;
-        image.dataset.imageId = uniqueId;
-        image.dataset.cloudinaryUrl = cloudinaryUrl;
-        image.onclick = () => openImageModal(image);
+  // Get all existing images to check for duplicates
+  getImagesFromIndexedDB().then((existingImages) => {
+    const existingUrls = new Set(existingImages.map(img => img.src));
+    const duplicateFiles = [];
+    let skippedCount = 0;
 
-        imagesBar.appendChild(image);
+    const uploadPromises = Array.from(files).map((file) => {
+      return uploadToCloudinary(file)
+        .then((cloudinaryUrl) => {
+          // Check if this URL already exists
+          if (existingUrls.has(cloudinaryUrl)) {
+            console.warn(`Image already imported: ${file.name}`);
+            skippedCount++;
+            duplicateFiles.push(file.name);
+            filesProcessed++;
+            return null; // Skip this image
+          }
 
-        const imageData = {
-          src: cloudinaryUrl, // Store Cloudinary URL instead of base64
-          tier: -1,
-          id: uniqueId,
-        };
+          const uniqueId = "img_" + Date.now() + "_" + Math.random().toString(36).substr(2, 9);
+          const image = document.createElement("img");
+          image.src = cloudinaryUrl;
+          image.className = "image";
+          image.dataset.imageSrc = cloudinaryUrl;
+          image.dataset.imageId = uniqueId;
+          image.dataset.cloudinaryUrl = cloudinaryUrl;
+          image.onclick = () => openImageModal(image);
 
-        imageDataArray.push(imageData);
-        filesProcessed++;
+          imagesBar.appendChild(image);
 
-        return imageData;
+          const imageData = {
+            src: cloudinaryUrl, // Store Cloudinary URL instead of base64
+            tier: -1,
+            id: uniqueId,
+          };
+
+          imageDataArray.push(imageData);
+          filesProcessed++;
+
+          return imageData;
+        })
+        .catch((err) => {
+          console.error(`Failed to upload ${file.name}:`, err);
+          filesProcessed++;
+          // Continue processing other files even if one fails
+          return null;
+        });
+    });
+
+    Promise.all(uploadPromises)
+      .then(() => {
+        // Filter out null values (failed uploads and duplicates)
+        const successfulImages = imageDataArray.filter(img => img !== null);
+
+        if (successfulImages.length === 0 && skippedCount === 0) {
+          alert("Failed to upload any images. Please check your Cloudinary configuration and try again.");
+          loadingDiv.remove();
+          return;
+        }
+
+        if (skippedCount > 0) {
+          let message = `${skippedCount} image(s) were already imported and skipped.`;
+          if (successfulImages.length > 0) {
+            message += `\n${successfulImages.length} new image(s) were imported successfully.`;
+          }
+          alert(message);
+        }
+
+        if (successfulImages.length === 0) {
+          loadingDiv.remove();
+          return;
+        }
+
+        // Save all images to IndexedDB
+        return Promise.all(successfulImages.map(img => saveImageToIndexedDB(img)));
+      })
+      .then(() => {
+        loadingDiv.remove();
+        initializeDragula();
       })
       .catch((err) => {
-        console.error(`Failed to upload ${file.name}:`, err);
-        filesProcessed++;
-        // Continue processing other files even if one fails
-        return null;
-      });
-  });
-
-  Promise.all(uploadPromises)
-    .then(() => {
-      // Filter out null values (failed uploads)
-      const successfulImages = imageDataArray.filter(img => img !== null);
-
-      if (successfulImages.length === 0) {
-        alert("Failed to upload any images. Please check your Cloudinary configuration and try again.");
+        console.error("Failed to save images:", err);
         loadingDiv.remove();
-        return;
-      }
-
-      // Save all images to IndexedDB
-      return Promise.all(successfulImages.map(img => saveImageToIndexedDB(img)));
-    })
-    .then(() => {
-      loadingDiv.remove();
-      initializeDragula();
-    })
-    .catch((err) => {
-      console.error("Failed to save images:", err);
-      loadingDiv.remove();
-      alert("Failed to upload images. Please try again.");
-    });
+        alert("Failed to upload images. Please try again.");
+      });
+  }).catch((err) => {
+    console.error("Failed to check existing images:", err);
+    loadingDiv.remove();
+    alert("Failed to check existing images. Please try again.");
+  });
 }
 
 function initializeDragula() {
