@@ -74,6 +74,7 @@ const platformOptions = {
   ],
     "Emulators": [
     "Snes9x (SNES)",
+    "Visual Boy Advance (Game Boy Advance)",
     "MelonDS (Nintendo DS)",
     "Dolphin (Wii / GameCube)",
     "Citra (Nintendo 3DS)",
