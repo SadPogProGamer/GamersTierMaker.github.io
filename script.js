@@ -74,7 +74,7 @@ const platformOptions = {
   ],
     "Emulators": [
     "Snes9x (SNES)",
-    "melonDS (Nintendo DS)",
+    "MelonDS (Nintendo DS)",
     "Dolphin (Wii / GameCube)",
     "Citra (Nintendo 3DS)",
     "Cemu (Wii U)",
