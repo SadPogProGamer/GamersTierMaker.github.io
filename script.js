@@ -1527,6 +1527,7 @@ function renderPlatformOptions() {
     "wii": "wii",
     "n64": "nintendo 64",
     "valve": ["valve index", "steam deck"],
+    "vsmile": "v.smile",
   };
 
   // Category aliases
@@ -2014,7 +2015,8 @@ function filterImages(searchQuery) {
     "uncharted": "uncharted",
     "gears": "gears of war",
     "hg": "hunger games",
-    "twd": "walking dead"
+    "twd": "walking dead",
+    "vsmile": "v.smile"
   };
 
   // Function to check if a game name matches the query (including abbreviations)
