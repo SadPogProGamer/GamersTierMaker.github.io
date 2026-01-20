@@ -74,6 +74,10 @@ const platformOptions = {
   ],
     "Emulators": [
     "Snes9x (SNES)",
+    "melonDS (Nintendo DS)",
+    "Dolphin (Wii / GameCube)",
+    "Citra (Nintendo 3DS)",
+    "Cemu (Wii U)",
     "DuckStation (PS1)",
     "PCSX2 (PS2)",
     "RPCS3 (PS3)",
@@ -81,7 +85,6 @@ const platformOptions = {
     "Vita3K (PS Vita)",
     "Xemu (Xbox)",
     "Xenia (Xbox 360)",
-    "Dolphin (Wii / GameCube)",
     "Cemu (Wii U)",
     "Ryujinx (Switch)",
     "Yuzu (Switch)",
