@@ -2021,6 +2021,7 @@ function filterImages(searchQuery) {
 
   // Platform abbreviations map
   const platformAbbreviationsMap = {
+    "ps": "playstation",
     "ps1": "PlayStation 1",
     "ps2": "PlayStation 2",
     "ps3": "PlayStation 3",
