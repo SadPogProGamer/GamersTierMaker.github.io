@@ -59,6 +59,7 @@ const platformOptions = {
     "Atari 5200",
     "Atari 7800",
     "Atari Jaguar",
+    "V.Smile",
   ],
   "Handhelds": [
     "Game Boy",
