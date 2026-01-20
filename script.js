@@ -2026,7 +2026,9 @@ function filterImages(searchQuery) {
     "ps2": "PlayStation 2",
     "ps3": "PlayStation 3",
     "ps4": "PlayStation 4",
-    "ps5": "PlayStation 5"
+    "ps5": "PlayStation 5",
+    "psvr": "PlayStation VR",
+    "psvr2": "PlayStation VR2"
   };
 
   // Function to check if a game name matches the query (including abbreviations)
