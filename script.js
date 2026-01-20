@@ -248,7 +248,7 @@ function getImageMetadataFromIndexedDB(id) {
     request.onerror = () => reject(request.error);
     request.onsuccess = () => {
       const result = request.result;
-      resolve(result ? { name: result.name || "", date: result.date || "", description: result.description || "", status: result.status || "", platform: result.platform || null, rating: result.rating || "" } : { name: "", date: "", description: "", status: "", platform: null, rating: "" });
+      resolve(result ? { name: result.name || "", date: result.date || "", description: result.description || "", status: result.status || "", platform: result.platform || null } : { name: "", date: "", description: "", status: "", platform: null });
     };
   });
 }
@@ -1337,7 +1337,6 @@ function openImageModal(imgElement) {
     document.getElementById("image-date").value = imageMetadata.date || "";
     document.getElementById("image-description").value = imageMetadata.description || "";
     document.getElementById("image-status").value = imageMetadata.status || "";
-    document.getElementById("image-rating").value = imageMetadata.rating || "";
     
     // Update the date label based on status
     updateDateLabel();
@@ -1380,7 +1379,6 @@ function closeImageModal() {
     description: document.getElementById("image-description").value,
     status: document.getElementById("image-status").value,
     platform: currentSelectedPlatform,
-    rating: document.getElementById("image-rating").value,
   };
 
   saveImageMetadataToIndexedDB(imageId, imageMetadata).catch(err => {
