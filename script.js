@@ -2019,6 +2019,15 @@ function filterImages(searchQuery) {
     "vsmile": "v.smile"
   };
 
+  // Platform abbreviations map
+  const platformAbbreviationsMap = {
+    "ps1": "PlayStation 1",
+    "ps2": "PlayStation 2",
+    "ps3": "PlayStation 3",
+    "ps4": "PlayStation 4",
+    "ps5": "PlayStation 5"
+  };
+
   // Function to check if a game name matches the query (including abbreviations)
   function matchesQuery(gameName) {
     const nameWords = gameName.toLowerCase().split(/\s+/);
@@ -2063,7 +2072,13 @@ function filterImages(searchQuery) {
 
         // Check if search query matches name or platform
         const matchesName = query === "" || matchesQuery(imageName);
-        const matchesPlatform = query === "" || imagePlatform.toLowerCase().includes(query);
+        
+        // Check platform - support both full names and abbreviations
+        let matchesPlatform = query === "" || imagePlatform.toLowerCase().includes(query);
+        if (!matchesPlatform && platformAbbreviationsMap[query]) {
+          const fullPlatformName = platformAbbreviationsMap[query].toLowerCase();
+          matchesPlatform = imagePlatform.toLowerCase().includes(fullPlatformName);
+        }
 
         if (matchesName || matchesPlatform) {
           img.style.display = "";
@@ -2083,7 +2098,13 @@ function filterImages(searchQuery) {
 
       // Check if search query matches name or platform
       const matchesName = query === "" || matchesQuery(imageName);
-      const matchesPlatform = query === "" || imagePlatform.toLowerCase().includes(query);
+      
+      // Check platform - support both full names and abbreviations
+      let matchesPlatform = query === "" || imagePlatform.toLowerCase().includes(query);
+      if (!matchesPlatform && platformAbbreviationsMap[query]) {
+        const fullPlatformName = platformAbbreviationsMap[query].toLowerCase();
+        matchesPlatform = imagePlatform.toLowerCase().includes(fullPlatformName);
+      }
 
       if (matchesName || matchesPlatform) {
         img.style.display = "";
