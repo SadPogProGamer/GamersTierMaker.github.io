@@ -473,7 +473,7 @@ img {
 
 .form-group textarea {
   resize: vertical;
-  min-height: 107px;
+  min-height: 214px;
 }
 
 .form-group input:focus,
