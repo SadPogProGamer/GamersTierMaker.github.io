@@ -86,7 +86,6 @@ const platformOptions = {
     "Vita3K (PS Vita)",
     "Xemu (Xbox)",
     "Xenia (Xbox 360)",
-    "Cemu (Wii U)",
     "Ryujinx (Switch)",
     "Yuzu (Switch)",
   ],
