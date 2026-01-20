@@ -1517,12 +1517,14 @@ function renderPlatformOptions() {
   const searchInput = document.getElementById("platform-search");
   const optionsContainer = document.getElementById("platform-options");
   let searchQuery = searchInput.value.toLowerCase().trim();
+  let originalSearchQuery = searchQuery;
 
   optionsContainer.innerHTML = "";
 
   // Platform aliases for shortcuts
   const platformAliases = {
     "ps": "playstation",
+    "psp": "playstation portable",
     "xbox": "xbox",
     "nintendo": ["nintendo", "game boy", "game boy advance", "ds", "3ds", "gamecube", "wii", "switch"],
     "switch": "switch",
@@ -1568,7 +1570,7 @@ function renderPlatformOptions() {
   const customPlatformsFlat = customPlatforms.map(p => p.name);
   const allPlatforms = [...defaultPlatformsFlat, ...customPlatformsFlat];
   const filteredPlatforms = allPlatforms.filter((platform) =>
-    platform.toLowerCase().includes(searchQuery)
+    platform.toLowerCase().includes(searchQuery) || platform.toLowerCase().includes(originalSearchQuery)
   );
 
   // Show organized by categories (works with or without search query)
@@ -1580,12 +1582,12 @@ function renderPlatformOptions() {
 
     const categoryPlatforms = platformOptions[category];
     const filteredCategory = categoryPlatforms.filter((platform) =>
-      platform.toLowerCase().includes(searchQuery)
+      platform.toLowerCase().includes(searchQuery) || platform.toLowerCase().includes(originalSearchQuery)
     );
 
     // Also include custom platforms in this category
     const customInCategory = customPlatforms.filter(
-      (cp) => cp.category === category && cp.name.toLowerCase().includes(searchQuery)
+      (cp) => cp.category === category && (cp.name.toLowerCase().includes(searchQuery) || cp.name.toLowerCase().includes(originalSearchQuery))
     );
     const allInCategory = [...filteredCategory, ...customInCategory.map(cp => ({ isCustom: true, name: cp.name }))];
 
@@ -2029,6 +2031,7 @@ function filterImages(searchQuery) {
     "ps3": "PlayStation 3",
     "ps4": "PlayStation 4",
     "ps5": "PlayStation 5",
+    "psp": "PlayStation Portable",
     "psvr": "PlayStation VR",
     "psvr2": "PlayStation VR2"
   };
