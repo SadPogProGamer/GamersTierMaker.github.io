@@ -2037,18 +2037,24 @@ function filterImages(searchQuery) {
   // Function to check if a game name matches the query (including abbreviations)
   function matchesQuery(gameName) {
     const nameWords = gameName.toLowerCase().split(/\s+/);
+    const gameNameLower = gameName.toLowerCase();
     
     // Direct string match
-    if (gameName.toLowerCase().includes(query)) {
+    if (gameNameLower.includes(query)) {
       return true;
     }
     
     // Check if query is an abbreviation that matches
     if (abbreviationsMap[query]) {
       const fullName = abbreviationsMap[query].toLowerCase();
-      if (gameName.toLowerCase().includes(fullName)) {
+      if (gameNameLower.includes(fullName)) {
         return true;
       }
+    }
+    
+    // Special case: SMT/Shin Megami Tensei should also show Persona games
+    if ((query === "smt" || query === "shin megami tensei") && gameNameLower.includes("persona")) {
+      return true;
     }
     
     // Check if any word in the game name starts with the query
