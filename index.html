@@ -398,7 +398,9 @@
       </div>
     </main>
 
-    <div id="images-bar" class="sort"></div>
+    <div id="images-bar" class="sort drop-zone" ondrop="handleImageDrop(event)" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)">
+      <div class="drop-zone-hint" id="drop-zone-hint">Drag images here</div>
+    </div>
     <div id="buttons-container">
       <button type="button" onclick="selectImages()">Click here to add images</button>
       <button id="btn" type="button">Download Tierlist</button>

@@ -333,6 +333,32 @@ img {
   max-width: 1400px;
   display: flex;
   flex-wrap: wrap;
+  min-height: 150px;
+  border: 2px dashed transparent;
+  border-radius: 8px;
+  transition: all 0.3s ease;
+  position: relative;
+}
+
+#images-bar.drag-over {
+  border-color: #7fffff;
+  background-color: rgba(127, 255, 255, 0.1);
+}
+
+.drop-zone-hint {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: #666;
+  font-size: 14px;
+  white-space: nowrap;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+
+#images-bar:not(:empty) .drop-zone-hint {
+  display: none;
 }
 
 .header-container {

@@ -2158,7 +2158,75 @@ document.addEventListener("DOMContentLoaded", function() {
   if (searchInput) {
     searchInput.addEventListener("input", updateClearButtonVisibility);
   }
+  
+  // Set up drag and drop for entire document
+  document.addEventListener("dragenter", handleDragEnter);
+  document.addEventListener("dragover", handleDragOver);
+  document.addEventListener("dragleave", handleDragLeave);
+  document.addEventListener("drop", handleImageDrop);
 });
+
+// Handle drag enter event
+function handleDragEnter(event) {
+  event.preventDefault();
+  event.stopPropagation();
+  
+  // Check if the dragged item contains files
+  if (event.dataTransfer.types && event.dataTransfer.types.includes("Files")) {
+    const imagesBar = document.getElementById("images-bar");
+    imagesBar.classList.add("drag-over");
+  }
+}
+
+// Handle drag over event
+function handleDragOver(event) {
+  event.preventDefault();
+  event.stopPropagation();
+  
+  // Check if the dragged item contains files
+  if (event.dataTransfer.types && event.dataTransfer.types.includes("Files")) {
+    event.dataTransfer.dropEffect = "copy";
+    const imagesBar = document.getElementById("images-bar");
+    imagesBar.classList.add("drag-over");
+  }
+}
+
+// Handle drag leave event
+function handleDragLeave(event) {
+  event.preventDefault();
+  event.stopPropagation();
+  
+  // Only remove the class if we're leaving the document entirely
+  if (event.clientX === 0 && event.clientY === 0) {
+    const imagesBar = document.getElementById("images-bar");
+    imagesBar.classList.remove("drag-over");
+  }
+}
+
+// Handle drop event for images
+function handleImageDrop(event) {
+  event.preventDefault();
+  event.stopPropagation();
+  
+  const imagesBar = document.getElementById("images-bar");
+  imagesBar.classList.remove("drag-over");
+  
+  // Get dropped files
+  const files = event.dataTransfer.files;
+  
+  if (files && files.length > 0) {
+    // Filter for image files
+    const imageFiles = Array.from(files).filter(file => 
+      file.type.startsWith("image/") || file.type === "image/avif"
+    );
+    
+    if (imageFiles.length > 0) {
+      uploadImages(imageFiles);
+    } else {
+      alert("Please drop image files only.");
+    }
+  }
+}
 
 // Helper function to encode non UTF-8 characters to Base64
 function encodeUnicode(str) {
