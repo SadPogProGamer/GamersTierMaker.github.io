@@ -1969,7 +1969,8 @@ function filterImages(searchQuery) {
   const imagesBar = document.querySelector("#images-bar");
 
   // Convert search query to lowercase for case-insensitive search
-  const query = searchQuery.toLowerCase();
+  // Replace & with "and" for interchangeability
+  const query = searchQuery.toLowerCase().replace(/&/g, "and");
 
   // Common game abbreviations map
   const abbreviationsMap = {
@@ -2036,8 +2037,8 @@ function filterImages(searchQuery) {
 
   // Function to check if a game name matches the query (including abbreviations)
   function matchesQuery(gameName) {
-    const nameWords = gameName.toLowerCase().split(/\s+/);
-    const gameNameLower = gameName.toLowerCase();
+    const nameWords = gameName.toLowerCase().replace(/&/g, "and").split(/\s+/);
+    const gameNameLower = gameName.toLowerCase().replace(/&/g, "and");
     
     // Direct string match
     if (gameNameLower.includes(query)) {
