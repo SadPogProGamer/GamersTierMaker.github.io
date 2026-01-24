@@ -2127,7 +2127,38 @@ function filterImages(searchQuery) {
   }).catch(err => {
     console.error('Failed to load image metadata for filtering:', err);
   });
+  
+  // Update clear button visibility
+  updateClearButtonVisibility();
 }
+
+// Clear search input and show all images
+function clearSearch() {
+  const searchInput = document.getElementById("search-input");
+  searchInput.value = "";
+  filterImages("");
+  searchInput.focus();
+}
+
+// Show/hide clear button based on search input value
+function updateClearButtonVisibility() {
+  const searchInput = document.getElementById("search-input");
+  const clearBtn = document.getElementById("clear-search");
+  
+  if (searchInput.value.length > 0) {
+    clearBtn.classList.add("visible");
+  } else {
+    clearBtn.classList.remove("visible");
+  }
+}
+
+// Set up event listener for search input to update clear button visibility
+document.addEventListener("DOMContentLoaded", function() {
+  const searchInput = document.getElementById("search-input");
+  if (searchInput) {
+    searchInput.addEventListener("input", updateClearButtonVisibility);
+  }
+});
 
 // Helper function to encode non UTF-8 characters to Base64
 function encodeUnicode(str) {
