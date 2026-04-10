@@ -31,10 +31,6 @@ function createTier(name, color) {
   const items = document.createElement("div");
   items.className = "tier-items";
 
-  const actions = document.createElement("div");
-  actions.className = "tier-actions";
-  actions.innerHTML = '<span class="tier-icon">⚙</span><span class="tier-icon">▲</span><span class="tier-icon">▼</span>';
-
   items.addEventListener("dragover", e => e.preventDefault());
   items.addEventListener("drop", e => {
     e.preventDefault();
@@ -45,7 +41,6 @@ function createTier(name, color) {
 
   tier.appendChild(label);
   tier.appendChild(items);
-  tier.appendChild(actions);
   tiersContainer.appendChild(tier);
 }
 

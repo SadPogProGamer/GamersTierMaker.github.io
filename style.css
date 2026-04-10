@@ -16,12 +16,18 @@ h1 {
 /* ===== TIER CONTAINER ===== */
 .tier {
     display: grid;
-    grid-template-columns: 110px minmax(0, 1fr) 60px;
-    min-height: 110px;
-    border-radius: 8px;
+    grid-template-columns: 90px 1fr;
+    min-height: 90px;
+    border: 1px solid #333;
+}
+
+/* ===== SINGLE TIER ROW ===== */
+.tier {
+    display: flex;
+    min-height: 80px;
+    border-radius: 6px;
     overflow: hidden;
     background: #222;
-    border: 1px solid #333;
 }
 
 /* LEFT LABEL (S/A/B etc) */
@@ -32,9 +38,9 @@ h1 {
   font-weight: bold;
   font-size: 16px;
   user-select: none;
-  padding: 0 10px;
-  color: white;
+  height: 100%;
 }
+
 
 /* RIGHT DROP AREA */
 .tier-items {
@@ -42,32 +48,10 @@ h1 {
   grid-template-columns: repeat(auto-fill, 80px);
   grid-auto-rows: 80px;
   gap: 6px;
-  padding: 10px;
-  background: #1f1f1f;
-  min-height: 110px;
+  padding: 6px;
+  background: #2a2a2a;
+  min-height: 90px;
   align-content: start;
-}
-
-.tier-actions {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  background: #0c0c0c;
-  padding: 10px 6px;
-}
-
-.tier-actions .tier-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  border-radius: 6px;
-  background: #161616;
-  color: #fff;
-  font-size: 14px;
 }
 
 
