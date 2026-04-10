@@ -2236,9 +2236,53 @@ async function deleteFromCloudinary(cloudinaryUrl) {
     return;
   }
 
+  const publicId = extractCloudinaryPublicId(cloudinaryUrl);
+  if (!publicId) {
+    console.warn("Unable to derive Cloudinary public_id from URL. Skipping remote deletion.", cloudinaryUrl);
+    return;
+  }
+
+  if (CLOUDINARY_CONFIG.apiKey && CLOUDINARY_CONFIG.apiSecret && CLOUDINARY_CONFIG.apiKey !== "YOUR_API_KEY" && CLOUDINARY_CONFIG.apiSecret !== "YOUR_API_SECRET") {
+    try {
+      const timestamp = Math.floor(Date.now() / 1000);
+      const signature = await sha1(`public_id=${publicId}&timestamp=${timestamp}${CLOUDINARY_CONFIG.apiSecret}`);
+      const body = new URLSearchParams();
+      body.append("api_key", CLOUDINARY_CONFIG.apiKey);
+      body.append("timestamp", timestamp.toString());
+      body.append("public_id", publicId);
+      body.append("signature", signature);
+
+      const response = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CONFIG.cloudName}/image/destroy`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body: body.toString(),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.warn(`Cloudinary delete request failed ${response.status}: ${errorText}`);
+        return;
+      }
+
+      const result = await response.json();
+      if (result.result !== "ok" && result.result !== "not found") {
+        console.warn("Cloudinary delete response returned unexpected result:", result);
+        return;
+      }
+
+      console.log("Image deleted from Cloudinary:", cloudinaryUrl, publicId);
+      return;
+    } catch (err) {
+      console.warn("Cloudinary delete request failed:", err);
+      // Continue to fallback logic below if configured
+    }
+  }
+
   const endpoint = CLOUDINARY_CONFIG.deleteEndpoint;
   if (!endpoint) {
-    console.warn("Cloudinary delete endpoint is not configured. Skipping remote deletion.");
+    console.warn("Cloudinary delete is not configured. Skipping remote deletion.");
     return;
   }
 
@@ -2260,7 +2304,25 @@ async function deleteFromCloudinary(cloudinaryUrl) {
     console.log("Image deleted via Cloudinary endpoint:", cloudinaryUrl);
   } catch (err) {
     console.warn("Cloudinary delete endpoint request failed:", err);
-    // Don't throw - allow local deletion to continue even if remote deletion fails
+  }
+}
+
+async function sha1(message) {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(message);
+  const hashBuffer = await crypto.subtle.digest("SHA-1", data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, "0")).join("");
+}
+
+function extractCloudinaryPublicId(cloudinaryUrl) {
+  try {
+    const url = new URL(cloudinaryUrl);
+    const match = url.pathname.match(/\/(?:image|video|raw)\/upload\/(?:v\d+\/)?(.+)/);
+    if (!match || !match[1]) return null;
+    return decodeURIComponent(match[1].replace(/\.[^/.]+$/, ""));
+  } catch (err) {
+    return null;
   }
 }
 
