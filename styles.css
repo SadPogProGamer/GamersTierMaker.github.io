@@ -357,11 +357,10 @@ img {
 }
 
 .unassigned-container {
-  width: calc(100% - 40px);
-  max-width: 1360px;
+  width: 100%;
+  max-width: 1400px;
   margin: 0 auto 20px;
   padding-top: 24px;
-  box-sizing: border-box;
 }
 
 .unassigned-header {
@@ -382,6 +381,20 @@ img {
   background-color: rgba(127, 255, 255, 0.1);
 }
 
+.unassigned-header {
+  max-width: 1400px;
+  margin: 0 auto 8px;
+  color: #e1e1e1;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  text-align: left;
+}
+
+.unassigned-header span {
+  color: #b8b8b8;
+  font-weight: 400;
+}
 
 .drop-zone-hint {
   position: absolute;
