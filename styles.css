@@ -342,6 +342,23 @@ img {
   object-fit: cover;
 }
 
+.image.selected {
+  outline: 3px solid rgba(74, 144, 226, 0.9);
+  outline-offset: -2px;
+}
+
+.gu-mirror.selected-group {
+  display: flex !important;
+  flex-wrap: nowrap;
+  align-items: center;
+  pointer-events: none;
+}
+
+.gu-mirror.selected-group .image {
+  margin: 0 !important;
+  display: block;
+}
+
 #images-bar {
   padding: 10px 20px;
   width: 100%;

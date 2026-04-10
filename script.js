@@ -13,6 +13,7 @@ const defaultColors = [
 // Supabase globals
 let supabaseClient;
 let currentUser = null;
+let supabaseAvailable = true;
 
 const platformOptions = {
   "PC": [
@@ -115,11 +116,145 @@ let scrollable = true;
 let drake;
 let currentImageElement = null;
 let currentSelectedPlatform = null;
+let selectedImages = new Set();
+let lastSelectedImage = null;
+let suppressNextLeftClick = false;
 let indexedDb; // IndexedDB database
 let initializationComplete = false; // Track when app is fully initialized
 let autoSaveTimeout = null; // Debounce timer for Supabase sync
 let autoSaveTimers = {}; // Track separate timers per image for faster saves
 let lastSupabaseSyncTime = {}; // Track last sync time per image to force periodic syncs
+
+function clearImageSelection() {
+  selectedImages.forEach(img => img.classList.remove('selected'));
+  selectedImages.clear();
+}
+
+function selectImage(image, preserve = false) {
+  if (!preserve) {
+    clearImageSelection();
+  }
+  image.classList.add('selected');
+  selectedImages.add(image);
+  lastSelectedImage = image;
+}
+
+function toggleImageSelection(image) {
+  if (selectedImages.has(image)) {
+    image.classList.remove('selected');
+    selectedImages.delete(image);
+  } else {
+    image.classList.add('selected');
+    selectedImages.add(image);
+    lastSelectedImage = image;
+  }
+}
+
+function selectImageRange(image) {
+  if (!lastSelectedImage || lastSelectedImage === image || image.parentNode !== lastSelectedImage.parentNode) {
+    selectImage(image);
+    return;
+  }
+
+  const container = image.parentNode;
+  const images = Array.from(container.querySelectorAll('.image'));
+  const startIndex = images.indexOf(lastSelectedImage);
+  const endIndex = images.indexOf(image);
+
+  if (startIndex < 0 || endIndex < 0) {
+    selectImage(image);
+    return;
+  }
+
+  const [from, to] = startIndex < endIndex ? [startIndex, endIndex] : [endIndex, startIndex];
+  clearImageSelection();
+  for (let i = from; i <= to; i++) {
+    images[i].classList.add('selected');
+    selectedImages.add(images[i]);
+  }
+  lastSelectedImage = image;
+}
+
+function moveSelectedImagesToTarget(el, target, sibling) {
+  if (!selectedImages.has(el) || selectedImages.size <= 1) return;
+
+  const imagesToMove = Array.from(selectedImages).filter(img => img !== el);
+  if (!imagesToMove.length) return;
+
+  const referenceNode = sibling && sibling.parentNode === target ? sibling : null;
+  for (const image of imagesToMove) {
+    if (image === el) continue;
+    if (image.parentNode === target && image.nextSibling === referenceNode) {
+      continue;
+    }
+    target.insertBefore(image, referenceNode);
+  }
+}
+
+function handleImageContextMenu(event, image) {
+  const isCtrl = event.ctrlKey || event.metaKey;
+  const isShift = event.shiftKey;
+
+  if (!isCtrl && !isShift) {
+    suppressNextLeftClick = true;
+    return; // allow default right-click behavior
+  }
+
+  event.preventDefault();
+
+  if (isShift) {
+    selectImageRange(image);
+    return;
+  }
+
+  if (isCtrl) {
+    toggleImageSelection(image);
+    return;
+  }
+}
+
+function updateDragMirror() {
+  const mirror = document.querySelector('.gu-mirror');
+  if (!mirror) return;
+
+  if (selectedImages.size <= 1) {
+    mirror.classList.remove('selected-group');
+    return;
+  }
+
+  mirror.classList.add('selected-group');
+  const wrapper = document.createElement('div');
+  wrapper.style.display = 'flex';
+  wrapper.style.gap = '8px';
+  wrapper.style.alignItems = 'center';
+  wrapper.style.padding = '4px';
+
+  mirror.innerHTML = '';
+
+  selectedImages.forEach((img) => {
+    const clone = img.cloneNode(true);
+    clone.classList.remove('selected');
+    clone.style.margin = '0';
+    clone.style.outline = 'none';
+    clone.style.maxHeight = '85px';
+    clone.style.width = getComputedStyle(img).width;
+    clone.style.height = getComputedStyle(img).height;
+    wrapper.appendChild(clone);
+  });
+
+  mirror.appendChild(wrapper);
+}
+
+function setupImageSelection(image) {
+  image.addEventListener('contextmenu', (event) => handleImageContextMenu(event, image));
+  image.addEventListener('mousedown', (event) => {
+    if (event.button === 0 && suppressNextLeftClick) {
+      suppressNextLeftClick = false;
+      event.preventDefault();
+      event.stopPropagation();
+    }
+  });
+}
 
 // Initialize IndexedDB
 function initializeIndexedDB() {
@@ -545,6 +680,7 @@ function deleteImageMetadataFromIndexedDB(id) {
 async function initializeSupabase() {
   if (!SUPABASE_CONFIG.url || SUPABASE_CONFIG.url === "https://YOUR_PROJECT_ID.supabase.co" || !SUPABASE_CONFIG.anonKey || SUPABASE_CONFIG.anonKey === "YOUR_ANON_KEY") {
     console.warn("Supabase not configured. Syncing across devices will not work.");
+    supabaseAvailable = false;
     return null;
   }
 
@@ -578,6 +714,7 @@ async function initializeSupabase() {
     return true;
   } catch (err) {
     console.error("Supabase initialization failed:", err);
+    supabaseAvailable = false;
     return null;
   }
 }
@@ -704,7 +841,7 @@ async function signOut() {
 
 // Save tier list to Supabase
 async function saveTierListToSupabase() {
-  if (!currentUser || !supabaseClient) return;
+  if (!currentUser || !supabaseClient || !supabaseAvailable) return;
 
   try {
     const tierListData = {
@@ -779,12 +916,17 @@ async function saveTierListToSupabase() {
     }, { onConflict: "user_id" });
 
     if (error) {
+      if (error.code === 'PGRST205' || error.status === 404 || /tierLists/.test(error.message || '')) {
+        supabaseAvailable = false;
+        console.warn('Supabase table not available. Disabling Supabase sync and using local storage only.');
+      }
       throw error;
     }
 
     console.log("Tier list saved to Supabase");
   } catch (err) {
     console.error("Failed to save tier list to Supabase:", err);
+    throw err;
   }
 }
 
@@ -873,7 +1015,7 @@ async function saveTierList() {
   }
 
   // Try Supabase first if signed in
-  if (currentUser && supabaseClient) {
+  if (currentUser && supabaseClient && supabaseAvailable) {
     try {
       console.log('Saving to Supabase...');
       await saveTierListToSupabase();
@@ -906,7 +1048,7 @@ async function saveTierList() {
 
 // Load tier list from Supabase
 async function loadTierListFromSupabase() {
-  if (!currentUser || !supabaseClient) return;
+  if (!currentUser || !supabaseClient || !supabaseAvailable) return;
 
   try {
     const { data, error, status } = await supabaseClient
@@ -916,6 +1058,10 @@ async function loadTierListFromSupabase() {
       .single();
 
     if (error && status !== 406) {
+      if (error.code === 'PGRST205' || status === 404 || /tierLists/.test(error.message || '')) {
+        supabaseAvailable = false;
+        console.warn('Supabase table not available. Disabling Supabase sync and using local storage only.');
+      }
       throw error;
     }
 
@@ -1169,6 +1315,7 @@ async function loadTierListFromObject(tierListData) {
       image.dataset.imageId = imageId;
       image.dataset.cloudinaryUrl = imgPos.imageSrc;
       image.onclick = () => openImageModal(image);
+      setupImageSelection(image);
       // Remove stale Cloudinary files (404s) from DOM and storage
       image.onerror = () => {
         image.remove();
@@ -2187,6 +2334,7 @@ function uploadImages(files) {
                 image.dataset.imageId = uniqueId;
                 image.dataset.cloudinaryUrl = dataUrl;
                 image.onclick = () => openImageModal(image);
+                setupImageSelection(image);
 
                 imagesBar.appendChild(image);
 
@@ -2216,6 +2364,7 @@ function uploadImages(files) {
                 image.dataset.imageId = uniqueId;
                 image.dataset.cloudinaryUrl = cloudinaryUrl;
                 image.onclick = () => openImageModal(image);
+                setupImageSelection(image);
 
                 imagesBar.appendChild(image);
 
@@ -2329,11 +2478,16 @@ function initializeDragula() {
   });
   
   drake
-    .on("drag", (el) => {
+    .on("drag", (el, source) => {
       scrollable = false;
+      if (!selectedImages.has(el)) {
+        selectImage(el);
+      }
+      updateDragMirror();
     })
     .on("drop", (el, target, source, sibling) => {
       scrollable = true;
+      moveSelectedImagesToTarget(el, target, sibling);
       
       // Check if the target tier has limit-to-10 enabled
       const targetRow = target.parentNode;
@@ -2548,6 +2702,7 @@ function loadImagesFromStorage() {
       image.dataset.imageId = imageObj.id;
       image.dataset.cloudinaryUrl = imageObj.cloudinaryUrl || imageObj.src;
       image.onclick = () => openImageModal(image);
+      setupImageSelection(image);
       // Remove stale images if they fail to load
       image.onerror = () => {
         image.remove();
