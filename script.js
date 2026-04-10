@@ -606,6 +606,7 @@ async function saveTierListToSupabase() {
           imageId: imageId,
           imageSrc: img.dataset.imageSrc,
           tier: tierIndex,
+          details: metadataMap[imageId] || null,
         });
         if (metadataMap[imageId]) {
           tierListData.gameMetadata[imageId] = metadataMap[imageId];
@@ -622,6 +623,7 @@ async function saveTierListToSupabase() {
         imageId: imageId,
         imageSrc: img.dataset.imageSrc,
         tier: -1,
+        details: metadataMap[imageId] || null,
       });
       if (metadataMap[imageId]) {
         tierListData.gameMetadata[imageId] = metadataMap[imageId];
@@ -680,7 +682,12 @@ async function buildTierListData() {
 
     tierImages.forEach((img) => {
       const imageId = img.dataset.imageId;
-      tierListData.imagePositions.push({ imageId, imageSrc: img.dataset.imageSrc, tier: tierIndex });
+      tierListData.imagePositions.push({
+        imageId,
+        imageSrc: img.dataset.imageSrc,
+        tier: tierIndex,
+        details: metadataMap[imageId] || null,
+      });
       if (metadataMap[imageId]) tierListData.gameMetadata[imageId] = metadataMap[imageId];
     });
   });
@@ -691,7 +698,12 @@ async function buildTierListData() {
     const barImages = imagesBar ? imagesBar.querySelectorAll('.image') : [];
     barImages.forEach((img) => {
       const imageId = img.dataset.imageId;
-      tierListData.imagePositions.push({ imageId, imageSrc: img.dataset.imageSrc, tier: -1 });
+      tierListData.imagePositions.push({
+        imageId,
+        imageSrc: img.dataset.imageSrc,
+        tier: -1,
+        details: metadataMap[imageId] || null,
+      });
       if (metadataMap[imageId]) tierListData.gameMetadata[imageId] = metadataMap[imageId];
     });
   } catch (e) { /* ignore */ }
@@ -1040,10 +1052,11 @@ async function loadTierListFromObject(tierListData) {
         console.warn(`Failed to save image ${imageId} to IndexedDB:`, err);
       });
 
-      // Restore metadata to IndexedDB
-      if (tierListData.gameMetadata && tierListData.gameMetadata[imageId]) {
+      // Restore metadata to IndexedDB from either the old gameMetadata map or new details field
+      const imageDetails = imgPos.details || (tierListData.gameMetadata && tierListData.gameMetadata[imageId]);
+      if (imageDetails) {
         metadataSavePromises.push(
-          saveImageMetadataToIndexedDB(imageId, tierListData.gameMetadata[imageId]).catch(e => { /* ignore */ })
+          saveImageMetadataToIndexedDB(imageId, imageDetails).catch(e => { /* ignore */ })
         );
       }
     }
