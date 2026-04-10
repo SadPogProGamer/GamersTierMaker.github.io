@@ -1,0 +1,122 @@
+/* ===== GLOBAL ===== */
+body {
+  margin: 0;
+  font-family: Arial, sans-serif;
+  background: #111;
+  color: white;
+}
+
+/* ===== HEADER ===== */
+h1 {
+  text-align: center;
+  margin: 15px 0;
+  font-size: 28px;
+}
+
+/* ===== TIER CONTAINER ===== */
+#tiers {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px;
+}
+
+/* ===== SINGLE TIER ROW ===== */
+.tier {
+  display: flex;
+  min-height: 80px;
+  border-radius: 6px;
+  overflow: hidden;
+  background: #222;
+}
+
+/* LEFT LABEL (S/A/B etc) */
+.tier-label {
+  width: 70px;
+  min-width: 70px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  font-size: 20px;
+  user-select: none;
+}
+
+/* RIGHT DROP AREA */
+.tier-items {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px;
+  background: #2a2a2a;
+  min-height: 80px;
+  flex-wrap: wrap;
+}
+
+/* ===== IMAGES ===== */
+.item {
+  width: 70px;
+  height: 70px;
+  object-fit: cover;
+  border-radius: 4px;
+  cursor: grab;
+  border: 2px solid transparent;
+  transition: 0.15s;
+}
+
+.item:active {
+  cursor: grabbing;
+  transform: scale(1.05);
+}
+
+.item:hover {
+  border: 2px solid #555;
+}
+
+/* ===== IMAGE POOL ===== */
+.pool {
+  margin: 10px;
+  padding: 10px;
+  background: #1b1b1b;
+  border-radius: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-height: 100px;
+}
+
+/* ===== CONTROLS ===== */
+.controls {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin: 10px;
+}
+
+button {
+  background: #333;
+  color: white;
+  border: none;
+  padding: 8px 12px;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+button:hover {
+  background: #444;
+}
+
+/* ===== FILE INPUT ===== */
+input[type="file"] {
+  display: block;
+  margin: 10px auto;
+  color: white;
+}
+
+/* ===== SCROLL SAFETY ===== */
+.tier-items, .pool {
+  overflow-x: auto;
+  scrollbar-width: thin;
+}

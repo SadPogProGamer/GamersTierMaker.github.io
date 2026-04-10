@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Tier List</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <h1>Tier List</h1>
+
+  <div id="tiers"></div>
+
+  <div class="controls">
+    <button onclick="addTier()">Add Tier</button>
+    <button onclick="saveData()">Save</button>
+  </div>
+
+  <h2>Image Pool</h2>
+  <div id="pool" class="pool"></div>
+
+  <input type="file" id="upload" multiple />
+
+  <!-- Supabase CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+
+  <!-- Your script -->
+  <script type="module" src="script.js"></script>
+</body>
+</html>
