@@ -1209,8 +1209,10 @@ document.querySelectorAll(".tooltip").forEach((tooltip) => {
 
   createColorPicker(
     colorPicker,
-    (color) => {
-      const hexColor = color ? color.toHEXA().toString() : "";
+    (hexColor) => {
+      tierLabel.style.backgroundColor = hexColor;
+    },
+    (hexColor) => {
       tierLabel.style.backgroundColor = hexColor;
       saveTierColors();
     },
@@ -1436,7 +1438,7 @@ document.addEventListener(
   }
 );
 
-function createColorPicker(colorPicker, onChange, defaultColor) {
+function createColorPicker(colorPicker, onPreview, onSave, defaultColor) {
   const pickr = Pickr.create({
     el: colorPicker,
     theme: "monolith",
@@ -1453,9 +1455,34 @@ function createColorPicker(colorPicker, onChange, defaultColor) {
     },
   });
 
+  let originalColor = defaultColor;
+  let lastAction = "none";
+
+  pickr.on("change", (color) => {
+    const hexColor = color ? color.toHEXA().toString() : "";
+    lastAction = "preview";
+    onPreview(hexColor);
+  });
+
   pickr.on("save", (color) => {
-    onChange(color);
+    const hexColor = color ? color.toHEXA().toString() : "";
+    lastAction = "save";
+    originalColor = hexColor;
+    onSave(hexColor);
     pickr.hide();
+  });
+
+  pickr.on("cancel", () => {
+    lastAction = "cancel";
+    onPreview(originalColor);
+    pickr.hide();
+  });
+
+  pickr.on("hide", () => {
+    if (lastAction === "preview") {
+      onPreview(originalColor);
+    }
+    lastAction = "none";
   });
 
   // Store reference to this Pickr instance on the element
@@ -1528,8 +1555,10 @@ function addRow(tierName = "New tier", defaultColor = "lightslategray") {
 
   createColorPicker(
     colorPicker,
-    (color) => {
-      const hexColor = color ? color.toHEXA().toString() : "";
+    (hexColor) => {
+      tooltip.parentNode.style.backgroundColor = hexColor;
+    },
+    (hexColor) => {
       tooltip.parentNode.style.backgroundColor = hexColor;
       saveTierColors();
     },
@@ -1761,8 +1790,10 @@ function createNewRow() {
 
   createColorPicker(
     colorPicker,
-    (color) => {
-      const hexColor = color ? color.toHEXA().toString() : "";
+    (hexColor) => {
+      tooltip.parentNode.style.backgroundColor = hexColor;
+    },
+    (hexColor) => {
       tooltip.parentNode.style.backgroundColor = hexColor;
       saveTierColors();
     },
