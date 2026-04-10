@@ -574,21 +574,11 @@ async function handleGameDetailsImportFile(file) {
 
     const images = Array.from(document.querySelectorAll('.image'));
     const imageMapById = new Map(images.map(img => [img.dataset.imageId, img]));
-    const imageMapBySrc = new Map(images.map(img => [String(img.dataset.imageSrc || img.src || '').trim().toLowerCase(), img]));
 
     let applied = 0;
     for (const entry of entries) {
-      if (!entry) continue;
-      const imageId = entry.imageId;
-      const imageSrcValue = String(entry.image_src || entry.imageSrc || '').trim();
-      let imageElement = null;
-
-      if (imageId) {
-        imageElement = imageMapById.get(imageId);
-      }
-      if (!imageElement && imageSrcValue) {
-        imageElement = imageMapBySrc.get(imageSrcValue.toLowerCase());
-      }
+      if (!entry || !entry.imageId) continue;
+      const imageElement = imageMapById.get(entry.imageId);
       if (!imageElement) {
         continue;
       }
@@ -662,19 +652,9 @@ function getImageMetadataFromIndexedDB(id) {
       const result = request.result;
       if (result) {
         const genres = Array.isArray(result.genres) ? result.genres.slice() : (result.genre ? [result.genre] : []);
-        resolve({
-          name: result.name || "",
-          developer: result.developer || "",
-          date: result.date || "",
-          date100: result.date100 || "",
-          description: result.description || "",
-          status: result.status || "",
-          platform: result.platform || null,
-          has100Replay: !!result.has100Replay,
-          genres
-        });
+        resolve({ name: result.name || "", developer: result.developer || "", date: result.date || "", description: result.description || "", status: result.status || "", platform: result.platform || null, genres });
       } else {
-        resolve({ name: "", developer: "", date: "", date100: "", description: "", status: "", platform: null, has100Replay: false, genres: [] });
+        resolve({ name: "", developer: "", date: "", description: "", status: "", platform: null, genres: [] });
       }
     };
   });
