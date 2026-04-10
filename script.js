@@ -436,29 +436,26 @@ async function handleGameDetailsImportFile(file) {
 
     const images = Array.from(document.querySelectorAll('.image'));
     const imageMapById = new Map(images.map(img => [img.dataset.imageId, img]));
-    const imageMapBySrc = new Map(images.map(img => [img.dataset.imageSrc || img.src, img]));
 
     let applied = 0;
     for (const entry of entries) {
       if (!entry || !entry.imageId) continue;
-      let imageElement = imageMapById.get(entry.imageId);
-      if (!imageElement && entry.imageSrc) {
-        imageElement = imageMapBySrc.get(entry.imageSrc);
-      }
+      const imageElement = imageMapById.get(entry.imageId);
       if (!imageElement) {
         continue;
       }
 
       const imageId = imageElement.dataset.imageId;
-      const existingMetadata = await getImageMetadataFromIndexedDB(imageId).catch(() => ({ name: '', developer: '', date: '', description: '', status: '', platform: null }));
+      const existingMetadata = await getImageMetadataFromIndexedDB(imageId).catch(() => ({ name: '', developer: '', date: '', description: '', status: '', platform: null, genres: [] }));
       const mergedMetadata = {
         ...existingMetadata,
-        name: entry.name || existingMetadata.name || '',
-        developer: entry.developer || existingMetadata.developer || '',
-        date: entry.date || existingMetadata.date || '',
-        description: entry.description || existingMetadata.description || '',
-        status: entry.status || existingMetadata.status || '',
-        platform: entry.platform || existingMetadata.platform || null
+        name: entry.name !== undefined ? entry.name : existingMetadata.name || '',
+        developer: entry.developer !== undefined ? entry.developer : existingMetadata.developer || '',
+        date: entry.date !== undefined ? entry.date : existingMetadata.date || '',
+        description: entry.description !== undefined ? entry.description : existingMetadata.description || '',
+        status: entry.status !== undefined ? entry.status : existingMetadata.status || '',
+        platform: entry.platform !== undefined ? entry.platform : existingMetadata.platform || null,
+        genres: Array.isArray(entry.genres) ? entry.genres : existingMetadata.genres || []
       };
 
       await saveImageMetadataToIndexedDB(imageId, mergedMetadata);
@@ -1727,7 +1724,12 @@ function addRow(tierName = "New tier", defaultColor = "lightslategray") {
   newRow.appendChild(tierDiv);
   newRow.appendChild(optionsDiv);
 
-  mainContainer.appendChild(newRow);
+  const unassignedContainer = mainContainer.querySelector('.unassigned-container');
+  if (unassignedContainer) {
+    mainContainer.insertBefore(newRow, unassignedContainer);
+  } else {
+    mainContainer.appendChild(newRow);
+  }
 
   // Attach keydown listener to the newly created tier label
   attachTierLabelKeydownListener(tierLabelDiv);
