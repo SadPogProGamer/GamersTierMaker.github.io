@@ -125,6 +125,8 @@ let initializationComplete = false; // Track when app is fully initialized
 let autoSaveTimeout = null; // Debounce timer for Supabase sync
 let autoSaveTimers = {}; // Track separate timers per image for faster saves
 let lastSupabaseSyncTime = {}; // Track last sync time per image to force periodic syncs
+let lastRemoteSyncTime = null; // Track last time we synced FROM Supabase
+let syncPollInterval = null; // IntervalID for polling remote Supabase for updates
 
 function clearImageSelection() {
   selectedImages.forEach(img => img.classList.remove('selected'));
@@ -752,6 +754,14 @@ async function initializeSupabase() {
     currentUser = sessionData?.session?.user ?? null;
     updateAuthUI();
 
+    // If user is already logged in from cached session, load from Supabase
+    if (currentUser) {
+      console.log("User already logged in:", currentUser.email);
+      loadTierListFromSupabase().catch(err => {
+        console.error("Failed to load from Supabase:", err);
+      });
+    }
+
     supabaseClient.auth.onAuthStateChange((event, session) => {
       currentUser = session?.user ?? null;
       updateAuthUI();
@@ -761,6 +771,13 @@ async function initializeSupabase() {
         loadTierListFromSupabase().catch(err => {
           console.error("Failed to load from Supabase:", err);
         });
+        // Start polling for updates from other devices
+        if (initializationComplete) {
+          startSyncPolling();
+        }
+      } else {
+        // User logged out
+        stopSyncPolling();
       }
     });
 
@@ -880,6 +897,7 @@ async function signInWithGoogle() {
 // Sign out
 async function signOut() {
   try {
+    stopSyncPolling();
     if (!supabaseClient) {
       throw new Error("Supabase client is not initialized.");
     }
@@ -1214,6 +1232,7 @@ async function loadTierListFromSupabase() {
     }
 
     await loadTierListFromObject(data.tier_data);
+    lastRemoteSyncTime = new Date(data.updated_at || new Date()).getTime();
     console.log("✓ Tier list loaded from Supabase");
   } catch (err) {
     console.error("Failed to load tier list from Supabase:", err);
@@ -1222,10 +1241,61 @@ async function loadTierListFromSupabase() {
   }
 }
 
+// Poll for updates from Supabase periodically
+async function pollSupabaseForUpdates() {
+  if (!currentUser || !supabaseClient || !supabaseAvailable) return;
+
+  try {
+    const { data, error } = await supabaseClient
+      .from("tierLists")
+      .select("tier_data, updated_at")
+      .eq("user_id", currentUser.id)
+      .single();
+
+    if (error && error.code !== 'PGRST205') {
+      console.warn("Failed to poll Supabase:", error);
+      return;
+    }
+
+    if (!data || !data.tier_data) return;
+
+    // Check if remote data is newer than what we have locally
+    const remoteUpdatedAt = new Date(data.updated_at).getTime();
+    if (lastRemoteSyncTime === null || remoteUpdatedAt > lastRemoteSyncTime) {
+      // Remote data is newer - load it
+      console.log("📥 Remote updates detected - syncing tier list...");
+      await loadTierListFromObject(data.tier_data);
+      lastRemoteSyncTime = remoteUpdatedAt;
+      console.log("✓ Synced with remote tier list");
+    }
+  } catch (err) {
+    console.warn("Error polling Supabase for updates:", err);
+  }
+}
+
+// Start polling for remote updates
+function startSyncPolling() {
+  if (syncPollInterval) return; // Already polling
+
+  if (!currentUser || !supabaseClient || !supabaseAvailable) return;
+
+  console.log("🔄 Starting real-time sync polling (10 second interval)");
+  syncPollInterval = setInterval(pollSupabaseForUpdates, 10000);
+}
+
+// Stop polling
+function stopSyncPolling() {
+  if (syncPollInterval) {
+    clearInterval(syncPollInterval);
+    syncPollInterval = null;
+    console.log("⏸ Stopped sync polling");
+  }
+}
+
 // Initialize Supabase first, then IndexedDB
 initializeSupabase().then(() => {
   return initializeIndexedDB();
-}).then(() => {
+}).then(async () => {
   console.log('✓ Supabase and IndexedDB initialized successfully');
   // Load header from storage on page load
   loadHeaderFromStorage();
@@ -1249,21 +1319,27 @@ initializeSupabase().then(() => {
   }
 
   // Check if user is already logged in from cache (will load from Supabase instead of local storage)
-  if (!currentUser) {
+  if (currentUser) {
+    // User is already logged in - Supabase should load the tier list
+    console.log("User already logged in, tier list loading from Supabase...");
+    // Give Supabase a moment to load the tier list via the promise we created in initializeSupabase()
+    // If no data from Supabase after 2 seconds, mark as complete
+    await new Promise(resolve => setTimeout(resolve, 500));
+  } else if (hash.length <= 0) {
     // User is not logged in, so load from local storage
-    if (hash.length <= 0) {
-      console.log("Loading from local storage...");
-      loadTierListFromLocalStorage();
-    } else {
-      load();
-    }
+    console.log("Loading from local storage...");
+    loadTierListFromLocalStorage();
   } else {
-    // User is logged in - Supabase will handle loading via onAuthStateChanged
-    // This prevents overwriting Supabase data with local storage
-    console.log("User already logged in, waiting for Supabase to load tier list...");
+    load();
   }
+  
   initializationComplete = true;
   console.log('✓ App fully initialized');
+  
+  // Start polling for remote updates if user is logged in
+  if (currentUser && supabaseClient && supabaseAvailable) {
+    startSyncPolling();
+  }
 }).catch(err => {
   console.error('✗ INITIALIZATION FAILED:', err);
   alert('Failed to initialize app. See console for details.');
