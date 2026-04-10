@@ -522,33 +522,26 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 });
 
-// Sign in with email via magic link
-async function signInWithEmail() {
+// Sign in with Google
+async function signInWithGoogle() {
   try {
     if (!supabaseClient) {
       throw new Error("Supabase client is not initialized.");
     }
 
-    const email = window.prompt("Enter your email address to sign in:");
-    if (!email) {
-      return;
-    }
-
-    const { error } = await supabaseClient.auth.signInWithOtp({
-      email: email.trim(),
+    const { error } = await supabaseClient.auth.signInWithOAuth({
+      provider: 'google',
       options: {
-        emailRedirectTo: window.location.href
+        redirectTo: window.location.href
       }
     });
 
     if (error) {
       throw error;
     }
-
-    alert("A sign-in link has been sent to your email. Check your inbox and follow the link to complete sign in.");
   } catch (err) {
     console.error("Sign in error:", err);
-    alert("Failed to sign in. Make sure Supabase is configured for email authentication.");
+    alert("Failed to sign in. Make sure Supabase is configured and Google auth is enabled.");
   }
 }
 

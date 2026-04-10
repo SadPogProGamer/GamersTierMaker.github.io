@@ -40,7 +40,7 @@
         <h1 class="top-title">GAMERS TIERMAKER</h1>
         <div id="auth-container" style="margin-left: auto; display: flex; gap: 10px; align-items: center;">
           <span id="user-name" style="color: white; display: none;"></span>
-          <button id="login-btn" onclick="signInWithEmail()" style="padding: 8px 16px; background: #333; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 14px;">Sign in with Email</button>
+          <button id="login-btn" onclick="signInWithGoogle()" style="padding: 8px 16px; background: #4285f4; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 14px;">Sign in with Google</button>
           <div id="profile-dropdown" class="profile-dropdown hidden">
             <img id="profile-avatar" class="profile-avatar" alt="Profile" onclick="toggleProfileDropdown()" title="Account menu">
             <div id="profile-menu" class="profile-menu hidden">
@@ -420,8 +420,8 @@
     <div id="image-modal" class="modal hidden">
       <div class="modal-content">
         <div id="sync-notification" class="sync-notification hidden">
-          <span>Sign in with Email to sync your game data across devices</span>
-          <button onclick="signInWithEmail()" style="padding: 4px 12px; background: #333; color: white; border: none; border-radius: 3px; cursor: pointer; font-size: 12px; margin-left: 10px;">Sign In</button>
+          <span>Sign in with Google to sync your game data across devices</span>
+          <button onclick="signInWithGoogle()" style="padding: 4px 12px; background: #4285f4; color: white; border: none; border-radius: 3px; cursor: pointer; font-size: 12px; margin-left: 10px;">Sign In</button>
         </div>
         <div class="modal-header">
           <h2>Game Details</h2>
