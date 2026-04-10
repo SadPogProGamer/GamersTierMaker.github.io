@@ -10,26 +10,8 @@ const defaultColors = [
   "rgb(255, 127, 255)",
 ];
 
-// Cloudinary Configuration
-const CLOUDINARY_CONFIG = {
-  cloudName: "dfdibdfcm",
-  uploadPreset: "GamersTierMaker",
-  folder: "GamersTierMaker"
-};
-
-// Firebase Configuration - IMPORTANT: Update with your Firebase project credentials
-const FIREBASE_CONFIG = {
-  apiKey: "AIzaSyDPjqFmqGWUFBicEWcfzo6QfQ5fFX3cryk",
-  authDomain: "gamertiermaker.firebaseapp.com",
-  projectId: "gamertiermaker",
-  storageBucket: "gamertiermaker.firebasestorage.app",
-  messagingSenderId: "515771009142",
-  appId: "1:515771009142:web:c485f6b63235449ff43757"
-};
-
-// Firebase globals
-let firebaseDb;
-let auth;
+// Supabase globals
+let supabaseClient;
 let currentUser = null;
 
 const platformOptions = {
@@ -135,9 +117,9 @@ let currentImageElement = null;
 let currentSelectedPlatform = null;
 let indexedDb; // IndexedDB database
 let initializationComplete = false; // Track when app is fully initialized
-let autoSaveTimeout = null; // Debounce timer for Firebase sync
+let autoSaveTimeout = null; // Debounce timer for Supabase sync
 let autoSaveTimers = {}; // Track separate timers per image for faster saves
-let lastFirebaseSyncTime = {}; // Track last sync time per image to force periodic syncs
+let lastSupabaseSyncTime = {}; // Track last sync time per image to force periodic syncs
 
 // Initialize IndexedDB
 function initializeIndexedDB() {
@@ -418,41 +400,45 @@ function deleteImageMetadataFromIndexedDB(id) {
   });
 }
 
-// Initialize Firebase
-function initializeFirebase() {
-  return new Promise((resolve, reject) => {
-    if (!FIREBASE_CONFIG.apiKey || FIREBASE_CONFIG.apiKey === "YOUR_API_KEY") {
-      console.warn("Firebase not configured. Syncing across devices will not work.");
-      resolve(null);
-      return;
+// Initialize Supabase
+async function initializeSupabase() {
+  if (!SUPABASE_CONFIG.url || SUPABASE_CONFIG.url === "https://YOUR_PROJECT_ID.supabase.co" || !SUPABASE_CONFIG.anonKey || SUPABASE_CONFIG.anonKey === "YOUR_ANON_KEY") {
+    console.warn("Supabase not configured. Syncing across devices will not work.");
+    return null;
+  }
+
+  try {
+    const supabaseRoot = window.supabase || window.Supabase;
+    supabaseClient = supabaseRoot?.createClient(SUPABASE_CONFIG.url, SUPABASE_CONFIG.anonKey);
+    if (!supabaseClient) {
+      throw new Error("Supabase JS library not loaded. Make sure the script tag is present.");
     }
 
-    try {
-      firebase.initializeApp(FIREBASE_CONFIG);
-      auth = firebase.auth();
-      firebaseDb = firebase.firestore();
-
-      // Set up auth state listener
-      auth.onAuthStateChanged((user) => {
-        currentUser = user;
-        updateAuthUI();
-        if (user) {
-          console.log("User logged in:", user.email);
-          console.log("Firebase DB initialized:", !!firebaseDb);
-          
-          // Load from Firebase (with automatic retry and error handling)
-          loadTierListFromFirebase().catch(err => {
-            console.error("Failed to load from Firebase:", err);
-          });
-        }
-      });
-
-      resolve(true);
-    } catch (err) {
-      console.error("Firebase initialization failed:", err);
-      resolve(null);
+    const { data: sessionData, error: sessionError } = await supabaseClient.auth.getSession();
+    if (sessionError) {
+      console.warn("Supabase session fetch failed:", sessionError);
     }
-  });
+
+    currentUser = sessionData?.session?.user ?? null;
+    updateAuthUI();
+
+    supabaseClient.auth.onAuthStateChange((event, session) => {
+      currentUser = session?.user ?? null;
+      updateAuthUI();
+      if (currentUser) {
+        console.log("User logged in:", currentUser.email);
+        console.log("Supabase initialized:", !!supabaseClient);
+        loadTierListFromSupabase().catch(err => {
+          console.error("Failed to load from Supabase:", err);
+        });
+      }
+    });
+
+    return true;
+  } catch (err) {
+    console.error("Supabase initialization failed:", err);
+    return null;
+  }
 }
 
 // Update auth UI
@@ -466,13 +452,13 @@ function updateAuthUI() {
     loginBtn.style.display = "none";
     profileDropdown.classList.remove("hidden");
     
-    // Set avatar image from user's Google photo
-    if (currentUser.photoURL) {
-      profileAvatar.src = currentUser.photoURL;
+    const metadata = currentUser.user_metadata || {};
+    const avatarUrl = metadata.avatar_url || metadata.picture || "";
+    if (avatarUrl) {
+      profileAvatar.src = avatarUrl;
     }
     
-    // Set user name
-    userName.textContent = currentUser.displayName || currentUser.email;
+    userName.textContent = metadata.full_name || metadata.name || currentUser.email || "Signed in";
     userName.style.display = "block";
   } else {
     loginBtn.style.display = "block";
@@ -536,29 +522,54 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 });
 
-// Sign in with Google
-async function signInWithGoogle() {
+// Sign in with email via magic link
+async function signInWithEmail() {
   try {
-    const provider = new firebase.auth.GoogleAuthProvider();
-    await auth.signInWithPopup(provider);
+    if (!supabaseClient) {
+      throw new Error("Supabase client is not initialized.");
+    }
+
+    const email = window.prompt("Enter your email address to sign in:");
+    if (!email) {
+      return;
+    }
+
+    const { error } = await supabaseClient.auth.signInWithOtp({
+      email: email.trim(),
+      options: {
+        emailRedirectTo: window.location.href
+      }
+    });
+
+    if (error) {
+      throw error;
+    }
+
+    alert("A sign-in link has been sent to your email. Check your inbox and follow the link to complete sign in.");
   } catch (err) {
     console.error("Sign in error:", err);
-    alert("Failed to sign in. Make sure Firebase is configured.");
+    alert("Failed to sign in. Make sure Supabase is configured for email authentication.");
   }
 }
 
 // Sign out
 async function signOut() {
   try {
-    await auth.signOut();
+    if (!supabaseClient) {
+      throw new Error("Supabase client is not initialized.");
+    }
+    const { error } = await supabaseClient.auth.signOut();
+    if (error) {
+      throw error;
+    }
   } catch (err) {
     console.error("Sign out error:", err);
   }
 }
 
-// Save tier list to Firebase
-async function saveTierListToFirebase() {
-  if (!currentUser || !firebaseDb) return;
+// Save tier list to Supabase
+async function saveTierListToSupabase() {
+  if (!currentUser || !supabaseClient) return;
 
   try {
     const tierListData = {
@@ -566,7 +577,7 @@ async function saveTierListToFirebase() {
       tiers: [],
       imagePositions: [],
       gameMetadata: {},
-      lastUpdated: new Date()
+      lastUpdated: new Date().toISOString()
     };
 
     // Get all image metadata from IndexedDB
@@ -603,7 +614,6 @@ async function saveTierListToFirebase() {
           imageSrc: img.dataset.imageSrc,
           tier: tierIndex,
         });
-        // Include metadata if it exists
         if (metadataMap[imageId]) {
           tierListData.gameMetadata[imageId] = metadataMap[imageId];
         }
@@ -620,21 +630,28 @@ async function saveTierListToFirebase() {
         imageSrc: img.dataset.imageSrc,
         tier: -1,
       });
-      // Include metadata if it exists
       if (metadataMap[imageId]) {
         tierListData.gameMetadata[imageId] = metadataMap[imageId];
       }
     });
 
-    // Save to Firestore
-    await firebaseDb.collection("tierLists").doc(currentUser.uid).set(tierListData);
-    console.log("Tier list saved to Firebase");
+    const { error } = await supabaseClient.from("tierLists").upsert({
+      user_id: currentUser.id,
+      tier_data: tierListData,
+      updated_at: new Date().toISOString()
+    }, { onConflict: "user_id" });
+
+    if (error) {
+      throw error;
+    }
+
+    console.log("Tier list saved to Supabase");
   } catch (err) {
-    console.error("Failed to save tier list to Firebase:", err);
+    console.error("Failed to save tier list to Supabase:", err);
   }
 }
 
-// Build tier list data (used for both Firebase and local save)
+// Build tier list data (used for both Supabase and local save)
 async function buildTierListData() {
   const tierListData = {
     header: document.getElementById("main-title").textContent,
@@ -689,7 +706,7 @@ async function buildTierListData() {
   return tierListData;
 }
 
-// Save tier list - uses Firebase if signed in, else saves locally
+// Save tier list - uses Supabase if signed in, else saves locally
 async function saveTierList() {
   if (!initializationComplete || !indexedDb) {
     console.error('App not fully initialized. indexedDb:', !!indexedDb, 'initComplete:', initializationComplete);
@@ -708,15 +725,15 @@ async function saveTierList() {
     return;
   }
 
-  // Try Firebase first if signed in
-  if (currentUser && firebaseDb) {
+  // Try Supabase first if signed in
+  if (currentUser && supabaseClient) {
     try {
-      console.log('Saving to Firebase...');
-      await saveTierListToFirebase();
+      console.log('Saving to Supabase...');
+      await saveTierListToSupabase();
       alert('Tierlist saved to your account.');
       return;
     } catch (e) {
-      console.warn('Firebase save failed, falling back to local save:', e);
+      console.warn('Supabase save failed, falling back to local save:', e);
     }
   }
 
@@ -740,36 +757,41 @@ async function saveTierList() {
   }
 }
 
-// Load tier list from Firebase
-async function loadTierListFromFirebase() {
-  if (!currentUser || !firebaseDb) return;
+// Load tier list from Supabase
+async function loadTierListFromSupabase() {
+  if (!currentUser || !supabaseClient) return;
 
   try {
-    const doc = await firebaseDb.collection("tierLists").doc(currentUser.uid).get();
-    
-    if (!doc.exists) {
-      console.log("No saved tier list found in Firebase. Checking local storage...");
+    const { data, error, status } = await supabaseClient
+      .from("tierLists")
+      .select("tier_data")
+      .eq("user_id", currentUser.id)
+      .single();
+
+    if (error && status !== 406) {
+      throw error;
+    }
+
+    if (!data || !data.tier_data) {
+      console.log("No saved tier list found in Supabase. Checking local storage...");
       loadTierListFromLocalStorage();
       return;
     }
 
-    const tierListData = doc.data();
-    
-    // Use the shared loader to avoid duplication and ensure new tiers are created
-    await loadTierListFromObject(tierListData);
-    console.log("✓ Tier list loaded from Firebase");
+    await loadTierListFromObject(data.tier_data);
+    console.log("✓ Tier list loaded from Supabase");
   } catch (err) {
-    console.error("Failed to load tier list from Firebase:", err);
+    console.error("Failed to load tier list from Supabase:", err);
     console.log("Falling back to local storage...");
     loadTierListFromLocalStorage();
   }
 }
 
-// Initialize Firebase first, then IndexedDB
-initializeFirebase().then(() => {
+// Initialize Supabase first, then IndexedDB
+initializeSupabase().then(() => {
   return initializeIndexedDB();
 }).then(() => {
-  console.log('✓ Firebase and IndexedDB initialized successfully');
+  console.log('✓ Supabase and IndexedDB initialized successfully');
   // Load header from storage on page load
   loadHeaderFromStorage();
   loadCustomPlatforms();
@@ -791,7 +813,7 @@ initializeFirebase().then(() => {
     }
   }
 
-  // Check if user is already logged in from cache (will load from Firebase instead of local storage)
+  // Check if user is already logged in from cache (will load from Supabase instead of local storage)
   if (!currentUser) {
     // User is not logged in, so load from local storage
     if (hash.length <= 0) {
@@ -801,9 +823,9 @@ initializeFirebase().then(() => {
       load();
     }
   } else {
-    // User is logged in - Firebase will handle loading via onAuthStateChanged
-    // This prevents overwriting Firebase data with local storage
-    console.log("User already logged in, waiting for Firebase to load tier list...");
+    // User is logged in - Supabase will handle loading via onAuthStateChanged
+    // This prevents overwriting Supabase data with local storage
+    console.log("User already logged in, waiting for Supabase to load tier list...");
   }
   initializationComplete = true;
   console.log('✓ App fully initialized');
@@ -817,7 +839,7 @@ initializeFirebase().then(() => {
 // If we're on the My Tierlists page, render saved tierlists into the page
 document.addEventListener('DOMContentLoaded', () => {
   if (document.querySelector('.profile-page')) {
-    // small timeout to allow firebase/auth to initialize
+    // small timeout to allow Supabase/auth to initialize
     setTimeout(() => {
       renderSavedTierlists().catch(err => console.error(err));
     }, 200);
@@ -865,14 +887,25 @@ async function renderSavedTierlists() {
   if (!container) return;
   container.innerHTML = '';
 
-  // Try Firebase first if user is logged in
+  // Try Supabase first if user is logged in
   let data = null;
-  if (currentUser && firebaseDb) {
+  if (currentUser && supabaseClient) {
     try {
-      const doc = await firebaseDb.collection('tierLists').doc(currentUser.uid).get();
-      if (doc.exists) data = doc.data();
+      const { data: result, error, status } = await supabaseClient
+        .from('tierLists')
+        .select('tier_data')
+        .eq('user_id', currentUser.id)
+        .single();
+
+      if (error && status !== 406) {
+        throw error;
+      }
+
+      if (result) {
+        data = result.tier_data;
+      }
     } catch (e) {
-      console.warn('Failed to load tierlist from Firebase:', e);
+      console.warn('Failed to load tierlist from Supabase:', e);
     }
   }
 
@@ -1088,9 +1121,9 @@ function saveTierColors() {
     console.error('Failed to save tier colors:', err);
   });
 
-  // Also save to Firebase if user is logged in
+  // Also save to Supabase if user is logged in
   if (currentUser) {
-    saveTierListToFirebase();
+    saveTierListToSupabase();
   }
 }
 
@@ -1191,7 +1224,7 @@ function attachTierLabelKeydownListener(tierLabel) {
           saveTierColors();
         }, 0);
       } else {
-        // Enter: save to Firebase and blur
+        // Enter: save to Supabase and blur
         e.preventDefault();
         saveTierColors();
         tierLabel.blur();
@@ -1366,9 +1399,9 @@ async function toggleTierOrdering(tierIndex, enabled) {
   // Save state to IndexedDB
   await saveSetting("tierOrderingStates", tierOrderingStates);
   
-  // Also save to Firebase if user is logged in
-  if (currentUser && firebaseDb) {
-    await saveTierListToFirebase();
+  // Also save to Supabase if user is logged in
+  if (currentUser && supabaseClient) {
+    await saveTierListToSupabase();
   }
 }
 
@@ -1379,9 +1412,9 @@ async function toggleTierLimit(tierIndex, enabled) {
   // Save state to IndexedDB
   await saveSetting("tierLimitStates", tierLimitStates);
   
-  // Also save to Firebase if user is logged in
-  if (currentUser && firebaseDb) {
-    await saveTierListToFirebase();
+  // Also save to Supabase if user is logged in
+  if (currentUser && supabaseClient) {
+    await saveTierListToSupabase();
   }
 }
 
@@ -2069,10 +2102,10 @@ function uploadImages(files) {
       .then(() => {
         loadingDiv.remove();
         initializeDragula();
-        // Sync to Firebase if user is logged in
-        if (currentUser && firebaseDb) {
-          saveTierListToFirebase().catch(err => {
-            console.error('Failed to sync new images to Firebase:', err);
+        // Sync to Supabase if user is logged in
+        if (currentUser && supabaseClient) {
+          saveTierListToSupabase().catch(err => {
+            console.error('Failed to sync new images to Supabase:', err);
           });
         }
         // Refresh counts (badges) after images are added
@@ -2212,9 +2245,9 @@ function saveImagePositions() {
     }).filter(p => p);
     return Promise.all(updatePromises);
   }).then(() => {
-    // Also save to Firebase if user is logged in
-    if (currentUser && firebaseDb) {
-      return saveTierListToFirebase();
+    // Also save to Supabase if user is logged in
+    if (currentUser && supabaseClient) {
+      return saveTierListToSupabase();
     }
   }).catch(err => {
     console.error('Failed to save image positions:', err);
@@ -2360,7 +2393,7 @@ function openImageModal(imgElement) {
   // Show sync notification if not logged in
   const syncNotification = document.getElementById("sync-notification");
   if (syncNotification) {
-    if (!currentUser || !firebaseDb) {
+    if (!currentUser || !supabaseClient) {
       syncNotification.classList.remove("hidden");
     } else {
       syncNotification.classList.add("hidden");
@@ -2507,13 +2540,13 @@ function autoSaveMetadata(imageId) {
       console.log(`Metadata saved to IndexedDB for image ${imageId}`);
       
       // Show syncing status if user is logged in
-      if (currentUser && firebaseDb) {
+      if (currentUser && supabaseClient) {
         showSyncStatus("syncing", "Syncing...");
         
-        // Debounce Firebase sync - wait 1.5 seconds after user stops typing before syncing
+        // Debounce Supabase sync - wait 1.5 seconds after user stops typing before syncing
         // But force sync after 5 seconds of continuous changes (user may have forgotten tab is open)
         const nowMs = Date.now();
-        const lastSyncMs = lastFirebaseSyncTime[imageId] || 0;
+        const lastSyncMs = lastSupabaseSyncTime[imageId] || 0;
         const timeSinceLastSync = nowMs - lastSyncMs;
         
         // Clear existing timer for this image
@@ -2523,32 +2556,32 @@ function autoSaveMetadata(imageId) {
         
         // If we've gone more than 5 seconds since last sync, sync immediately
         if (timeSinceLastSync > 5000) {
-          console.log(`Forcing Firebase sync after ${timeSinceLastSync}ms since last sync`);
-          lastFirebaseSyncTime[imageId] = nowMs;
-          saveTierListToFirebase()
+          console.log(`Forcing Supabase sync after ${timeSinceLastSync}ms since last sync`);
+          lastSupabaseSyncTime[imageId] = nowMs;
+          saveTierListToSupabase()
             .then(() => {
-              console.log(`Firebase sync completed for image ${imageId}`);
+              console.log(`Supabase sync completed for image ${imageId}`);
               showSyncStatus("synced", "Synced ✓");
               setTimeout(() => hideSyncStatus(), 2000);
             })
             .catch(err => {
-              console.error('Failed to sync to Firebase:', err);
+              console.error('Failed to sync to Supabase:', err);
               showSyncStatus("error", "Sync failed!");
               setTimeout(() => hideSyncStatus(), 3000);
             });
         } else {
           // Otherwise, set a debounce timer for 1.5 seconds
           autoSaveTimers[imageId] = setTimeout(() => {
-            console.log(`Syncing to Firebase for image ${imageId} after debounce`);
-            lastFirebaseSyncTime[imageId] = Date.now();
-            saveTierListToFirebase()
+            console.log(`Syncing to Supabase for image ${imageId} after debounce`);
+            lastSupabaseSyncTime[imageId] = Date.now();
+            saveTierListToSupabase()
               .then(() => {
-                console.log(`Firebase sync completed for image ${imageId}`);
+                console.log(`Supabase sync completed for image ${imageId}`);
                 showSyncStatus("synced", "Synced ✓");
                 setTimeout(() => hideSyncStatus(), 2000);
               })
               .catch(err => {
-                console.error('Failed to sync to Firebase:', err);
+                console.error('Failed to sync to Supabase:', err);
                 showSyncStatus("error", "Sync failed!");
                 setTimeout(() => hideSyncStatus(), 3000);
               });
@@ -2634,13 +2667,13 @@ function closeImageModal() {
   saveImageMetadataToIndexedDB(imageId, imageMetadata)
     .then(() => {
       console.log(`Metadata saved to IndexedDB on modal close for image ${imageId}`);
-      // Sync metadata to Firebase if user is logged in
-      if (currentUser && firebaseDb) {
-        return saveTierListToFirebase();
+      // Sync metadata to Supabase if user is logged in
+      if (currentUser && supabaseClient) {
+        return saveTierListToSupabase();
       }
     })
     .then(() => {
-      console.log(`Firebase sync completed on modal close for image ${imageId}`);
+      console.log(`Supabase sync completed on modal close for image ${imageId}`);
       // Re-run current search/filter so commands like /NoDescription, /NoDate, etc. update
       const searchInput = document.getElementById('search-input');
       const currentQuery = searchInput ? searchInput.value : '';
@@ -2686,10 +2719,10 @@ function deleteImageFromModal() {
           closeImageModal();
           saveImagePositions();
           
-          // Sync deletion to Firebase if user is logged in
-          if (currentUser && firebaseDb) {
-            saveTierListToFirebase().catch(err => {
-              console.error('Failed to sync deletion to Firebase:', err);
+          // Sync deletion to Supabase if user is logged in
+          if (currentUser && supabaseClient) {
+            saveTierListToSupabase().catch(err => {
+              console.error('Failed to sync deletion to Supabase:', err);
             });
           }
         })
@@ -2743,9 +2776,15 @@ async function deleteTierList() {
     // Remove all images from DOM
     document.querySelectorAll(".image").forEach(img => img.remove());
     
-    // Clear Firebase tier list if user is logged in
-    if (currentUser && firebaseDb) {
-      await firebaseDb.collection("tierLists").doc(currentUser.uid).delete();
+    // Clear Supabase tier list if user is logged in
+    if (currentUser && supabaseClient) {
+      const { error } = await supabaseClient
+        .from("tierLists")
+        .delete()
+        .eq("user_id", currentUser.id);
+      if (error) {
+        console.error('Failed to delete tierlist from Supabase:', error);
+      }
     }
 
     loadingDiv.remove();
