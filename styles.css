@@ -348,7 +348,7 @@ img {
   max-width: 1400px;
   display: flex;
   flex-wrap: wrap;
-  min-height: 150px;
+  min-height: 0;
   border: 2px dashed transparent;
   border-radius: 8px;
   transition: all 0.3s ease;
@@ -357,8 +357,8 @@ img {
 }
 
 .unassigned-container {
-  width: 50%;
-  max-width: 700px;
+  width: 100%;
+  max-width: 1357px;
   margin: 0 0 20px 0;
   padding-top: 24px;
   align-self: flex-start;
