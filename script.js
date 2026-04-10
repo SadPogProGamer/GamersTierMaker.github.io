@@ -265,7 +265,35 @@
             if (removed) render();
         });
 
-        cardDiv.appendChild(img);
+        const visualWrapper = document.createElement('div');
+        visualWrapper.className = 'item-visual';
+        visualWrapper.appendChild(img);
+
+        if (!isFromUnassigned) {
+            const blackBox = document.createElement('div');
+            blackBox.className = 'item-black-box';
+
+            blackBox.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                blackBox.classList.add('drop-valid');
+            });
+            blackBox.addEventListener('dragleave', (e) => {
+                e.stopPropagation();
+                blackBox.classList.remove('drop-valid');
+            });
+            blackBox.addEventListener('drop', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                blackBox.classList.remove('drop-valid');
+                if (!e.dataTransfer.files || e.dataTransfer.files.length === 0) return;
+                addImagesFromFiles(e.dataTransfer.files, parentTierId);
+            });
+
+            visualWrapper.appendChild(blackBox);
+        }
+
+        cardDiv.appendChild(visualWrapper);
         cardDiv.appendChild(nameSpan);
         cardDiv.appendChild(delBtn);
         return cardDiv;
@@ -284,7 +312,7 @@
     }
 
     // ---------- ADD IMAGES FROM USER UPLOAD ----------
-    function addImagesFromFiles(files) {
+    function addImagesFromFiles(files, targetTierId = null) {
         if (!files || files.length === 0) return;
 
         const validFiles = Array.from(files).filter(file => file.type.startsWith('image/'));
@@ -310,8 +338,17 @@
                 });
                 loadedCount++;
                 if (loadedCount === validFiles.length) {
-                    // All images processed: add to unassigned pool
-                    unassignedItems.push(...newItems);
+                    // All images processed: add to the chosen tier or fallback to unassigned
+                    if (targetTierId) {
+                        const targetTier = tiers.find(t => t.id === targetTierId);
+                        if (targetTier) {
+                            targetTier.items.push(...newItems);
+                        } else {
+                            unassignedItems.push(...newItems);
+                        }
+                    } else {
+                        unassignedItems.push(...newItems);
+                    }
                     render();
                     // Reset file input value so same file can be re-uploaded if needed
                     if (fileInputEl) fileInputEl.value = '';
@@ -330,7 +367,9 @@
     function updateFileCounter() {
         if (fileCounterSpan) {
             const totalItems = unassignedItems.length + tiers.reduce((sum, tier) => sum + tier.items.length, 0);
-            fileCounterSpan.textContent = `📁 ${totalItems} items total`;
+            fileCounterSpan.textContent = totalItems
+                ? `${totalItems} items total`
+                : '';
         }
     }
 

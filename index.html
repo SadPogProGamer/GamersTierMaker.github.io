@@ -3,37 +3,29 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
-    <title>TierMaker · Create your own tier list</title>
+    <title>TierMaker</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
 <div class="top-bar">
-    <div class="top-bar-title">TIERMAKER</div>
+    <div class="top-bar-title"><img src="images/tiermaker-logo.png" alt="TierMaker logo"></div>
 </div>
 <div class="tier-app" id="tierApp">
-    <div class="toolbar">
-        <div class="brand">
-            <h1>TIERMAKER</h1>
-        </div>
-        <div class="action-group"></div>
-    </div>
-
     <div class="tier-list" id="tierContainer"></div>
-
-    <div class="actions-footer">
-        <button class="btn btn-primary" id="downloadBtn">💾 Save or Download</button>
-        <span class="filename-hint" id="fileCounter">Drop images anywhere to add them</span>
-    </div>
 
     <div class="unassigned-section" id="unassignedSection">
         <div class="section-title">
-            <span>📦 Unassigned games (drag to tiers)</span>
+            <span>Unassigned games (drag to tiers)</span>
         </div>
-        <div class="unassigned-items" id="unassignedPool"></div>
+        <div class="unassigned-row">
+            <div class="unassigned-items" id="unassignedPool"></div>
+            <div class="unassigned-box"></div>
+        </div>
     </div>
 
-    <div class="footer-note">
-        💡 Tip: drag items between tiers or back to unassigned. Add custom images (JPG/PNG) — they appear in the pool.
+    <div class="actions-footer">
+        <button class="btn btn-primary" id="downloadBtn">Save Tierlist</button>
+        <span class="filename-hint" id="fileCounter"></span>
     </div>
 </div>
 
