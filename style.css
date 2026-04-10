@@ -1,77 +1,81 @@
 /* ===== GLOBAL ===== */
 body {
-  margin: 0;
-  font-family: Arial, sans-serif;
-  background: #111;
-  color: white;
+    margin: 0;
+    font-family: Arial, sans-serif;
+    background: #111;
+    color: white;
 }
 
 /* ===== HEADER ===== */
 h1 {
-  text-align: center;
-  margin: 15px 0;
-  font-size: 28px;
+    text-align: center;
+    margin: 15px 0;
+    font-size: 28px;
 }
 
 /* ===== TIER CONTAINER ===== */
-#tiers {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding: 10px;
+.tier {
+    display: grid;
+    grid-template-columns: 90px 1fr;
+    min-height: 90px;
+    border: 1px solid #333;
 }
+
 
 /* ===== SINGLE TIER ROW ===== */
 .tier {
-  display: flex;
-  min-height: 80px;
-  border-radius: 6px;
-  overflow: hidden;
-  background: #222;
+    display: flex;
+    min-height: 80px;
+    border-radius: 6px;
+    overflow: hidden;
+    background: #222;
 }
 
 /* LEFT LABEL (S/A/B etc) */
 .tier-label {
-  width: 70px;
-  min-width: 70px;
   display: flex;
   align-items: center;
   justify-content: center;
   font-weight: bold;
-  font-size: 20px;
+  font-size: 16px;
   user-select: none;
+  height: 100%;
 }
+
 
 /* RIGHT DROP AREA */
 .tier-items {
-  flex: 1;
-  display: flex;
-  align-items: center;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, 80px);
+  grid-auto-rows: 80px;
   gap: 6px;
   padding: 6px;
   background: #2a2a2a;
-  min-height: 80px;
-  flex-wrap: wrap;
+  min-height: 90px;
+  align-content: start;
 }
+
 
 /* ===== IMAGES ===== */
 .item {
-  width: 70px;
-  height: 70px;
+  width: 80px;
+  height: 80px;
   object-fit: cover;
-  border-radius: 4px;
+  border-radius: 6px;
   cursor: grab;
   border: 2px solid transparent;
   transition: 0.15s;
+  flex-shrink: 0;
 }
 
+
 .item:active {
-  cursor: grabbing;
-  transform: scale(1.05);
+    cursor: grabbing;
+    transform: scale(1.05);
 }
 
 .item:hover {
-  border: 2px solid #555;
+    border: 2px solid #555;
 }
 
 /* ===== IMAGE POOL ===== */
@@ -80,43 +84,48 @@ h1 {
   padding: 10px;
   background: #1b1b1b;
   border-radius: 8px;
-  display: flex;
-  flex-wrap: wrap;
+
+  display: grid;
+  grid-template-columns: repeat(auto-fill, 80px);
+  grid-auto-rows: 80px;
   gap: 6px;
-  min-height: 100px;
+
+  min-height: 120px;
 }
+
 
 /* ===== CONTROLS ===== */
 .controls {
-  display: flex;
-  justify-content: center;
-  gap: 10px;
-  margin: 10px;
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    margin: 10px;
 }
 
 button {
-  background: #333;
-  color: white;
-  border: none;
-  padding: 8px 12px;
-  border-radius: 5px;
-  cursor: pointer;
-  transition: 0.2s;
+    background: #333;
+    color: white;
+    border: none;
+    padding: 8px 12px;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: 0.2s;
 }
 
 button:hover {
-  background: #444;
+    background: #444;
 }
 
 /* ===== FILE INPUT ===== */
 input[type="file"] {
-  display: block;
-  margin: 10px auto;
-  color: white;
+    display: block;
+    margin: 10px auto;
+    color: white;
 }
 
 /* ===== SCROLL SAFETY ===== */
-.tier-items, .pool {
-  overflow-x: auto;
-  scrollbar-width: thin;
+.tier-items,
+.pool {
+    overflow-x: auto;
+    scrollbar-width: thin;
 }
