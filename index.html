@@ -450,6 +450,10 @@
             <label for="image-date" id="image-date-label">Date Beaten:</label>
             <input type="text" id="image-date" placeholder="Enter date">
           </div>
+          <div class="form-group hidden" id="image-date-100-group">
+            <label for="image-date-100">Date 100%:</label>
+            <input type="text" id="image-date-100" placeholder="Enter date 100%">
+          </div>
           <div class="form-group">
             <label for="image-description">Personal Review:</label>
             <textarea id="image-description" placeholder="Enter review description"></textarea>
@@ -481,6 +485,9 @@
               <option value="Played">Played</option>
               <option value="dropped">Dropped</option>
             </select>
+            <div class="replay-toggle-container hidden" id="replay-toggle-group">
+              <button type="button" id="replay-toggle-btn" class="replay-toggle red" onclick="toggleReplayFlag()">Has 100% replay</button>
+            </div>
           </div>
         </div>
         <div class="modal-footer">

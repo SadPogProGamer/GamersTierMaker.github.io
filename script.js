@@ -116,6 +116,7 @@ let scrollable = true;
 let drake;
 let currentImageElement = null;
 let currentSelectedPlatform = null;
+let currentHas100Replay = false;
 let selectedImages = new Set();
 let lastSelectedImage = null;
 let suppressNextLeftClick = false;
@@ -509,7 +510,9 @@ async function getGameDetailsForExport() {
       date: metadata.date || '',
       description: metadata.description || '',
       platform: metadata.platform || null,
-      status: metadata.status || ''
+      status: metadata.status || '',
+      date100: metadata.date100 || '',
+      has100Replay: !!metadata.has100Replay
     });
   }
   return entries;
@@ -571,11 +574,21 @@ async function handleGameDetailsImportFile(file) {
 
     const images = Array.from(document.querySelectorAll('.image'));
     const imageMapById = new Map(images.map(img => [img.dataset.imageId, img]));
+    const imageMapBySrc = new Map(images.map(img => [String(img.dataset.imageSrc || img.src || '').trim().toLowerCase(), img]));
 
     let applied = 0;
     for (const entry of entries) {
-      if (!entry || !entry.imageId) continue;
-      const imageElement = imageMapById.get(entry.imageId);
+      if (!entry) continue;
+      const imageId = entry.imageId;
+      const imageSrcValue = String(entry.image_src || entry.imageSrc || '').trim();
+      let imageElement = null;
+
+      if (imageId) {
+        imageElement = imageMapById.get(imageId);
+      }
+      if (!imageElement && imageSrcValue) {
+        imageElement = imageMapBySrc.get(imageSrcValue.toLowerCase());
+      }
       if (!imageElement) {
         continue;
       }
@@ -587,9 +600,11 @@ async function handleGameDetailsImportFile(file) {
         name: entry.name !== undefined ? entry.name : existingMetadata.name || '',
         developer: entry.developer !== undefined ? entry.developer : existingMetadata.developer || '',
         date: entry.date !== undefined ? entry.date : existingMetadata.date || '',
+        date100: entry.date100 !== undefined ? entry.date100 : existingMetadata.date100 || '',
         description: entry.description !== undefined ? entry.description : existingMetadata.description || '',
         status: entry.status !== undefined ? entry.status : existingMetadata.status || '',
         platform: entry.platform !== undefined ? entry.platform : existingMetadata.platform || null,
+        has100Replay: entry.has100Replay !== undefined ? entry.has100Replay : !!existingMetadata.has100Replay,
         genres: Array.isArray(entry.genres) ? entry.genres : existingMetadata.genres || []
       };
 
@@ -602,8 +617,11 @@ async function handleGameDetailsImportFile(file) {
         document.getElementById('image-date').value = mergedMetadata.date;
         document.getElementById('image-description').value = mergedMetadata.description;
         document.getElementById('image-status').value = mergedMetadata.status;
+        document.getElementById('image-date-100').value = mergedMetadata.date100 || '';
         currentSelectedPlatform = mergedMetadata.platform || null;
+        currentHas100Replay = !!mergedMetadata.has100Replay;
         updateDateLabel();
+        updateReplayVisibility();
         updatePlatformButton();
         renderPlatformOptions();
       }
@@ -644,9 +662,19 @@ function getImageMetadataFromIndexedDB(id) {
       const result = request.result;
       if (result) {
         const genres = Array.isArray(result.genres) ? result.genres.slice() : (result.genre ? [result.genre] : []);
-        resolve({ name: result.name || "", developer: result.developer || "", date: result.date || "", description: result.description || "", status: result.status || "", platform: result.platform || null, genres });
+        resolve({
+          name: result.name || "",
+          developer: result.developer || "",
+          date: result.date || "",
+          date100: result.date100 || "",
+          description: result.description || "",
+          status: result.status || "",
+          platform: result.platform || null,
+          has100Replay: !!result.has100Replay,
+          genres
+        });
       } else {
-        resolve({ name: "", developer: "", date: "", description: "", status: "", platform: null, genres: [] });
+        resolve({ name: "", developer: "", date: "", date100: "", description: "", status: "", platform: null, has100Replay: false, genres: [] });
       }
     };
   });
@@ -1161,9 +1189,11 @@ window.addEventListener('beforeunload', () => {
         name: document.getElementById("image-name").value || "",
         developer: document.getElementById("image-developer").value || "",
         date: document.getElementById("image-date").value || "",
+        date100: document.getElementById("image-date-100").value || "",
         description: document.getElementById("image-description").value || "",
         status: document.getElementById("image-status").value || "",
-        platform: currentSelectedPlatform
+        platform: currentSelectedPlatform,
+        has100Replay: currentHas100Replay
       };
       // Note: IndexedDB saves in beforeunload may not work, but try anyway
       console.log("Flushing pending metadata before page unload...");
@@ -2828,11 +2858,14 @@ function openImageModal(imgElement) {
     document.getElementById("image-name").value = imageMetadata.name || "";
     document.getElementById("image-developer").value = imageMetadata.developer || "";
     document.getElementById("image-date").value = imageMetadata.date || "";
+    document.getElementById("image-date-100").value = imageMetadata.date100 || "";
     document.getElementById("image-description").value = imageMetadata.description || "";
     document.getElementById("image-status").value = imageMetadata.status || "";
+    currentHas100Replay = !!imageMetadata.has100Replay;
     
-    // Update the date label based on status
+    // Update the date label based on status and show/hide replay fields
     updateDateLabel();
+    updateReplayVisibility();
     
     // Load platform
     currentSelectedPlatform = imageMetadata.platform || null;
@@ -2923,6 +2956,7 @@ function setupMetadataAutoSave(imageId) {
     document.getElementById("image-name").addEventListener("input", createDebouncedHandler(imageId));
     document.getElementById("image-developer").addEventListener("input", createDebouncedHandler(imageId));
     document.getElementById("image-status").addEventListener("change", createDebouncedHandler(imageId));
+    document.getElementById("image-date-100").addEventListener("input", createDebouncedHandler(imageId));
   } catch (err) {
     console.error("Error setting up metadata auto-save:", err);
   }
@@ -2951,9 +2985,11 @@ function autoSaveMetadata(imageId) {
     name: document.getElementById("image-name").value || "",
     developer: document.getElementById("image-developer").value || "",
     date: document.getElementById("image-date").value || "",
+    date100: document.getElementById("image-date-100").value || "",
     description: document.getElementById("image-description").value || "",
     status: document.getElementById("image-status").value || "",
-    platform: currentSelectedPlatform
+    platform: currentSelectedPlatform,
+    has100Replay: currentHas100Replay
   };
 
   console.log(`Auto-saving metadata for image ${imageId}:`, imageMetadata);
@@ -3053,6 +3089,36 @@ function updateDateLabel() {
   } else {
     dateLabel.textContent = "Date Beaten:";
   }
+
+  updateReplayVisibility();
+}
+
+function toggleReplayFlag() {
+  currentHas100Replay = !currentHas100Replay;
+  updateReplayVisibility();
+  autoSaveMetadataWrapper();
+}
+
+function updateReplayVisibility() {
+  const statusSelect = document.getElementById("image-status");
+  const replayGroup = document.getElementById("replay-toggle-group");
+  const replayButton = document.getElementById("replay-toggle-btn");
+  const date100Group = document.getElementById("image-date-100-group");
+
+  if (!statusSelect || !replayGroup || !replayButton || !date100Group) return;
+
+  const is100Percent = statusSelect.value === "100% complete";
+
+  if (is100Percent) {
+    replayGroup.classList.remove("hidden");
+    replayButton.classList.toggle("green", currentHas100Replay);
+    replayButton.classList.toggle("red", !currentHas100Replay);
+    date100Group.classList.toggle("hidden", !currentHas100Replay);
+  } else {
+    replayGroup.classList.add("hidden");
+    date100Group.classList.add("hidden");
+    currentHas100Replay = false;
+  }
 }
 
 function closeImageModal() {
@@ -3070,9 +3136,11 @@ function closeImageModal() {
       name: document.getElementById("image-name").value || "",
       developer: document.getElementById("image-developer").value || "",
       date: document.getElementById("image-date").value || "",
+      date100: document.getElementById("image-date-100").value || "",
       description: document.getElementById("image-description").value || "",
       status: document.getElementById("image-status").value || "",
-      platform: currentSelectedPlatform
+      platform: currentSelectedPlatform,
+      has100Replay: currentHas100Replay
     };
 
   console.log(`Closing modal for image ${imageId}, saving metadata:`, imageMetadata);

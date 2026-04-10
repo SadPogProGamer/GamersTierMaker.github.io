@@ -19,6 +19,10 @@ body {
   user-select: none;
 }
 
+.hidden {
+  display: none !important;
+}
+
 .top-bar {
   background-color: #0e0e0e;
   padding: 8px 20px;
@@ -660,6 +664,29 @@ img {
   outline: none;
   border-color: #7fffff;
   background-color: #4d4a4b;
+}
+
+.replay-toggle {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 4px 10px;
+  border: 1px solid transparent;
+  color: white;
+  border-radius: 6px;
+  font-size: 13px;
+  line-height: 1.2;
+  cursor: pointer;
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+.replay-toggle.green {
+  background-color: #2d8f3f;
+  border-color: #2d8f3f;
+}
+
+.replay-toggle.red {
+  background-color: #a73737;
+  border-color: #a73737;
 }
 
 .modal-footer {
