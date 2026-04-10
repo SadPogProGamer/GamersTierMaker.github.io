@@ -574,17 +574,24 @@ async function handleGameDetailsImportFile(file) {
 
     const images = Array.from(document.querySelectorAll('.image'));
     const imageMapById = new Map(images.map(img => [img.dataset.imageId, img]));
+    const imageMapBySrc = new Map(images.map(img => [img.dataset.imageSrc || img.src, img]));
 
     let applied = 0;
     for (const entry of entries) {
-      if (!entry || !entry.imageId) continue;
-      const imageElement = imageMapById.get(entry.imageId);
+      if (!entry) continue;
+      let imageElement = null;
+      if (entry.imageId) {
+        imageElement = imageMapById.get(entry.imageId);
+      }
+      if (!imageElement && entry.imageSrc) {
+        imageElement = imageMapBySrc.get(entry.imageSrc);
+      }
       if (!imageElement) {
         continue;
       }
 
       const imageId = imageElement.dataset.imageId;
-      const existingMetadata = await getImageMetadataFromIndexedDB(imageId).catch(() => ({ name: '', developer: '', date: '', description: '', status: '', platform: null, genres: [] }));
+      const existingMetadata = await getImageMetadataFromIndexedDB(imageId).catch(() => ({ name: '', developer: '', date: '', date100: '', description: '', status: '', platform: null, genres: [], has100Replay: false }));
       const mergedMetadata = {
         ...existingMetadata,
         name: entry.name !== undefined ? entry.name : existingMetadata.name || '',
