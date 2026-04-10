@@ -344,6 +344,150 @@ function getSetting(key) {
   });
 }
 
+function getImageDetailsFromPage() {
+  return Array.from(document.querySelectorAll('.image')).map(img => {
+    const imageId = img.dataset.imageId;
+    const imageSrc = img.dataset.imageSrc || img.src || '';
+    const row = img.closest('.row');
+    const tierIndex = row ? Array.from(document.querySelectorAll('.row')).indexOf(row) : -1;
+    return { imageId, imageSrc, tier: tierIndex };
+  });
+}
+
+async function getGameDetailsForExport() {
+  const entries = [];
+  const imageDetails = getImageDetailsFromPage();
+  for (const image of imageDetails) {
+    if (!image.imageId) continue;
+    let metadata = { name: '', developer: '', date: '', description: '', status: '', platform: null };
+    try {
+      metadata = await getImageMetadataFromIndexedDB(image.imageId);
+    } catch (err) {
+      console.warn('Failed to load metadata for export:', image.imageId, err);
+    }
+    entries.push({
+      imageId: image.imageId,
+      imageSrc: image.imageSrc,
+      tier: image.tier,
+      name: metadata.name || '',
+      developer: metadata.developer || '',
+      date: metadata.date || '',
+      description: metadata.description || '',
+      platform: metadata.platform || null,
+      status: metadata.status || ''
+    });
+  }
+  return entries;
+}
+
+function downloadGameDetailsJSON() {
+  getGameDetailsForExport().then(entries => {
+    if (!entries.length) {
+      alert('No game details found to export.');
+      return;
+    }
+    const payload = {
+      exportedAt: new Date().toISOString(),
+      entries
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'GamersTierMaker_game_details.json';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }).catch(err => {
+    console.error('Failed to prepare game details export:', err);
+    alert('Failed to export game details. See console for details.');
+  });
+}
+
+function importGameDetailsJSON() {
+  let input = document.getElementById('game-details-import-input');
+  if (!input) {
+    input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'application/json';
+    input.id = 'game-details-import-input';
+    input.style.display = 'none';
+    input.addEventListener('change', async () => {
+      if (input.files && input.files.length) {
+        await handleGameDetailsImportFile(input.files[0]);
+      }
+      input.value = '';
+    });
+    document.body.appendChild(input);
+  }
+  input.click();
+}
+
+async function handleGameDetailsImportFile(file) {
+  try {
+    const text = await file.text();
+    const parsed = JSON.parse(text);
+    const entries = Array.isArray(parsed) ? parsed : (parsed.entries || parsed.details || []);
+    if (!entries.length) {
+      alert('No game details found in the imported file.');
+      return;
+    }
+
+    const images = Array.from(document.querySelectorAll('.image'));
+    const imageMapById = new Map(images.map(img => [img.dataset.imageId, img]));
+    const imageMapBySrc = new Map(images.map(img => [img.dataset.imageSrc || img.src, img]));
+
+    let applied = 0;
+    for (const entry of entries) {
+      if (!entry || !entry.imageId) continue;
+      let imageElement = imageMapById.get(entry.imageId);
+      if (!imageElement && entry.imageSrc) {
+        imageElement = imageMapBySrc.get(entry.imageSrc);
+      }
+      if (!imageElement) {
+        continue;
+      }
+
+      const imageId = imageElement.dataset.imageId;
+      const existingMetadata = await getImageMetadataFromIndexedDB(imageId).catch(() => ({ name: '', developer: '', date: '', description: '', status: '', platform: null }));
+      const mergedMetadata = {
+        ...existingMetadata,
+        name: entry.name || existingMetadata.name || '',
+        developer: entry.developer || existingMetadata.developer || '',
+        date: entry.date || existingMetadata.date || '',
+        description: entry.description || existingMetadata.description || '',
+        status: entry.status || existingMetadata.status || '',
+        platform: entry.platform || existingMetadata.platform || null
+      };
+
+      await saveImageMetadataToIndexedDB(imageId, mergedMetadata);
+      applied += 1;
+
+      if (currentImageElement && currentImageElement.dataset.imageId === imageId) {
+        document.getElementById('image-name').value = mergedMetadata.name;
+        document.getElementById('image-developer').value = mergedMetadata.developer;
+        document.getElementById('image-date').value = mergedMetadata.date;
+        document.getElementById('image-description').value = mergedMetadata.description;
+        document.getElementById('image-status').value = mergedMetadata.status;
+        currentSelectedPlatform = mergedMetadata.platform || null;
+        updateDateLabel();
+        updatePlatformButton();
+        renderPlatformOptions();
+      }
+    }
+
+    if (applied === 0) {
+      alert('No matching images were found to import game details.');
+    } else {
+      alert(`${applied} game detail${applied === 1 ? '' : 's'} imported successfully.`);
+    }
+  } catch (err) {
+    console.error('Failed to import game details:', err);
+    alert('Failed to import game details. Make sure the file is valid JSON.');
+  }
+}
+
 // Save image metadata to IndexedDB
 function saveImageMetadataToIndexedDB(id, metadata) {
   return new Promise((resolve, reject) => {
