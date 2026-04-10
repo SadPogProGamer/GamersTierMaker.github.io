@@ -1883,6 +1883,13 @@ function selectImages() {
   input.addEventListener("change", () => uploadImages(input.files));
 }
 
+function getCloudinaryFolder() {
+  if (window.location.hostname === "localhost" && window.location.port === "5500") {
+    return CLOUDINARY_CONFIG.localhostFolder || "LocalHost";
+  }
+  return CLOUDINARY_CONFIG.folder;
+}
+
 // Upload image to Cloudinary
 async function uploadToCloudinary(file) {
   if (!CLOUDINARY_CONFIG.cloudName || CLOUDINARY_CONFIG.cloudName === "YOUR_CLOUD_NAME") {
@@ -1892,7 +1899,7 @@ async function uploadToCloudinary(file) {
   const formData = new FormData();
   formData.append("file", file);
   formData.append("upload_preset", CLOUDINARY_CONFIG.uploadPreset);
-  formData.append("folder", CLOUDINARY_CONFIG.folder);
+  formData.append("folder", getCloudinaryFolder());
 
   try {
     const response = await fetch(
@@ -1929,7 +1936,7 @@ async function deleteFromCloudinary(cloudinaryUrl) {
     const urlParts = cloudinaryUrl.split('/');
     const fileNameWithExtension = urlParts[urlParts.length - 1];
     const publicId = fileNameWithExtension.split('.')[0];
-    const folder = CLOUDINARY_CONFIG.folder;
+    const folder = getCloudinaryFolder();
     const fullPublicId = folder ? `${folder}/${publicId}` : publicId;
 
     // Use Cloudinary's destroy endpoint

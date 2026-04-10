@@ -5,7 +5,8 @@
 const CLOUDINARY_CONFIG = {
   cloudName: "dfdibdfcm",
   uploadPreset: "GamersTierMaker",
-  folder: "GamersTierMaker"
+  folder: "GamersTierMaker",
+  localhostFolder: "LocalHost"
 };
 
 // Supabase Configuration
