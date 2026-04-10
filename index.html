@@ -1,127 +1,46 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Tier List</title>
-    <link rel="stylesheet" href="style.css" />
-  </head>
-  <body>
-    <div class="page-shell">
-      <main class="tier-layout">
-        <section class="tier-list">
-          <article class="tier-row">
-            <div class="tier-label tier-top">Top 10</div>
-            <div class="tier-preview"></div>
-            <div class="tier-controls">
-              <div class="controls-icon">⚙</div>
-              <div class="controls-buttons">
-                <button aria-label="move up">▲</button>
-                <button aria-label="move down">▼</button>
-              </div>
-            </div>
-          </article>
-          <article class="tier-row">
-            <div class="tier-label tier-11-20">Top 11-20</div>
-            <div class="tier-preview"></div>
-            <div class="tier-controls">
-              <div class="controls-icon">⚙</div>
-              <div class="controls-buttons">
-                <button aria-label="move up">▲</button>
-                <button aria-label="move down">▼</button>
-              </div>
-            </div>
-          </article>
-          <article class="tier-row">
-            <div class="tier-label tier-21-30">Top 21-30</div>
-            <div class="tier-preview"></div>
-            <div class="tier-controls">
-              <div class="controls-icon">⚙</div>
-              <div class="controls-buttons">
-                <button aria-label="move up">▲</button>
-                <button aria-label="move down">▼</button>
-              </div>
-            </div>
-          </article>
-          <article class="tier-row">
-            <div class="tier-label tier-s">S</div>
-            <div class="tier-preview"></div>
-            <div class="tier-controls">
-              <div class="controls-icon">⚙</div>
-              <div class="controls-buttons">
-                <button aria-label="move up">▲</button>
-                <button aria-label="move down">▼</button>
-              </div>
-            </div>
-          </article>
-          <article class="tier-row">
-            <div class="tier-label tier-a">A</div>
-            <div class="tier-preview"></div>
-            <div class="tier-controls">
-              <div class="controls-icon">⚙</div>
-              <div class="controls-buttons">
-                <button aria-label="move up">▲</button>
-                <button aria-label="move down">▼</button>
-              </div>
-            </div>
-          </article>
-          <article class="tier-row">
-            <div class="tier-label tier-b">B</div>
-            <div class="tier-preview"></div>
-            <div class="tier-controls">
-              <div class="controls-icon">⚙</div>
-              <div class="controls-buttons">
-                <button aria-label="move up">▲</button>
-                <button aria-label="move down">▼</button>
-              </div>
-            </div>
-          </article>
-          <article class="tier-row">
-            <div class="tier-label tier-c">C</div>
-            <div class="tier-preview"></div>
-            <div class="tier-controls">
-              <div class="controls-icon">⚙</div>
-              <div class="controls-buttons">
-                <button aria-label="move up">▲</button>
-                <button aria-label="move down">▼</button>
-              </div>
-            </div>
-          </article>
-          <article class="tier-row">
-            <div class="tier-label tier-d">D</div>
-            <div class="tier-preview"></div>
-            <div class="tier-controls">
-              <div class="controls-icon">⚙</div>
-              <div class="controls-buttons">
-                <button aria-label="move up">▲</button>
-                <button aria-label="move down">▼</button>
-              </div>
-            </div>
-          </article>
-          <article class="tier-row">
-            <div class="tier-label tier-f">F</div>
-            <div class="tier-preview"></div>
-            <div class="tier-controls">
-              <div class="controls-icon">⚙</div>
-              <div class="controls-buttons">
-                <button aria-label="move up">▲</button>
-                <button aria-label="move down">▼</button>
-              </div>
-            </div>
-          </article>
-          <article class="tier-row">
-            <div class="tier-label tier-worst">The world would have been better without</div>
-            <div class="tier-preview"></div>
-            <div class="tier-controls">
-              <div class="controls-icon">⚙</div>
-              <div class="controls-buttons">
-                <button aria-label="move up">▲</button>
-                <button aria-label="move down">▼</button>
-              </div>
-            </div>
-          </article>
-        </section>
-      </main>
+<head>
+  <meta charset="UTF-8">
+  <title>Tierlist like TierMaker</title>
+  <meta name="viewport" content="width=1000">
+
+  <link href="https://fonts.googleapis.com/css?family=Source+Sans+Pro:400,600&display=swap" rel="stylesheet">
+
+  <link rel='stylesheet' href='https://cdn-uicons.flaticon.com/3.0.0/uicons-solid-rounded/css/uicons-solid-rounded.css'>
+  <link rel='stylesheet' href='https://cdn-uicons.flaticon.com/3.0.0/uicons-regular-rounded/css/uicons-regular-rounded.css'>
+  
+  <link rel='stylesheet' href='styles.css'>
+
+</head>
+<body>
+  <h1>Tierlist like TierMaker</h1>
+  <div id="tierlist"></div>
+  
+  <div class="tierlist-controls">
+    <div id="image-bank-container">
+      <div style="display: flex; gap:16px;margin-bottom: 32px;">
+        <span id="image-counter" class="image-counter">(0)</span>
+        <div id="image-bank-title">Uploaded image bank</div>
+      </div>
+      <div id="image-bank"></div>
     </div>
-  </body>
+    <div id="modal-root"></div>
+    <div class="buttons-panel">
+      <button class="btn" onclick="openEditModal()">Edit</button>
+      <button class="btn" onclick="resetTierlist()">Reset</button>
+      <label class="btn file-btn">
+        <input type="file" id="upload" class="upload-input" multiple accept="image/*">
+        Upload
+      </label>
+      <button class="btn" onclick="exportImagesJSON()">Export images</button>
+      <label class="btn file-btn">
+        <input type="file" id="import-images" class="import-images-input" accept=".json,application/json">
+        Import images
+      </label>
+    </div>
+    
+  </div>
+  <script src="script.js"></script>
+</body>
 </html>
