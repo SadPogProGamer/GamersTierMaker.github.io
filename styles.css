@@ -1,4 +1,8 @@
 
+body {
+    color: #000;
+}
+
 .image-counter {
     color: rgba(127, 191, 255, 0.8);
     font-size: 1.1rem;
@@ -218,6 +222,33 @@ html::-webkit-scrollbar-thumb,
 
 .btn-icon--settings::before {
     content: "⚙️";
+}
+
+.label-holder {
+    width: 96px;
+    min-width: unset;
+    max-width: unset;
+    aspect-ratio: 1 / 1;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    border-radius: 12px 0 0 12px;
+    box-shadow: 2px 0 10px 0 #0003;
+    border: 2px solid rgba(255, 255, 255, 0.14);
+    transition: background 0.2s, box-shadow 0.2s;
+    position: relative;
+    z-index: 2;
+    cursor: pointer;
+    user-select: none;
+}
+
+.label-holder span {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
 }
 
 /* New styles for button blocks */
@@ -556,6 +587,8 @@ html::-webkit-scrollbar-thumb,
     font-weight: 600;
     transition: all 0.3s ease;
     width: 80px;
+    height: 80px;
+    aspect-ratio: 1 / 1;
     text-align: center;
 }
 
