@@ -1,0 +1,15 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+.preserve{
+	width: auto !important;
+}
+
+.fit{
+	object-fit: cover;
+}
+
+.stretch{
+	object-fit: fill;
+}
