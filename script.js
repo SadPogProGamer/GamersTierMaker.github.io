@@ -596,13 +596,14 @@ function updateAuthUI() {
     loginBtn.style.display = "none";
     profileDropdown.classList.remove("hidden");
     
-    const metadata = currentUser.user_metadata || {};
-    const avatarUrl = metadata.avatar_url || metadata.picture || "";
+    const userMeta = currentUser.user_metadata || {};
+    const rawMeta = currentUser.raw_user_meta_data || {};
+    const avatarUrl = userMeta.avatar_url || userMeta.picture || rawMeta.avatar_url || rawMeta.picture || "";
     if (avatarUrl) {
       profileAvatar.src = avatarUrl;
     }
     
-    userName.textContent = metadata.full_name || metadata.name || currentUser.email || "Signed in";
+    userName.textContent = userMeta.full_name || userMeta.name || rawMeta.full_name || rawMeta.name || currentUser.email || "Signed in";
     userName.style.display = "block";
   } else {
     loginBtn.style.display = "block";
