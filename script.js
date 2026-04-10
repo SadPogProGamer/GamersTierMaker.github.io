@@ -879,12 +879,13 @@ async function saveTierListToSupabase() {
         color: tierLabel.style.backgroundColor,
       });
 
-      tierImages.forEach((img) => {
+      Array.from(tierImages).forEach((img, order) => {
         const imageId = img.dataset.imageId;
         tierListData.imagePositions.push({
           imageId: imageId,
           imageSrc: img.dataset.imageSrc,
           tier: tierIndex,
+          order,
           details: metadataMap[imageId] || null,
         });
         if (metadataMap[imageId]) {
@@ -896,12 +897,13 @@ async function saveTierListToSupabase() {
     // Save images from bar
     const imagesBar = document.querySelector("#images-bar");
     const barImages = imagesBar.querySelectorAll(".image");
-    barImages.forEach((img) => {
+    Array.from(barImages).forEach((img, order) => {
       const imageId = img.dataset.imageId;
       tierListData.imagePositions.push({
         imageId: imageId,
         imageSrc: img.dataset.imageSrc,
         tier: -1,
+        order,
         details: metadataMap[imageId] || null,
       });
       if (metadataMap[imageId]) {
@@ -964,12 +966,13 @@ async function buildTierListData() {
       color: tierLabel.style.backgroundColor,
     });
 
-    tierImages.forEach((img) => {
+    Array.from(tierImages).forEach((img, order) => {
       const imageId = img.dataset.imageId;
       tierListData.imagePositions.push({
         imageId,
         imageSrc: img.dataset.imageSrc,
         tier: tierIndex,
+        order,
         details: metadataMap[imageId] || null,
       });
       if (metadataMap[imageId]) tierListData.gameMetadata[imageId] = metadataMap[imageId];
@@ -980,12 +983,13 @@ async function buildTierListData() {
   try {
     const imagesBar = document.querySelector('#images-bar');
     const barImages = imagesBar ? imagesBar.querySelectorAll('.image') : [];
-    barImages.forEach((img) => {
+    Array.from(barImages).forEach((img, order) => {
       const imageId = img.dataset.imageId;
       tierListData.imagePositions.push({
         imageId,
         imageSrc: img.dataset.imageSrc,
         tier: -1,
+        order,
         details: metadataMap[imageId] || null,
       });
       if (metadataMap[imageId]) tierListData.gameMetadata[imageId] = metadataMap[imageId];
@@ -1306,7 +1310,13 @@ async function loadTierListFromObject(tierListData) {
   const metadataSavePromises = [];
   
   if (tierListData.imagePositions && tierListData.imagePositions.length) {
-    for (const imgPos of tierListData.imagePositions) {
+    const sortedImagePositions = [...tierListData.imagePositions].sort((a, b) => {
+      const tierA = a.tier === -1 ? Number.MAX_SAFE_INTEGER : a.tier;
+      const tierB = b.tier === -1 ? Number.MAX_SAFE_INTEGER : b.tier;
+      if (tierA !== tierB) return tierA - tierB;
+      return (a.order || 0) - (b.order || 0);
+    });
+    for (const imgPos of sortedImagePositions) {
       const imageId = imgPos.imageId || ('img_' + Math.random().toString(36).slice(2));
       const image = document.createElement('img');
       image.src = imgPos.imageSrc;
@@ -1335,6 +1345,7 @@ async function loadTierListFromObject(tierListData) {
         src: imgPos.imageSrc,
         tier: imgPos.tier,
         id: imageId,
+        order: imgPos.order || 0,
         cloudinaryUrl: imgPos.imageSrc,
       };
       saveImageToIndexedDB(imageData).catch(err => {
@@ -2548,20 +2559,22 @@ function saveImagePositions() {
   // Get images from tiers
   rows.forEach((row, tierIndex) => {
     const tierImages = row.children[1].querySelectorAll(".image");
-    tierImages.forEach((img) => {
+    tierImages.forEach((img, order) => {
       imagePositions.push({
         id: img.dataset.imageId,
         tier: tierIndex,
+        order,
       });
     });
   });
 
   // Get images from images bar
   const barImages = imagesBar.querySelectorAll(".image");
-  barImages.forEach((img) => {
+  barImages.forEach((img, order) => {
     imagePositions.push({
       id: img.dataset.imageId,
       tier: -1,
+      order,
     });
   });
 
@@ -2571,6 +2584,7 @@ function saveImagePositions() {
       const position = imagePositions.find(p => p.id === image.id);
       if (position) {
         image.tier = position.tier;
+        image.order = position.order;
         // Update in IndexedDB
         const transaction = indexedDb.transaction(['images'], 'readwrite');
         const store = transaction.objectStore('images');
@@ -2686,6 +2700,13 @@ function loadImagesFromStorage() {
     const displayedImageIds = new Set();
     document.querySelectorAll(".image").forEach(img => {
       displayedImageIds.add(img.dataset.imageId);
+    });
+
+    storedImages.sort((a, b) => {
+      const tierA = a.tier === -1 ? Number.MAX_SAFE_INTEGER : a.tier;
+      const tierB = b.tier === -1 ? Number.MAX_SAFE_INTEGER : b.tier;
+      if (tierA !== tierB) return tierA - tierB;
+      return (a.order || 0) - (b.order || 0);
     });
 
     for (const imageObj of storedImages) {
