@@ -3089,8 +3089,10 @@ function closeImageModal() {
 
   // Save metadata one final time on close (ensure all data is persisted)
   saveImageMetadataToIndexedDB(imageId, imageMetadata)
-    .then(() => {
+    .then(async () => {
       console.log(`Metadata saved to IndexedDB on modal close for image ${imageId}`);
+      await sortCurrentImageTierIfOrdered(currentImageElement);
+
       // Sync metadata to Supabase if user is logged in
       if (currentUser && supabaseClient) {
         return saveTierListToSupabase();
@@ -3121,6 +3123,24 @@ function closeImageModal() {
       currentImageElement = null;
       currentSelectedPlatform = null;
     });
+}
+
+async function sortCurrentImageTierIfOrdered(imageElement) {
+  if (!imageElement) return;
+  const row = imageElement.closest('.row');
+  if (!row) return;
+
+  const rows = Array.from(document.querySelectorAll('.row'));
+  const tierIndex = rows.indexOf(row);
+  if (tierIndex < 0) return;
+  if (!tierOrderingStates[tierIndex]) return;
+
+  try {
+    await sortTierByPlatform(row.children[1]);
+    console.log(`Sorted tier ${tierIndex} after saving platform metadata.`);
+  } catch (err) {
+    console.warn(`Failed to sort tier ${tierIndex} after saving platform metadata:`, err);
+  }
 }
 
 function deleteImageFromModal() {
