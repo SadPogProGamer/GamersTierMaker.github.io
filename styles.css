@@ -344,7 +344,7 @@ img {
 
 #images-bar {
   padding: 10px 20px;
-  margin: 0 auto;
+  width: 100%;
   max-width: 1400px;
   display: flex;
   flex-wrap: wrap;
@@ -353,12 +353,35 @@ img {
   border-radius: 8px;
   transition: all 0.3s ease;
   position: relative;
+  background-color: #333333;
+}
+
+.unassigned-container {
+  width: calc(100% - 40px);
+  max-width: 1360px;
+  margin: 0 auto 20px;
+  padding-top: 24px;
+  box-sizing: border-box;
+}
+
+.unassigned-header {
+  text-align: left;
+  color: #e1e1e1;
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 10px;
+}
+
+.unassigned-header span {
+  color: #b8b8b8;
+  font-weight: 400;
 }
 
 #images-bar.drag-over {
   border-color: #7fffff;
   background-color: rgba(127, 255, 255, 0.1);
 }
+
 
 .drop-zone-hint {
   position: absolute;
