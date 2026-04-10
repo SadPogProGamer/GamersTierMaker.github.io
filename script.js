@@ -2535,9 +2535,11 @@ function initializeDragula() {
       } catch (e) {
         updateTierCounts(countsAreShown());
       }
+      clearImageSelection();
     })
     .on("cancel", (el) => {
       scrollable = true;
+      clearImageSelection();
     })
     .on("over", (el, container) => {
       if (container.classList.contains('sort')) {
