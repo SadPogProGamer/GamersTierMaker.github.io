@@ -2003,18 +2003,19 @@ function deleteRow(element) {
 
 function moveRow(button, direction) {
   const row = button.closest(".row");
-
-  const currentIndex = Array.from(row.parentNode.children).indexOf(row);
+  const parent = row.parentNode;
+  const rows = Array.from(parent.children).filter((child) => child.classList.contains("row"));
+  const currentIndex = rows.indexOf(row);
   const newIndex = currentIndex + direction;
 
-  if (newIndex >= 0) {
-    row.parentNode.insertBefore(
-      row,
-      row.parentNode.children[newIndex + (direction === 1 ? 1 : 0)]
-    );
-    initializeDragula();
-    saveTierColors();
+  if (newIndex < 0 || newIndex >= rows.length) {
+    return;
   }
+
+  const referenceRow = direction === 1 ? rows[newIndex].nextElementSibling : rows[newIndex];
+  parent.insertBefore(row, referenceRow);
+  initializeDragula();
+  saveTierColors();
 }
 
 function selectImages() {
