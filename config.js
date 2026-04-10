@@ -6,6 +6,9 @@ const CLOUDINARY_CONFIG = {
   cloudName: "dfdibdfcm",
   uploadPreset: "GamersTierMaker",
   folder: "LocalHost",
+  // Set this to your server-side delete endpoint.
+  // The endpoint should accept a POST request with { cloudinaryUrl }.
+  deleteEndpoint: "/api/cloudinary-delete",
 };
 
 // Supabase Configuration

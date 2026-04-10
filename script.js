@@ -2075,38 +2075,30 @@ async function deleteFromCloudinary(cloudinaryUrl) {
     return;
   }
 
-  try {
-    // Extract public ID from the Cloudinary URL
-    // URL format: https://res.cloudinary.com/{cloudName}/image/upload/v{version}/{folder}/{publicId}.{format}
-    const urlParts = cloudinaryUrl.split('/');
-    const fileNameWithExtension = urlParts[urlParts.length - 1];
-    const publicId = fileNameWithExtension.split('.')[0];
-    const folder = getCloudinaryFolder();
-    const fullPublicId = folder ? `${folder}/${publicId}` : publicId;
+  const endpoint = CLOUDINARY_CONFIG.deleteEndpoint;
+  if (!endpoint) {
+    console.warn("Cloudinary delete endpoint is not configured. Skipping remote deletion.");
+    return;
+  }
 
-    // Use Cloudinary's destroy endpoint
-    const response = await fetch(
-      `https://api.cloudinary.com/v1_1/${CLOUDINARY_CONFIG.cloudName}/image/destroy`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
-        },
-        body: new URLSearchParams({
-          public_id: fullPublicId,
-          api_key: "YOUR_API_KEY", // This won't work without API key - see note below
-        }).toString(),
-      }
-    );
+  try {
+    const response = await fetch(endpoint, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ cloudinaryUrl }),
+    });
 
     if (!response.ok) {
-      console.warn("Failed to delete from Cloudinary (API key required for deletion)");
+      const errorText = await response.text();
+      console.warn(`Cloudinary delete endpoint returned ${response.status}: ${errorText}`);
       return;
     }
 
-    console.log("Image deleted from Cloudinary:", fullPublicId);
+    console.log("Image deleted via Cloudinary endpoint:", cloudinaryUrl);
   } catch (err) {
-    console.warn("Could not delete image from Cloudinary:", err);
+    console.warn("Cloudinary delete endpoint request failed:", err);
     // Don't throw - allow local deletion to continue even if remote deletion fails
   }
 }
