@@ -576,6 +576,27 @@ async function handleGameDetailsImportFile(file) {
     const imageMapById = new Map(images.map(img => [img.dataset.imageId, img]));
     const imageMapBySrc = new Map(images.map(img => [img.dataset.imageSrc || img.src, img]));
 
+    // Build a normalized-src map to handle query params and minor URL differences
+    const normalizeSrc = (s) => {
+      if (!s) return null;
+      try {
+        if (s.startsWith('data:')) return s; // keep data URLs intact
+        const u = new URL(s, window.location.href);
+        // strip search/query and hash
+        return u.origin + u.pathname;
+      } catch (e) {
+        // Fallback: remove query string
+        return s.split('?')[0];
+      }
+    };
+
+    const imageMapBySrcNormalized = new Map();
+    images.forEach(img => {
+      const raw = img.dataset.imageSrc || img.src;
+      const norm = normalizeSrc(raw);
+      if (norm) imageMapBySrcNormalized.set(norm, img);
+    });
+
     let applied = 0;
     for (const entry of entries) {
       if (!entry) continue;
@@ -583,8 +604,22 @@ async function handleGameDetailsImportFile(file) {
       if (entry.imageId) {
         imageElement = imageMapById.get(entry.imageId);
       }
+
+      // Try matching by imageSrc (exact, then normalized)
       if (!imageElement && entry.imageSrc) {
-        imageElement = imageMapBySrc.get(entry.imageSrc);
+        imageElement = imageMapBySrc.get(entry.imageSrc) || imageMapBySrcNormalized.get(normalizeSrc(entry.imageSrc));
+
+        // Last resort: try flexible matching between normalized paths
+        if (!imageElement) {
+          const targetNorm = normalizeSrc(entry.imageSrc) || '';
+          for (const [key, el] of imageMapBySrcNormalized.entries()) {
+            if (!key || !targetNorm) continue;
+            if (key === targetNorm || key.endsWith(targetNorm) || targetNorm.endsWith(key) || key.includes(targetNorm) || targetNorm.includes(key)) {
+              imageElement = el;
+              break;
+            }
+          }
+        }
       }
       if (!imageElement) {
         continue;
@@ -659,9 +694,12 @@ function getImageMetadataFromIndexedDB(id) {
       const result = request.result;
       if (result) {
         const genres = Array.isArray(result.genres) ? result.genres.slice() : (result.genre ? [result.genre] : []);
-        resolve({ name: result.name || "", developer: result.developer || "", date: result.date || "", description: result.description || "", status: result.status || "", platform: result.platform || null, genres });
+        // Preserve 100% completion fields if present so exports/imports include them
+        const date100 = result.date100 || result.date_100 || "";
+        const has100Replay = !!result.has100Replay || !!result.has100 || false;
+        resolve({ name: result.name || "", developer: result.developer || "", date: result.date || "", date100: date100, description: result.description || "", status: result.status || "", platform: result.platform || null, genres, has100Replay });
       } else {
-        resolve({ name: "", developer: "", date: "", description: "", status: "", platform: null, genres: [] });
+        resolve({ name: "", developer: "", date: "", date100: "", description: "", status: "", platform: null, genres: [], has100Replay: false });
       }
     };
   });
