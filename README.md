@@ -1,1 +1,1 @@
-SadPogProGamer/GamersTierMaker.github.io
+https://sadpogprogamer.github.io/GamersTierMaker.github.io/
