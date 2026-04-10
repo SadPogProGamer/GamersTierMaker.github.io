@@ -934,13 +934,29 @@ async function saveTierListToSupabase() {
 
       Array.from(tierImages).forEach((img, order) => {
         const imageId = img.dataset.imageId;
-        tierListData.imagePositions.push({
-          imageId: imageId,
-          imageSrc: img.dataset.imageSrc,
-          tier: tierIndex,
-          order,
-          details: metadataMap[imageId] || null,
-        });
+        const imageSrc = img.dataset.imageSrc;
+        
+        // Filter out broken HTTP URLs (keep data: and blob: URLs)
+        if (imageSrc && imageSrc.startsWith('http')) {
+          // Skip validation for this sync - validation is done on onerror
+          tierListData.imagePositions.push({
+            imageId: imageId,
+            imageSrc: imageSrc,
+            tier: tierIndex,
+            order,
+            details: metadataMap[imageId] || null,
+          });
+        } else if (imageSrc && !imageSrc.startsWith('http')) {
+          // Keep local storage images (data: URLs, etc.)
+          tierListData.imagePositions.push({
+            imageId: imageId,
+            imageSrc: imageSrc,
+            tier: tierIndex,
+            order,
+            details: metadataMap[imageId] || null,
+          });
+        }
+        
         if (metadataMap[imageId]) {
           tierListData.gameMetadata[imageId] = metadataMap[imageId];
         }
@@ -952,13 +968,28 @@ async function saveTierListToSupabase() {
     const barImages = imagesBar.querySelectorAll(".image");
     Array.from(barImages).forEach((img, order) => {
       const imageId = img.dataset.imageId;
-      tierListData.imagePositions.push({
-        imageId: imageId,
-        imageSrc: img.dataset.imageSrc,
-        tier: -1,
-        order,
-        details: metadataMap[imageId] || null,
-      });
+      const imageSrc = img.dataset.imageSrc;
+      
+      // Filter out broken HTTP URLs
+      if (imageSrc && imageSrc.startsWith('http')) {
+        tierListData.imagePositions.push({
+          imageId: imageId,
+          imageSrc: imageSrc,
+          tier: -1,
+          order,
+          details: metadataMap[imageId] || null,
+        });
+      } else if (imageSrc && !imageSrc.startsWith('http')) {
+        // Keep local storage images
+        tierListData.imagePositions.push({
+          imageId: imageId,
+          imageSrc: imageSrc,
+          tier: -1,
+          order,
+          details: metadataMap[imageId] || null,
+        });
+      }
+      
       if (metadataMap[imageId]) {
         tierListData.gameMetadata[imageId] = metadataMap[imageId];
       }
@@ -983,6 +1014,60 @@ async function saveTierListToSupabase() {
     console.error("Failed to save tier list to Supabase:", err);
     throw err;
   }
+}
+
+// Validate image URL and check if it's accessible
+async function validateImageUrl(url, timeoutMs = 5000) {
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+    
+    const response = await fetch(url, {
+      method: 'HEAD',
+      mode: 'no-cors',
+      signal: controller.signal
+    });
+    
+    clearTimeout(timeoutId);
+    // For CORS-protected URLs, any status < 500 is acceptable
+    return response.status < 500;
+  } catch (err) {
+    // Network errors or timeout mean image is not accessible
+    console.warn(`Image URL validation failed for ${url}:`, err.message);
+    return false;
+  }
+}
+
+// Clean up broken images from DOM and IndexedDB
+async function cleanupBrokenImages() {
+  const brokenImageIds = [];
+  
+  // Find all image elements in DOM
+  const allImageElements = document.querySelectorAll('.image');
+  
+  for (const img of allImageElements) {
+    const imageId = img.dataset.imageId;
+    const url = img.dataset.imageSrc || img.src;
+    
+    // Check if URL is valid (skip data: URLs and local storage URLs)
+    if (url && url.startsWith('http')) {
+      const isValid = await validateImageUrl(url);
+      if (!isValid) {
+        console.warn(`Removing broken image: ${imageId} (${url})`);
+        img.remove();
+        brokenImageIds.push(imageId);
+      }
+    }
+  }
+  
+  // Remove broken images from IndexedDB
+  for (const imageId of brokenImageIds) {
+    await deleteImageFromIndexedDB(imageId).catch(err => {
+      console.warn(`Could not delete image ${imageId} from IndexedDB:`, err);
+    });
+  }
+  
+  return brokenImageIds;
 }
 
 // Build tier list data (used for both Supabase and local save)
@@ -1382,11 +1467,24 @@ async function loadTierListFromObject(tierListData) {
       image.onclick = () => openImageModal(image);
       setupImageSelection(image);
       // Remove stale Cloudinary files (404s) from DOM and storage
+      // Also trigger resync to Supabase to propagate cleanup to other devices
       image.onerror = () => {
+        console.warn(`Image failed to load: ${imageId} (${imgPos.imageSrc}). Removing from tier list.`);
         image.remove();
         deleteImageFromIndexedDB(imageId).catch(err => {
           console.warn(`Could not delete stale image ${imageId} from storage:`, err);
         });
+        
+        // Resync to Supabase to propagate cleanup to other devices
+        if (currentUser && supabaseClient && supabaseAvailable) {
+          // Add a small delay to avoid too frequent syncs
+          clearTimeout(autoSaveTimeout);
+          autoSaveTimeout = setTimeout(() => {
+            saveTierListToSupabase().catch(err => {
+              console.warn('Failed to resync after image cleanup:', err);
+            });
+          }, 1000);
+        }
       };
 
       if (typeof imgPos.tier === 'number' && imgPos.tier >= 0 && rows[imgPos.tier]) {
@@ -2843,12 +2941,23 @@ function loadImagesFromStorage() {
       image.dataset.cloudinaryUrl = imageObj.cloudinaryUrl || imageObj.src;
       image.onclick = () => openImageModal(image);
       setupImageSelection(image);
-      // Remove stale images if they fail to load
+      // Remove stale images if they fail to load, and resync to propagate changes
       image.onerror = () => {
+        console.warn(`Image failed to load: ${imageObj.id} (${imageObj.src}). Removing from tier list.`);
         image.remove();
         deleteImageFromIndexedDB(imageObj.id).catch(err => {
           console.warn(`Could not delete stale image ${imageObj.id} from storage:`, err);
         });
+        
+        // Resync to Supabase to propagate cleanup to other devices
+        if (currentUser && supabaseClient && supabaseAvailable) {
+          clearTimeout(autoSaveTimeout);
+          autoSaveTimeout = setTimeout(() => {
+            saveTierListToSupabase().catch(err => {
+              console.warn('Failed to resync after image cleanup:', err);
+            });
+          }, 1000);
+        }
       };
 
       if (imageObj.tier === -1) {
