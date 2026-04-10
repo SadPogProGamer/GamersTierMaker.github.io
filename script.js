@@ -554,7 +554,12 @@ async function signInWithGoogle() {
     }
   } catch (err) {
     console.error("Sign in error:", err);
-    alert("Failed to sign in. Make sure Supabase is configured.");
+    const msg = err?.message || '';
+    if (msg.includes('Unsupported provider') || msg.includes('provider is not enabled')) {
+      alert("Google sign-in is not enabled in Supabase. Enable Google under Auth > Providers and add your app's redirect URL.");
+    } else {
+      alert("Failed to sign in. Make sure Supabase is configured.");
+    }
   }
 }
 
