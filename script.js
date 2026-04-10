@@ -1002,25 +1002,17 @@ async function saveTierListToSupabase() {
     }, { onConflict: "user_id" });
 
     if (error) {
-      // Check for table not found error (404)
-      if (error.status === 404 || error.code === 'PGRST205' || /tierLists/.test(error.message || '')) {
+      if (error.code === 'PGRST205' || error.status === 404 || /tierLists/.test(error.message || '')) {
         supabaseAvailable = false;
-        console.error('❌ Supabase table "tierLists" does not exist.');
-        console.warn('To enable cloud sync, create the tierLists table in your Supabase dashboard:');
-        console.warn('SQL: CREATE TABLE tierLists (id UUID PRIMARY KEY DEFAULT uuid_generate_v4(), user_id UUID NOT NULL UNIQUE REFERENCES auth.users, tier_data JSONB NOT NULL, updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(), created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW());');
-        console.warn('Falling back to local storage only.');
-        return; // Don't throw, just return silently
+        console.warn('Supabase table not available. Disabling Supabase sync and using local storage only.');
       }
       throw error;
     }
 
-    console.log("✓ Tier list saved to Supabase");
+    console.log("Tier list saved to Supabase");
   } catch (err) {
     console.error("Failed to save tier list to Supabase:", err);
-    // Don't rethrow - let app continue with local storage fallback
-    if (supabaseAvailable !== false) {
-      supabaseAvailable = false;
-    }
+    throw err;
   }
 }
 
@@ -1197,29 +1189,20 @@ async function saveTierList() {
 }
 
 // Load tier list from Supabase
-async function loadTierListFromSupabase(bypassCache = true) {
+async function loadTierListFromSupabase() {
   if (!currentUser || !supabaseClient || !supabaseAvailable) return;
 
   try {
     const { data, error, status } = await supabaseClient
       .from("tierLists")
-      .select("tier_data, updated_at")
+      .select("tier_data")
       .eq("user_id", currentUser.id)
       .single();
 
     if (error && status !== 406) {
-      // Handle table not found (404) gracefully
-      if (error.status === 404 || error.code === 'PGRST205' || /tierLists/.test(error.message || '')) {
+      if (error.code === 'PGRST205' || status === 404 || /tierLists/.test(error.message || '')) {
         supabaseAvailable = false;
-        if (status === 404) {
-          console.warn('❌ Supabase table "tierLists" does not exist in your database.');
-          console.warn('To enable cloud sync, run this SQL in your Supabase dashboard:');
-          console.warn('CREATE TABLE tierLists (id UUID PRIMARY KEY DEFAULT uuid_generate_v4(), user_id UUID NOT NULL UNIQUE REFERENCES auth.users(id), tier_data JSONB NOT NULL, updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(), created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW());');
-        } else {
-          console.warn('Supabase table not available. Using local storage only.');
-        }
-        loadTierListFromLocalStorage();
-        return;
+        console.warn('Supabase table not available. Disabling Supabase sync and using local storage only.');
       }
       throw error;
     }
@@ -1230,14 +1213,8 @@ async function loadTierListFromSupabase(bypassCache = true) {
       return;
     }
 
-    // Preserve the latest updated_at from database
-    if (data.updated_at) {
-      data.tier_data.updated_at = data.updated_at;
-      console.log("Loaded tier list from Supabase, last synced:", data.updated_at);
-    }
-
     await loadTierListFromObject(data.tier_data);
-    console.log("✓ Tier list loaded from Supabase (fresh)");
+    console.log("✓ Tier list loaded from Supabase");
   } catch (err) {
     console.error("Failed to load tier list from Supabase:", err);
     console.log("Falling back to local storage...");
@@ -1353,27 +1330,19 @@ async function renderSavedTierlists() {
     try {
       const { data: result, error, status } = await supabaseClient
         .from('tierLists')
-        .select('tier_data, updated_at')
+        .select('tier_data')
         .eq('user_id', currentUser.id)
         .single();
 
-      // Handle table not found (404) and no data (406) without throwing
-      if (error && status !== 406 && status !== 404) {
+      if (error && status !== 406) {
         throw error;
       }
 
-      if (result && result.tier_data) {
-        // Include the latest updated_at timestamp
-        if (result.updated_at) {
-          result.tier_data.updated_at = result.updated_at;
-        }
+      if (result) {
         data = result.tier_data;
       }
     } catch (e) {
-      // Only warn on unexpected errors
-      if (!e.status || (e.status !== 404 && e.status !== 406)) {
-        console.warn('Failed to load tierlist from Supabase:', e);
-      }
+      console.warn('Failed to load tierlist from Supabase:', e);
     }
   }
 
