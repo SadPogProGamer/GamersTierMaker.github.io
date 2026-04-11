@@ -511,50 +511,6 @@ function saveImagePositions() {
   });
 }
 
-// Global helper: Update or create a small count badge left of each tier label
-function updateTierCounts(show) {
-  const rows = document.querySelectorAll('.row');
-  rows.forEach((row) => {
-    const label = row.querySelector('.tier-label');
-    if (!label) return;
-    let badge = label.querySelector('.tier-count');
-    if (!badge) {
-      badge = document.createElement('div');
-      badge.className = 'tier-count';
-      // insert before the first child (so it appears left)
-      label.insertBefore(badge, label.firstChild);
-    }
-    const count = Array.from(row.children[1].querySelectorAll('.image')).filter(img => img.style.display !== 'none').length;
-    badge.textContent = count;
-    badge.style.display = show ? 'block' : 'none';
-  });
-  // Also update total-count element if present
-  try {
-    const totalEl = document.getElementById('total-count');
-    if (totalEl) {
-      // Only count images in tier rows, exclude images in the lower bar
-      const total = Array.from(document.querySelectorAll('.row .image')).filter(img => img.style.display !== 'none').length;
-      totalEl.textContent = `Total: ${total}`;
-      totalEl.style.display = show ? '' : 'none';
-    }
-  } catch (e) {
-    // ignore
-  }
-}
-
-// Returns true if tier counts or total-count are currently visible
-function countsAreShown() {
-  try {
-    const totalEl = document.getElementById('total-count');
-    if (totalEl && window.getComputedStyle(totalEl).display !== 'none') return true;
-    const badge = document.querySelector('.tier-count');
-    if (badge && window.getComputedStyle(badge).display !== 'none') return true;
-  } catch (e) {
-    // ignore
-  }
-  return false;
-}
-
 function dynamicStyle(checkbox, css) {
   const style = document.querySelector("#dynamic-styles");
 
