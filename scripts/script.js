@@ -1,6 +1,5 @@
 const hash = location.hash.substring(1);
 
-let customPlatforms = [];
 let pickrInstances = [];
 let initializationComplete = false; // Track when app is fully initialized
 
@@ -117,7 +116,6 @@ initializeFirebase().then(() => {
 }).then(async () => {
   // Load header from storage on page load
   loadHeaderFromStorage();
-  loadCustomPlatforms();
   loadTierColors();
   loadTierOrderingStates();
   loadTierLimitStates();
@@ -428,17 +426,6 @@ function loadHeaderFromStorage() {
   });
 }
 
-function loadCustomPlatforms() {
-  getSetting("customPlatforms").then(stored => {
-    if (stored) {
-      const parsed = Array.isArray(stored) ? stored : JSON.parse(stored);
-      // Handle migration from old format (array of strings) to new format (array of objects)
-      customPlatforms = parsed.map(p => typeof p === 'string' ? { name: p, category: "Uncategorized" } : p);
-    }
-  }).catch(err => {
-  });
-}
-
 function loadTierOrderingStates() {
   getSetting("tierOrderingStates").then(stored => {
     if (stored) {
@@ -492,21 +479,6 @@ function renderPlatformOptions() {
     searchQuery = aliasArray[0];
   }
 
-  // Flatten default platforms from categories
-  const defaultPlatforms = [];
-  for (const category in platformOptions) {
-    defaultPlatforms.push(...platformOptions[category]);
-  }
-
-  // Combine default and custom platforms
-  const defaultPlatformsFlat = [];
-  defaultPlatforms.forEach(p => defaultPlatformsFlat.push(p));
-  const customPlatformsFlat = customPlatforms.map(p => p.name);
-  const allPlatforms = [...defaultPlatformsFlat, ...customPlatformsFlat];
-  const filteredPlatforms = allPlatforms.filter((platform) =>
-    platform.toLowerCase().includes(searchQuery) || platform.toLowerCase().includes(originalSearchQuery)
-  );
-
   // Show organized by categories (works with or without search query)
   for (const category in platformOptions) {
     // Skip categories that don't match the selected category filter
@@ -519,33 +491,17 @@ function renderPlatformOptions() {
       platform.toLowerCase().includes(searchQuery) || platform.toLowerCase().includes(originalSearchQuery)
     );
 
-    // Also include custom platforms in this category
-    const customInCategory = customPlatforms.filter(
-      (cp) => cp.category === category && (cp.name.toLowerCase().includes(searchQuery) || cp.name.toLowerCase().includes(originalSearchQuery))
-    );
-    const allInCategory = [...filteredCategory, ...customInCategory.map(cp => ({ isCustom: true, name: cp.name }))];
-
-    if (allInCategory.length > 0) {
+    if (filteredCategory.length > 0) {
       // Add category header
       const categoryHeader = document.createElement("div");
       categoryHeader.className = "platform-category-header";
       categoryHeader.textContent = category;
-      categoryHeader.ondragover = (e) => handlePlatformDragOver(e);
-      categoryHeader.ondragleave = (e) => handlePlatformDragLeave(e);
-      categoryHeader.ondrop = (e) => handlePlatformDropOnCategory(e, category);
       optionsContainer.appendChild(categoryHeader);
 
-      // Add default platforms in this category
       filteredCategory.forEach((platform) => {
         const option = document.createElement("div");
         option.className = "platform-option";
         option.dataset.platform = platform;
-        option.ondragover = (e) => {
-          e.preventDefault();
-          e.dataTransfer.dropEffect = "move";
-          showPlaceholder(category);
-        };
-        option.ondrop = (e) => handlePlatformDropOnCategory(e, category);
         if (currentSelectedPlatform === platform) {
           option.classList.add("selected");
         }
@@ -555,108 +511,9 @@ function renderPlatformOptions() {
         };
         optionsContainer.appendChild(option);
       });
-
-      // Add custom platforms in this category
-      customInCategory.forEach((cp) => {
-        const option = document.createElement("div");
-        option.className = "platform-option draggable";
-        option.draggable = true;
-        option.dataset.platform = cp.name;
-        option.dataset.isCustom = "true";
-        if (currentSelectedPlatform === cp.name) {
-          option.classList.add("selected");
-        }
-        if (deletePlatformMode) {
-          option.classList.add("delete-mode");
-        }
-        option.textContent = cp.name;
-        option.ondragstart = (e) => handlePlatformDragStart(e, cp.name, category);
-        option.ondragover = (e) => handlePlatformDragOver(e);
-        option.ondragleave = (e) => handlePlatformDragLeave(e);
-        option.ondrop = (e) => handlePlatformDrop(e, cp.name, category);
-        option.ondragend = (e) => handlePlatformDragEnd(e);
-        option.onclick = () => {
-          if (deletePlatformMode) {
-            deletePlatform(cp.name);
-          } else {
-            selectPlatform(cp.name);
-          }
-        };
-        optionsContainer.appendChild(option);
-      });
-
-      // Add drop zone after platforms in this category
-      const dropZone = document.createElement("div");
-      dropZone.className = "platform-drop-zone";
-      dropZone.ondragover = (e) => {
-        e.preventDefault();
-        e.dataTransfer.dropEffect = "move";
-        showPlaceholder(category);
-      };
-      dropZone.ondrop = (e) => handlePlatformDropOnCategory(e, category);
-      optionsContainer.appendChild(dropZone);
     }
   }
 
-  // Add custom platforms in Uncategorized section if there are any
-  const uncategorizedCustom = customPlatforms.filter(
-    (cp) => cp.category === "Uncategorized" && cp.name.toLowerCase().includes(searchQuery)
-  );
-  if (uncategorizedCustom.length > 0) {
-    const customHeader = document.createElement("div");
-    customHeader.className = "platform-category-header";
-    customHeader.textContent = "Uncategorized";
-    customHeader.ondragover = (e) => handlePlatformDragOver(e);
-    customHeader.ondragleave = (e) => handlePlatformDragLeave(e);
-    customHeader.ondrop = (e) => handlePlatformDropOnCategory(e, "Uncategorized");
-    optionsContainer.appendChild(customHeader);
-
-    uncategorizedCustom.forEach((cp) => {
-        const option = document.createElement("div");
-        option.className = "platform-option draggable";
-        option.draggable = true;
-        option.dataset.platform = cp.name;
-        option.dataset.isCustom = "true";
-        if (currentSelectedPlatform === cp.name) {
-          option.classList.add("selected");
-        }
-        if (deletePlatformMode) {
-          option.classList.add("delete-mode");
-        }
-        option.textContent = cp.name;
-        option.ondragstart = (e) => handlePlatformDragStart(e, cp.name, "Uncategorized");
-        option.ondragover = (e) => handlePlatformDragOver(e);
-        option.ondragleave = (e) => handlePlatformDragLeave(e);
-        option.ondrop = (e) => handlePlatformDrop(e, cp.name, "Uncategorized");
-        option.ondragend = (e) => handlePlatformDragEnd(e);
-        option.onclick = () => {
-          if (deletePlatformMode) {
-            deletePlatform(cp.name);
-          } else {
-            selectPlatform(cp.name);
-          }
-        };
-        optionsContainer.appendChild(option);
-      });
-
-      // Add drop zone for Uncategorized section
-      const uncategorizedDropZone = document.createElement("div");
-      uncategorizedDropZone.className = "platform-drop-zone";
-      uncategorizedDropZone.ondragover = (e) => {
-        e.preventDefault();
-        e.dataTransfer.dropEffect = "move";
-        showPlaceholder("Uncategorized");
-      };
-      uncategorizedDropZone.ondrop = (e) => handlePlatformDropOnCategory(e, "Uncategorized");
-      optionsContainer.appendChild(uncategorizedDropZone);
-  }
-
-  const addContainer = document.createElement("div");
-  addContainer.className = "platform-add-container";
-  addContainer.innerHTML = `
-    <button class="platform-delete-btn" onclick="enterDeletePlatformMode()">Delete</button>
-  `;
-  optionsContainer.appendChild(addContainer);
 }
 
 // Trigger a debounced metadata autosave for the current image
@@ -669,58 +526,6 @@ function triggerMetadataAutosaveDebounced(imageId) {
 }
 
 // Genre UI and helpers removed
-function enterDeletePlatformMode() {
-  deletePlatformMode = !deletePlatformMode;
-  const deleteBtn = document.querySelector(".platform-delete-btn");
-  if (deletePlatformMode) {
-    deleteBtn.textContent = "Cancel";
-    deleteBtn.style.backgroundColor = "#ff6b6b";
-  } else {
-    deleteBtn.textContent = "Delete";
-    deleteBtn.style.backgroundColor = "";
-  }
-  renderPlatformOptions();
-}
-
-function deletePlatform(platform) {
-  // Check if platform is a default platform
-  let isDefaultPlatform = false;
-  for (const category in platformOptions) {
-    if (platformOptions[category].indexOf(platform) > -1) {
-      isDefaultPlatform = true;
-      break;
-    }
-  }
-  
-  // Only allow deletion of custom platforms
-  if (isDefaultPlatform) {
-    return;
-  }
-  
-  // Remove from customPlatforms
-  customPlatforms = customPlatforms.filter(p => p.name !== platform);
-  saveSetting("customPlatforms", customPlatforms).then(() => {
-    // Remove from any image metadata that references this platform
-    getAllImageMetadataFromIndexedDB().then(allMetadata => {
-      allMetadata.forEach(metadata => {
-        if (metadata.platform === platform) {
-          saveImageMetadataToIndexedDB(metadata.id, {
-            name: metadata.name || "",
-            date: metadata.date || "",
-            description: metadata.description || "",
-            status: metadata.status || "",
-            platform: null
-          });
-        }
-      });
-      deletePlatformMode = false;
-      renderPlatformOptions();
-    }).catch(err => {
-    });
-  }).catch(err => {
-  });
-}
-
 function updatePlatformButton() {
   const btn = document.getElementById("platform-btn");
   if (currentSelectedPlatform) {
