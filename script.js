@@ -3805,9 +3805,9 @@ function deletePlatform(platform) {
 function updatePlatformButton() {
   const btn = document.getElementById("platform-btn");
   if (currentSelectedPlatform) {
-    btn.textContent = currentSelectedPlatform + " â–¼";
+    btn.textContent = currentSelectedPlatform + " ▼";
   } else {
-    btn.textContent = "Select Platform â–¼";
+    btn.textContent = "Select Platform";
   }
 }
 

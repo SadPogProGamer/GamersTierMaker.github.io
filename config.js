@@ -22,3 +22,4 @@ const FIREBASE_CONFIG = {
   messagingSenderId: "515771009142",
   appId: "1:515771009142:web:c485f6b63235449ff43757"
 };
+LocalHost
