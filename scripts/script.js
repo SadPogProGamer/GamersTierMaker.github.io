@@ -687,6 +687,209 @@ document.addEventListener(
   }
 );
 
+function selectImages() {
+  const input = document.createElement("input");
+  input.type = "file";
+  input.accept = "image/*,.avif";
+  input.multiple = true;
+
+  input.click();
+
+  input.addEventListener("change", () => uploadImages(input.files));
+}
+
+async function computeFileHash(file) {
+  const buffer = await file.arrayBuffer();
+  const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+function uploadImages(files) {
+  const imagesBar = document.querySelector("#images-bar");
+  const imageDataArray = [];
+  let filesProcessed = 0;
+
+  const loadingDiv = document.createElement("div");
+  loadingDiv.id = "upload-loading";
+  loadingDiv.style.cssText = "position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.8); color: white; padding: 20px 40px; border-radius: 8px; z-index: 10000; font-size: 16px;";
+  loadingDiv.textContent = "Uploading images...";
+  document.body.appendChild(loadingDiv);
+
+  if (!indexedDb) {
+    setTimeout(() => {
+      if (!indexedDb) {
+        loadingDiv.remove();
+        alert("Database not ready. Please try again in a moment.");
+        return;
+      }
+      uploadImages(files);
+    }, 1000);
+    return;
+  }
+
+  getImagesFromIndexedDB().then((existingImages) => {
+    const existingHashes = new Set(existingImages.map(img => img.fileHash).filter(h => h));
+    const duplicateFiles = [];
+    let skippedCount = 0;
+
+    const uploadPromises = Array.from(files).map((file) => {
+      return computeFileHash(file)
+        .then((fileHash) => {
+          if (existingHashes.has(fileHash)) {
+            skippedCount++;
+            duplicateFiles.push(file.name);
+            filesProcessed++;
+            return null;
+          }
+
+          return uploadToCloudinary(file)
+            .then((cloudinaryUrl) => {
+              const uniqueId = "img_" + Date.now() + "_" + Math.random().toString(36).substr(2, 9);
+              const image = document.createElement("img");
+              image.src = cloudinaryUrl;
+              image.className = "image";
+              image.dataset.imageSrc = cloudinaryUrl;
+              image.dataset.imageId = uniqueId;
+              image.dataset.cloudinaryUrl = cloudinaryUrl;
+              image.onclick = () => openImageModal(image);
+              setupImageSelection(image);
+
+              imagesBar.appendChild(image);
+
+              const imageData = {
+                src: cloudinaryUrl,
+                tier: -1,
+                id: uniqueId,
+                fileHash: fileHash,
+                cloudinaryUrl: cloudinaryUrl,
+              };
+
+              imageDataArray.push(imageData);
+              filesProcessed++;
+
+              return imageData;
+            });
+        })
+        .catch((err) => {
+          filesProcessed++;
+          return null;
+        });
+    });
+
+    Promise.all(uploadPromises)
+      .then(() => {
+        const successfulImages = imageDataArray.filter(img => img !== null);
+
+        if (successfulImages.length === 0 && skippedCount === 0) {
+          alert("Failed to upload any images. Please check your Cloudinary configuration and try again.");
+          loadingDiv.remove();
+          return;
+        }
+
+        if (skippedCount > 0) {
+          let message = `${skippedCount} image(s) were already imported and skipped.`;
+          if (successfulImages.length > 0) {
+            message += `\n${successfulImages.length} new image(s) were imported successfully.`;
+          }
+          alert(message);
+        }
+
+        if (successfulImages.length === 0) {
+          loadingDiv.remove();
+          return;
+        }
+
+        return Promise.all(successfulImages.map(img => saveImageToIndexedDB(img)));
+      })
+      .then(() => {
+        return Promise.all(imageDataArray.map(img => {
+          if (img) {
+            const emptyMetadata = { name: "", developer: "", date: "", description: "", status: "", platform: null };
+            return saveImageMetadataToIndexedDB(img.id, emptyMetadata).catch(err => {
+            });
+          }
+        }));
+      })
+      .then(() => {
+        loadingDiv.remove();
+        initializeDragula();
+        if (currentUser && firebaseDb) {
+          saveTierListToFirebase().catch(err => {
+          });
+        }
+        try { updateTierCounts(countsAreShown()); } catch (e) { }
+      })
+      .catch((err) => {
+        loadingDiv.remove();
+        alert("Failed to upload images. Please try again.");
+      });
+  }).catch((err) => {
+    loadingDiv.remove();
+    alert("Failed to check existing images. Please try again.");
+  });
+}
+
+function handleDragEnter(event) {
+  event.preventDefault();
+  event.stopPropagation();
+  
+  if (event.dataTransfer.types && event.dataTransfer.types.includes("Files")) {
+    const imagesBar = document.getElementById("images-bar");
+    imagesBar.classList.add("drag-over");
+  }
+}
+
+function handleDragOver(event) {
+  event.preventDefault();
+  event.stopPropagation();
+  
+  if (event.dataTransfer.types && event.dataTransfer.types.includes("Files")) {
+    event.dataTransfer.dropEffect = "copy";
+    const imagesBar = document.getElementById("images-bar");
+    imagesBar.classList.add("drag-over");
+  }
+}
+
+function handleDragLeave(event) {
+  event.preventDefault();
+  event.stopPropagation();
+  
+  if (event.clientX === 0 && event.clientY === 0) {
+    const imagesBar = document.getElementById("images-bar");
+    imagesBar.classList.remove("drag-over");
+  }
+}
+
+function handleImageDrop(event) {
+  event.preventDefault();
+  event.stopPropagation();
+  
+  const imagesBar = document.getElementById("images-bar");
+  imagesBar.classList.remove("drag-over");
+  
+  const files = event.dataTransfer.files;
+  
+  if (files && files.length > 0) {
+    const imageFiles = Array.from(files).filter(file => 
+      file.type.startsWith("image/") || file.type === "image/avif"
+    );
+    
+    if (imageFiles.length > 0) {
+      uploadImages(imageFiles);
+    } else {
+      alert("Please drop image files only.");
+    }
+  }
+}
+
+document.addEventListener("DOMContentLoaded", function() {
+  document.addEventListener("dragenter", handleDragEnter);
+  document.addEventListener("dragover", handleDragOver);
+  document.addEventListener("dragleave", handleDragLeave);
+  document.addEventListener("drop", handleImageDrop);
+});
+
 function renderPlatformOptions() {
   const searchInput = document.getElementById("platform-search");
   const optionsContainer = document.getElementById("platform-options");
