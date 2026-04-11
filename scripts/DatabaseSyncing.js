@@ -1,55 +1,7 @@
+// DatabaseSyncing.js
+// Contains Firebase sync, Cloudinary upload/delete logic, and IndexedDB persistence helpers.
+
 let indexedDb; // IndexedDB database
-
-const hash = location.hash.substring(1);
-
-let pickrInstances = [];
-let initializationComplete = false; // Track when app is fully initialized
-
-// Initialize Firebase first, then IndexedDB
-initializeFirebase().then(() => {
-  return initializeIndexedDB();
-}).then(async () => {
-  // Load header from storage on page load
-  loadHeaderFromStorage();
-  loadTierColors();
-  loadTierOrderingStates();
-  loadTierLimitStates();
-  
-  // If a saved tierlist was selected from My Tierlists page, load it now
-  if (sessionStorage && sessionStorage.my_tierlist_to_load) {
-    try {
-      const data = JSON.parse(sessionStorage.my_tierlist_to_load);
-      delete sessionStorage.my_tierlist_to_load;
-      loadTierListFromObject(data);
-      initializationComplete = true;
-      return;
-    } catch (e) {
-    }
-  }
-
-  // Check if user is already logged in from cache (will load from Firebase instead of local storage)
-  if (currentUser) {
-    // User is already logged in - Firebase should load the tier list
-    // Give Firebase a moment to load the tier list via the promise we created in initializeFirebase()
-    // If no data from Firebase after 2 seconds, mark as complete
-    await new Promise(resolve => setTimeout(resolve, 500));
-  } else if (hash.length <= 0) {
-    // User is not logged in, so load from local storage
-    loadTierListFromLocalStorage();
-  } else {
-    load();
-  }
-  
-  initializationComplete = true;
-  
-  // Start polling for remote updates if user is logged in
-  if (currentUser && firebaseDb && firebaseAvailable) {
-    startSyncPolling();
-  }
-}).catch(err => {
-  alert('Failed to initialize app. See console for details.');
-});
-
 
 // IndexedDB globals
 function initializeIndexedDB() {
@@ -801,7 +753,7 @@ function loadImagesFromStorage() {
         image.remove();
         deleteImageFromIndexedDB(imageObj.id).catch(err => {
         });
-        
+
         // Resync to Firebase to propagate cleanup to other devices
         if (currentUser && firebaseDb && firebaseAvailable) {
           clearTimeout(autoSaveTimeout);
@@ -856,111 +808,4 @@ function selectPlatform(platform) {
   updatePlatformButton();
   renderPlatformOptions();
   document.getElementById("platform-dropdown-menu").classList.add("hidden");
-}
-
-// Build tier list data (used for both Firebase and local save)
-async function buildTierListData() {
-  const tierListData = {
-    header: document.getElementById("main-title").textContent,
-    tiers: [],
-    imagePositions: [],
-    gameMetadata: {},
-    tierOrderingStates: tierOrderingStates,
-    tierLimitStates: tierLimitStates,
-    lastUpdated: new Date()
-  };
-
-  // Collect metadata map
-  let allImages = [];
-  try { allImages = await getImagesFromIndexedDB(); } catch (e) { allImages = []; }
-  const metadataMap = {};
-  for (const image of allImages) {
-    try {
-      const metadata = await getImageMetadataFromIndexedDB(image.id);
-      if (metadata) metadataMap[image.id] = metadata;
-    } catch (e) { /* ignore */ }
-  }
-
-  const rows = document.querySelectorAll('.row');
-  rows.forEach((row, tierIndex) => {
-    const tierLabel = row.querySelector('.tier-label');
-    const tierImages = row.children[1].querySelectorAll('.image');
-
-    tierListData.tiers.push({
-      index: tierIndex,
-      name: tierLabel.querySelector('p').textContent,
-      color: tierLabel.style.backgroundColor,
-    });
-
-    Array.from(tierImages).forEach((img, order) => {
-      const imageId = img.dataset.imageId;
-      tierListData.imagePositions.push({
-        imageId,
-        imageSrc: img.dataset.imageSrc,
-        tier: tierIndex,
-        order,
-        details: metadataMap[imageId] || null,
-      });
-      if (metadataMap[imageId]) tierListData.gameMetadata[imageId] = metadataMap[imageId];
-    });
-  });
-
-  // Images in bar
-  try {
-    const imagesBar = document.querySelector('#images-bar');
-    const barImages = imagesBar ? imagesBar.querySelectorAll('.image') : [];
-    Array.from(barImages).forEach((img, order) => {
-      const imageId = img.dataset.imageId;
-      tierListData.imagePositions.push({
-        imageId,
-        imageSrc: img.dataset.imageSrc,
-        tier: -1,
-        order,
-        details: metadataMap[imageId] || null,
-      });
-      if (metadataMap[imageId]) tierListData.gameMetadata[imageId] = metadataMap[imageId];
-    });
-  } catch (e) { /* ignore */ }
-
-  return tierListData;
-}
-
-// Save tier list - uses Firebase if signed in, else saves locally
-async function saveTierList() {
-  if (!initializationComplete || !indexedDb) {
-    alert('Database not ready yet. Please wait a moment and try again.');
-    return;
-  }
-
-  let data;
-  try {
-    data = await buildTierListData();
-  } catch (err) {
-    alert('Failed to prepare tierlist. See console for details.');
-    return;
-  }
-
-  // Try Firebase first if signed in
-  if (currentUser && firebaseDb && firebaseAvailable) {
-    try {
-      await saveTierListToFirebase();
-      alert('Tierlist saved to your account.');
-      return;
-    } catch (e) {
-    }
-  }
-
-  // Save locally to IndexedDB
-  try {
-    await saveSetting('localTierList', data);
-    alert('Tierlist saved locally in this browser.');
-  } catch (err) {
-    // Fallback to localStorage as last resort
-    try {
-      localStorage.setItem('savedTierList', JSON.stringify(data));
-      alert('Tierlist saved (using fallback storage).');
-    } catch (fallbackErr) {
-      alert('Failed to save tierlist. See console for details.');
-    }
-  }
 }
