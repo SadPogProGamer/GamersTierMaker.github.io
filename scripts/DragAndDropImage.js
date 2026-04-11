@@ -158,52 +158,76 @@ function uploadImages(files) {
   });
 }
 
+function isFileDrag(event) {
+  const dataTransfer = event.dataTransfer;
+  return dataTransfer && dataTransfer.types && Array.from(dataTransfer.types).includes("Files");
+}
+
 // Handle drag enter event
 function handleDragEnter(event) {
+  if (!isFileDrag(event)) {
+    return;
+  }
+
   event.preventDefault();
   event.stopPropagation();
   
-  // Check if the dragged item contains files
-  if (event.dataTransfer.types && event.dataTransfer.types.includes("Files")) {
-    const imagesBar = document.getElementById("images-bar");
+  const imagesBar = document.getElementById("images-bar");
+  if (imagesBar) {
     imagesBar.classList.add("drag-over");
   }
 }
 
 // Handle drag over event
 function handleDragOver(event) {
+  if (!isFileDrag(event)) {
+    return;
+  }
+
   event.preventDefault();
   event.stopPropagation();
-  
-  // Check if the dragged item contains files
-  if (event.dataTransfer.types && event.dataTransfer.types.includes("Files")) {
-    event.dataTransfer.dropEffect = "copy";
-    const imagesBar = document.getElementById("images-bar");
+  event.dataTransfer.dropEffect = "copy";
+  const imagesBar = document.getElementById("images-bar");
+  if (imagesBar) {
     imagesBar.classList.add("drag-over");
+  }
+}
+
+function removeImagesBarHighlight() {
+  const imagesBar = document.getElementById("images-bar");
+  if (imagesBar) {
+    imagesBar.classList.remove("drag-over");
   }
 }
 
 // Handle drag leave event
 function handleDragLeave(event) {
+  if (!isFileDrag(event)) {
+    return;
+  }
+
   event.preventDefault();
   event.stopPropagation();
-  
-  // Only remove the class if we're leaving the document entirely
-  if (event.clientX === 0 && event.clientY === 0) {
-    const imagesBar = document.getElementById("images-bar");
-    imagesBar.classList.remove("drag-over");
+  const imagesBar = document.getElementById("images-bar");
+  const related = event.relatedTarget || document.elementFromPoint(event.clientX, event.clientY);
+  if (!imagesBar || !related || !imagesBar.contains(related)) {
+    removeImagesBarHighlight();
   }
 }
 
 // Handle drop event for images
 function handleImageDrop(event) {
+  if (!isFileDrag(event)) {
+    return;
+  }
+
+  removeImagesBarHighlight();
   const dataTransfer = event.dataTransfer;
   if (!dataTransfer || !dataTransfer.files || dataTransfer.files.length === 0) {
     return;
   }
 
   const imagesBar = document.getElementById("images-bar");
-  imagesBar.classList.remove("drag-over");
 
   event.preventDefault();
   event.stopPropagation();
@@ -229,5 +253,7 @@ document.addEventListener("DOMContentLoaded", function() {
   document.addEventListener("dragenter", handleDragEnter);
   document.addEventListener("dragover", handleDragOver);
   document.addEventListener("dragleave", handleDragLeave);
+  document.addEventListener("drop", removeImagesBarHighlight);
   document.addEventListener("drop", handleImageDrop);
+  document.addEventListener("dragend", removeImagesBarHighlight);
 });
