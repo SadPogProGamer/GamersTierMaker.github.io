@@ -6,7 +6,6 @@ const CLOUDINARY_CONFIG = {
   cloudName: "dfdibdfcm",
   uploadPreset: "GamersTierMaker",
   folder: "GamerTierMaker",
-  localHostFolder: "LocalHost",
   apiKey: "719223247567395",
   apiSecret: "XK0jW7As5-haxT5j-Kf_4Vk3ar8",
   // Optional fallback server-side delete endpoint if you do not want to expose secrets in client code.
@@ -23,4 +22,3 @@ const FIREBASE_CONFIG = {
   messagingSenderId: "515771009142",
   appId: "1:515771009142:web:c485f6b63235449ff43757"
 };
-
