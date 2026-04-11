@@ -374,6 +374,9 @@ function closeImageModal() {
     autoSaveTimeout = null;
   }
 
+  const searchInput = document.getElementById('search-input');
+  const currentQuery = searchInput ? searchInput.value : '';
+
   saveImageMetadataToIndexedDB(imageId, imageMetadata)
     .then(async () => {
       await sortCurrentImageTierIfOrdered(currentImageElement);
@@ -382,17 +385,14 @@ function closeImageModal() {
         return saveTierListToFirebase();
       }
     })
-    .then(() => {
-      const searchInput = document.getElementById('search-input');
-      const currentQuery = searchInput ? searchInput.value : '';
+    .catch(err => {
+    })
+    .finally(() => {
       try {
         filterImages(currentQuery);
       } catch (e) {
       }
-    })
-    .catch(err => {
-    })
-    .finally(() => {
+
       if (window.currentModalEscapeHandler) {
         document.removeEventListener("keydown", window.currentModalEscapeHandler);
         window.currentModalEscapeHandler = null;
@@ -403,6 +403,7 @@ function closeImageModal() {
       currentSelectedPlatform = null;
     });
 }
+
 
 async function sortCurrentImageTierIfOrdered(imageElement) {
   if (!imageElement) return;
