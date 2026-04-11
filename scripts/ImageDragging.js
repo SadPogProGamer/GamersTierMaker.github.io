@@ -20,7 +20,6 @@ function handleEscapeCancel(event) {
 
   activeDrag = false;
   scrollable = true;
-  cleanupDragMirrors();
 }
 
 document.addEventListener('keydown', handleEscapeCancel);
@@ -85,7 +84,6 @@ function initializeDragula() {
   drake.on('cancel', () => {
     activeDrag = false;
     scrollable = true;
-    cleanupDragMirrors();
   });
 
   drake.on('over', (el, container) => {
@@ -101,7 +99,9 @@ function initializeDragula() {
   });
 
   if (!dragEndCleanupAttached) {
-    document.addEventListener('dragend', cleanupDragMirrors);
+    document.addEventListener('dragend', () => {
+      scrollable = true;
+    });
     dragEndCleanupAttached = true;
   }
 }
