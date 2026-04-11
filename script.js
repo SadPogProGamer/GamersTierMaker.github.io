@@ -1562,6 +1562,10 @@ function attachTierLabelKeydownListener(tierLabel) {
       }
     }
   });
+
+  tierLabel.addEventListener('blur', () => {
+    saveTierColors();
+  });
 }
 
 let tierOrderingStates = {}; // Track which tiers have order-on-platform enabled
