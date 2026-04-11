@@ -160,6 +160,7 @@ async function toggleTierOrdering(tierIndex, enabled) {
   tierOrderingStates[tierIndex] = enabled;
   
   if (enabled) {
+    // Get the tier container
     const rows = document.querySelectorAll(".row");
     if (rows[tierIndex]) {
       const tierContainer = rows[tierIndex].children[1];
@@ -167,34 +168,12 @@ async function toggleTierOrdering(tierIndex, enabled) {
     }
   }
   
+  // Save state to IndexedDB
   await saveSetting("tierOrderingStates", tierOrderingStates);
+  
+  // Also save to Firebase if user is logged in
   if (currentUser && firebaseDb) {
     await saveTierListToFirebase();
-  }
-  
-  saveImagePositions().catch(() => {});
-}
-
-// Move extra images out of tiers that are limited to 10
-function enforceTierLimitStates() {
-  const rows = document.querySelectorAll('.row');
-  const imagesBar = document.getElementById('images-bar');
-
-  if (!rows.length || !imagesBar) return;
-
-  for (let i = 0; i < rows.length; i++) {
-    if (!tierLimitStates[i]) continue;
-
-    const tierContainer = rows[i].children[1];
-    let images = Array.from(tierContainer.querySelectorAll('.image'));
-
-    while (images.length > 10) {
-      const overflowImage = images.pop();
-      const nextRow = rows[i + 1];
-      const destination = nextRow ? nextRow.children[1] : imagesBar;
-      destination.insertBefore(overflowImage, destination.firstChild);
-      images = Array.from(tierContainer.querySelectorAll('.image'));
-    }
   }
 }
 
@@ -202,16 +181,13 @@ function enforceTierLimitStates() {
 async function toggleTierLimit(tierIndex, enabled) {
   tierLimitStates[tierIndex] = enabled;
   
-  if (enabled) {
-    enforceTierLimitStates();
-  }
-  
+  // Save state to IndexedDB
   await saveSetting("tierLimitStates", tierLimitStates);
+  
+  // Also save to Firebase if user is logged in
   if (currentUser && firebaseDb) {
     await saveTierListToFirebase();
   }
-  
-  saveImagePositions().catch(() => {});
 }
 
 function addRow(tierName = "New tier", defaultColor = "lightslategray") {

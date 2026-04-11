@@ -389,27 +389,23 @@ async function loadTierListFromObject(tierListData) {
   // Wait for all metadata saves to complete before reinitializing dragula
   await Promise.all(metadataSavePromises);
   
-  // Restore platform ordering state from tier list data if present
+  // Restore tier ordering states
   if (tierListData.tierOrderingStates) {
     tierOrderingStates = tierListData.tierOrderingStates;
+    // Apply platform sorting to any tiers that need it
+    const rows = document.querySelectorAll('.row');
+    for (let i = 0; i < rows.length; i++) {
+      if (tierOrderingStates[i]) {
+        const tierContainer = rows[i].children[1];
+        await sortTierByPlatform(tierContainer);
+      }
+    }
   }
-
-  // Restore tier limit state from tier list data if present
+  
+  // Restore tier limit states
   if (tierListData.tierLimitStates) {
     tierLimitStates = tierListData.tierLimitStates;
   }
-
-  // Apply saved ordering and limit settings
-  rows = document.querySelectorAll('.row');
-  for (let i = 0; i < rows.length; i++) {
-    if (tierOrderingStates[i]) {
-      const tierContainer = rows[i].children[1];
-      await sortTierByPlatform(tierContainer);
-    }
-  }
-
-  enforceTierLimitStates();
-  await saveImagePositions().catch(() => {});
   
   // Reinitialize dragula/dragging
   try { initializeDragula(); } catch (e) { /* ignore */ }
