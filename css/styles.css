@@ -346,12 +346,6 @@ img {
   object-fit: cover;
 }
 
-.gu-mirror {
-  z-index: 9999;
-  opacity: 0.95;
-  pointer-events: none;
-}
-
 .image.selected {
   outline: 3px solid rgba(74, 144, 226, 0.9);
   outline-offset: -2px;

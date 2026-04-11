@@ -34,8 +34,7 @@ function saveImageToIndexedDB(imageData) {
   return new Promise((resolve, reject) => {
     const transaction = indexedDb.transaction(['images'], 'readwrite');
     const store = transaction.objectStore('images');
-    // Use put to upsert — prevents duplicate records when an id already exists
-    const request = store.put(imageData);
+    const request = store.add(imageData);
 
     request.onerror = () => reject(request.error);
     request.onsuccess = () => resolve(request.result);
@@ -214,11 +213,6 @@ function saveImagePositions() {
     const updatePromises = images.map((image) => {
       const position = imagePositions.find(p => p.id === image.id);
       if (position) {
-        const domImage = document.querySelector(`.image[data-image-id="${image.id}"]`);
-        if (domImage) {
-          image.src = domImage.dataset.imageSrc || domImage.dataset.cloudinaryUrl || domImage.src;
-          image.cloudinaryUrl = domImage.dataset.cloudinaryUrl || domImage.dataset.imageSrc || domImage.src || image.cloudinaryUrl;
-        }
         image.tier = position.tier;
         image.order = position.order;
         // Update in IndexedDB
@@ -232,21 +226,11 @@ function saveImagePositions() {
       }
     }).filter(p => p);
     return Promise.all(updatePromises);
-  }).then(async () => {
-    const savePromises = [];
-
-    // Always update the local tier list cache so refresh loads the latest positions.
-    try {
-      savePromises.push(buildTierListData().then((data) => saveSetting('localTierList', data)).catch(() => {}));
-    } catch (e) {
-    }
-
-    // Also save to Firebase if the user is signed in.
+  }).then(() => {
+    // Also save to Firebase if user is logged in
     if (currentUser && firebaseDb) {
-      savePromises.push(saveTierListToFirebase().catch(() => {}));
+      return saveTierListToFirebase();
     }
-
-    return Promise.all(savePromises);
   }).catch(err => {
   });
 }
@@ -257,7 +241,7 @@ async function loadTierListFromLocalStorage() {
   try {
     const data = await getSetting('localTierList');
     if (data) {
-      await loadTierListFromObject(data);
+      loadTierListFromObject(data);
       return;
     }
   } catch (err) {
@@ -268,7 +252,7 @@ async function loadTierListFromLocalStorage() {
     const savedData = localStorage.getItem("savedTierList");
     if (savedData) {
       const tierListData = JSON.parse(savedData);
-      await loadTierListFromObject(tierListData);
+      loadTierListFromObject(tierListData);
       return;
     }
   } catch (err) {
@@ -302,17 +286,12 @@ function loadImagesFromStorage() {
         continue;
       }
 
-      const imageSrc = imageObj.src || imageObj.cloudinaryUrl || '';
-      if (!imageSrc) {
-        continue;
-      }
-
       const image = document.createElement("img");
-      image.src = imageSrc;
+      image.src = imageObj.src;
       image.className = "image";
-      image.dataset.imageSrc = imageSrc;
+      image.dataset.imageSrc = imageObj.src;
       image.dataset.imageId = imageObj.id;
-      image.dataset.cloudinaryUrl = imageObj.cloudinaryUrl || imageSrc;
+      image.dataset.cloudinaryUrl = imageObj.cloudinaryUrl || imageObj.src;
       image.onclick = () => openImageModal(image);
       setupImageSelection(image);
       // Remove stale images if they fail to load, and resync to propagate changes
@@ -331,11 +310,10 @@ function loadImagesFromStorage() {
         }
       };
 
-      const tier = Number(imageObj.tier);
-      if (!Number.isFinite(tier) || tier < 0 || !rows[tier]) {
+      if (imageObj.tier === -1) {
         imagesBar.appendChild(image);
-      } else {
-        rows[tier].children[1].appendChild(image);
+      } else if (rows[imageObj.tier]) {
+        rows[imageObj.tier].children[1].appendChild(image);
       }
     }
 
@@ -375,10 +353,6 @@ let autoSaveTimers = {}; // Track separate timers per image for faster saves
 let lastFirebaseSyncTime = {}; // Track last sync time per image to force periodic syncs
 let lastRemoteSyncTime = null; // Track last time we synced FROM Firebase
 let syncPollInterval = null; // IntervalID for polling remote Firebase for updates
-
-let firebaseSaveInProgress = false;
-let firebaseSaveQueued = false;
-let firebaseSavePromise = null;
 
 async function initializeFirebase() {
   if (!FIREBASE_CONFIG || !FIREBASE_CONFIG.apiKey || FIREBASE_CONFIG.apiKey === "YOUR_API_KEY") {
@@ -490,74 +464,47 @@ async function signOut() {
 async function saveTierListToFirebase() {
   if (!currentUser || !firebaseDb || !firebaseAvailable) return;
 
-  if (firebaseSaveInProgress) {
-    firebaseSaveQueued = true;
-    return firebaseSavePromise || Promise.resolve();
-  }
+  try {
+    const tierListData = {
+      header: document.getElementById("main-title").textContent,
+      tiers: [],
+      imagePositions: [],
+      gameMetadata: {},
+      lastUpdated: new Date().toISOString()
+    };
 
-  firebaseSaveInProgress = true;
-  firebaseSavePromise = (async () => {
-    try {
-      const tierListData = {
-        header: document.getElementById("main-title").textContent,
-        tiers: [],
-        imagePositions: [],
-        gameMetadata: {},
-        lastUpdated: new Date().toISOString()
-      };
+    const allImages = await getImagesFromIndexedDB();
+    const metadataMap = {};
 
-      const allImages = await getImagesFromIndexedDB();
-      const metadataMap = {};
-
-      for (const image of allImages) {
-        try {
-          const metadata = await getImageMetadataFromIndexedDB(image.id);
-          if (metadata) {
-            metadataMap[image.id] = metadata;
-          }
-        } catch (err) {
+    for (const image of allImages) {
+      try {
+        const metadata = await getImageMetadataFromIndexedDB(image.id);
+        if (metadata) {
+          metadataMap[image.id] = metadata;
         }
+      } catch (err) {
       }
+    }
 
-      const rows = document.querySelectorAll(".row");
-      rows.forEach((row, tierIndex) => {
-        const tierLabel = row.querySelector(".tier-label");
-        const tierImages = row.children[1].querySelectorAll(".image");
+    const rows = document.querySelectorAll(".row");
+    rows.forEach((row, tierIndex) => {
+      const tierLabel = row.querySelector(".tier-label");
+      const tierImages = row.children[1].querySelectorAll(".image");
 
-        tierListData.tiers.push({
-          index: tierIndex,
-          name: tierLabel.querySelector("p").textContent,
-          color: tierLabel.style.backgroundColor,
-        });
-
-        Array.from(tierImages).forEach((img, order) => {
-          const imageId = img.dataset.imageId;
-          const imageSrc = img.dataset.imageSrc;
-
-          tierListData.imagePositions.push({
-            imageId: imageId,
-            imageSrc: imageSrc,
-            tier: tierIndex,
-            order,
-            details: metadataMap[imageId] || null,
-          });
-
-          if (metadataMap[imageId]) {
-            tierListData.gameMetadata[imageId] = metadataMap[imageId];
-          }
-        });
+      tierListData.tiers.push({
+        index: tierIndex,
+        name: tierLabel.querySelector("p").textContent,
+        color: tierLabel.style.backgroundColor,
       });
 
-      const imagesBar = document.querySelector("#images-bar");
-      const barImages = imagesBar.querySelectorAll(".image");
-      Array.from(barImages).forEach((img, order) => {
+      Array.from(tierImages).forEach((img, order) => {
         const imageId = img.dataset.imageId;
         const imageSrc = img.dataset.imageSrc;
 
         tierListData.imagePositions.push({
           imageId: imageId,
           imageSrc: imageSrc,
-          tier: -1,
+          tier: tierIndex,
           order,
           details: metadataMap[imageId] || null,
         });
@@ -566,33 +513,42 @@ async function saveTierListToFirebase() {
           tierListData.gameMetadata[imageId] = metadataMap[imageId];
         }
       });
+    });
 
-      await firebaseDb.collection("tierLists").doc(currentUser.uid).set({
-        userId: currentUser.uid,
-        userEmail: currentUser.email || null,
-        tier_data: tierListData,
-        updated_at: new Date().toISOString()
-      }, { merge: true });
-    } catch (err) {
-      if (err && err.code === 'permission-denied') {
-        firebaseAvailable = false;
-        stopSyncPolling();
-        alert('Firebase save failed because Firestore permissions are insufficient. Saving locally instead.');
+    const imagesBar = document.querySelector("#images-bar");
+    const barImages = imagesBar.querySelectorAll(".image");
+    Array.from(barImages).forEach((img, order) => {
+      const imageId = img.dataset.imageId;
+      const imageSrc = img.dataset.imageSrc;
+
+      tierListData.imagePositions.push({
+        imageId: imageId,
+        imageSrc: imageSrc,
+        tier: -1,
+        order,
+        details: metadataMap[imageId] || null,
+      });
+
+      if (metadataMap[imageId]) {
+        tierListData.gameMetadata[imageId] = metadataMap[imageId];
       }
-      throw err;
-    } finally {
-      firebaseSaveInProgress = false;
-      const shouldRunAgain = firebaseSaveQueued;
-      firebaseSaveQueued = false;
-      if (shouldRunAgain) {
-        await saveTierListToFirebase();
-      } else {
-        firebaseSavePromise = null;
-      }
+    });
+
+    await firebaseDb.collection("tierLists").doc(currentUser.uid).set({
+      userId: currentUser.uid,
+      userEmail: currentUser.email || null,
+      tier_data: tierListData,
+      updated_at: new Date().toISOString()
+    }, { merge: true });
+
+  } catch (err) {
+    if (err && err.code === 'permission-denied') {
+      firebaseAvailable = false;
+      stopSyncPolling();
+      alert('Firebase save failed because Firestore permissions are insufficient. Saving locally instead.');
     }
-  })();
-
-  return firebaseSavePromise;
+    throw err;
+  }
 }
 
 async function validateImageUrl(url, timeoutMs = 5000) {

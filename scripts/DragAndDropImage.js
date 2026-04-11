@@ -137,9 +137,6 @@ function uploadImages(files) {
       .then(() => {
         loadingDiv.remove();
         initializeDragula();
-        // Ensure no stray dragula mirror remains after reinitializing
-        const oldMirrors = document.querySelectorAll('.gu-mirror, .gu-transit');
-        oldMirrors.forEach(m => m.remove());
         // Sync to Firebase if user is logged in
         if (currentUser && firebaseDb) {
           saveTierListToFirebase().catch(err => {
@@ -158,117 +155,72 @@ function uploadImages(files) {
   });
 }
 
-function isFileDrag(event) {
-  const dataTransfer = event.dataTransfer;
-  if (!dataTransfer) return false;
-
-  if (dataTransfer.files && dataTransfer.files.length > 0) {
-    return true;
-  }
-
-  if (dataTransfer.items && dataTransfer.items.length > 0) {
-    return Array.from(dataTransfer.items).some(item => item.kind === 'file');
-  }
-
-  return false;
-}
-
 // Handle drag enter event
 function handleDragEnter(event) {
-  if (!isFileDrag(event)) {
-    return;
-  }
-
   event.preventDefault();
   event.stopPropagation();
   
-  const imagesBar = document.getElementById("images-bar");
-  if (imagesBar) {
+  // Check if the dragged item contains files
+  if (event.dataTransfer.types && event.dataTransfer.types.includes("Files")) {
+    const imagesBar = document.getElementById("images-bar");
     imagesBar.classList.add("drag-over");
   }
 }
 
 // Handle drag over event
 function handleDragOver(event) {
-  if (!isFileDrag(event)) {
-    return;
-  }
-
   event.preventDefault();
   event.stopPropagation();
-  event.dataTransfer.dropEffect = "copy";
-  const imagesBar = document.getElementById("images-bar");
-  if (imagesBar) {
+  
+  // Check if the dragged item contains files
+  if (event.dataTransfer.types && event.dataTransfer.types.includes("Files")) {
+    event.dataTransfer.dropEffect = "copy";
+    const imagesBar = document.getElementById("images-bar");
     imagesBar.classList.add("drag-over");
-  }
-}
-
-function removeImagesBarHighlight() {
-  const imagesBar = document.getElementById("images-bar");
-  if (imagesBar) {
-    imagesBar.classList.remove("drag-over");
   }
 }
 
 // Handle drag leave event
 function handleDragLeave(event) {
-  if (!isFileDrag(event)) {
-    return;
-  }
-
   event.preventDefault();
   event.stopPropagation();
-  const imagesBar = document.getElementById("images-bar");
-  const related = event.relatedTarget || document.elementFromPoint(event.clientX, event.clientY);
-  if (!imagesBar || !related || !imagesBar.contains(related)) {
-    removeImagesBarHighlight();
+  
+  // Only remove the class if we're leaving the document entirely
+  if (event.clientX === 0 && event.clientY === 0) {
+    const imagesBar = document.getElementById("images-bar");
+    imagesBar.classList.remove("drag-over");
   }
 }
 
 // Handle drop event for images
 function handleImageDrop(event) {
-  if (!isFileDrag(event)) {
-    return;
-  }
-
-  removeImagesBarHighlight();
-  const dataTransfer = event.dataTransfer;
-  if (!dataTransfer || !dataTransfer.files || dataTransfer.files.length === 0) {
-    return;
-  }
-
-  const imagesBar = document.getElementById("images-bar");
-
   event.preventDefault();
   event.stopPropagation();
-
+  
+  const imagesBar = document.getElementById("images-bar");
+  imagesBar.classList.remove("drag-over");
+  
   // Get dropped files
-  const files = dataTransfer.files;
-
-  // Filter for image files
-  const imageFiles = Array.from(files).filter(file =>
-    file.type.startsWith("image/") || file.type === "image/avif"
-  );
-
-  if (imageFiles.length > 0) {
-    uploadImages(imageFiles);
-  } else {
-    alert("Please drop image files only.");
+  const files = event.dataTransfer.files;
+  
+  if (files && files.length > 0) {
+    // Filter for image files
+    const imageFiles = Array.from(files).filter(file => 
+      file.type.startsWith("image/") || file.type === "image/avif"
+    );
+    
+    if (imageFiles.length > 0) {
+      uploadImages(imageFiles);
+    } else {
+      alert("Please drop image files only.");
+    }
   }
 }
 
-// Set up drag and drop for the images bar only.
-// This ensures internal tier dragging is not interfered with.
+// Set up drag and drop for entire document
 document.addEventListener("DOMContentLoaded", function() {
-  const imagesBar = document.getElementById("images-bar");
-  if (!imagesBar) {
-    return;
-  }
-
-  imagesBar.addEventListener("dragenter", handleDragEnter);
-  imagesBar.addEventListener("dragover", handleDragOver);
-  imagesBar.addEventListener("dragleave", handleDragLeave);
-  imagesBar.addEventListener("drop", removeImagesBarHighlight);
-  imagesBar.addEventListener("drop", handleImageDrop);
-  document.addEventListener("dragend", removeImagesBarHighlight);
+  document.addEventListener("dragenter", handleDragEnter);
+  document.addEventListener("dragover", handleDragOver);
+  document.addEventListener("dragleave", handleDragLeave);
+  document.addEventListener("drop", handleImageDrop);
 });

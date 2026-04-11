@@ -100,7 +100,6 @@ function openImageModal(imgElement) {
   currentImageElement = imgElement;
   const modal = document.getElementById("image-modal");
   const imageId = imgElement.dataset.imageId;
-  modal.dataset.currentImageId = imageId;
 
   // Show sync notification if not logged in
   const syncNotification = document.getElementById("sync-notification");
@@ -347,36 +346,13 @@ function updateReplayVisibility() {
 
 function closeImageModal() {
   const modal = document.getElementById("image-modal");
-  const modalImageId = modal.dataset.currentImageId;
-  const imageId = currentImageElement ? currentImageElement.dataset.imageId : modalImageId;
 
-  if (autoSaveTimeout) {
-    clearTimeout(autoSaveTimeout);
-    autoSaveTimeout = null;
-  }
-
-  if (imageId && autoSaveTimers[imageId]) {
-    clearTimeout(autoSaveTimers[imageId]);
-    delete autoSaveTimers[imageId];
-  }
-
-  const finalizeClose = () => {
-    if (window.currentModalEscapeHandler) {
-      document.removeEventListener("keydown", window.currentModalEscapeHandler);
-      window.currentModalEscapeHandler = null;
-    }
-
+  if (!currentImageElement) {
     modal.classList.add("hidden");
-    currentImageElement = null;
-    currentSelectedPlatform = null;
-    delete modal.dataset.currentImageId;
-  };
-
-  if (!currentImageElement || !imageId) {
-    finalizeClose();
     return;
   }
 
+  const imageId = currentImageElement.dataset.imageId;
   const imageMetadata = {
     name: document.getElementById("image-name").value || "",
     developer: document.getElementById("image-developer").value || "",
@@ -387,6 +363,16 @@ function closeImageModal() {
     platform: currentSelectedPlatform,
     has100Replay: currentHas100Replay
   };
+
+
+  if (autoSaveTimers[imageId]) {
+    clearTimeout(autoSaveTimers[imageId]);
+    delete autoSaveTimers[imageId];
+  }
+  if (autoSaveTimeout) {
+    clearTimeout(autoSaveTimeout);
+    autoSaveTimeout = null;
+  }
 
   saveImageMetadataToIndexedDB(imageId, imageMetadata)
     .then(async () => {
@@ -406,7 +392,16 @@ function closeImageModal() {
     })
     .catch(err => {
     })
-    .finally(finalizeClose);
+    .finally(() => {
+      if (window.currentModalEscapeHandler) {
+        document.removeEventListener("keydown", window.currentModalEscapeHandler);
+        window.currentModalEscapeHandler = null;
+      }
+
+      modal.classList.add("hidden");
+      currentImageElement = null;
+      currentSelectedPlatform = null;
+    });
 }
 
 async function sortCurrentImageTierIfOrdered(imageElement) {
@@ -426,57 +421,29 @@ async function sortCurrentImageTierIfOrdered(imageElement) {
 }
 
 function deleteImageFromModal() {
-  const modal = document.getElementById("image-modal");
-  const imageId = modal.dataset.currentImageId || (currentImageElement && currentImageElement.dataset.imageId);
+  if (currentImageElement) {
+    promptDeleteImage(() => {
+      const imageId = currentImageElement.dataset.imageId;
+      const cloudinaryUrl = currentImageElement.dataset.cloudinaryUrl || currentImageElement.src;
 
-  if (!imageId) {
-    return;
+      deleteImageMetadataFromIndexedDB(imageId);
+      deleteFromCloudinary(cloudinaryUrl).then(() => {
+        return deleteImageFromIndexedDB(imageId);
+      })
+        .then(() => {
+          currentImageElement.remove();
+          closeImageModal();
+          saveImagePositions();
+
+          if (currentUser && firebaseDb) {
+            saveTierListToFirebase().catch(err => {
+            });
+          }
+        })
+        .catch(err => {
+        });
+    });
   }
-
-  promptDeleteImage(async () => {
-    const imageElement = currentImageElement || document.querySelector(`.image[data-image-id="${imageId}"]`);
-    const cloudinaryUrl = imageElement ? (imageElement.dataset.cloudinaryUrl || imageElement.src) : null;
-
-    deleteImageMetadataFromIndexedDB(imageId);
-    try {
-      if (cloudinaryUrl) {
-        await deleteFromCloudinary(cloudinaryUrl);
-      }
-    } catch (err) {
-    }
-
-    try {
-      await deleteImageFromIndexedDB(imageId);
-    } catch (err) {
-    }
-
-    if (typeof resetDragState === 'function') {
-      try {
-        resetDragState();
-      } catch (err) {
-      }
-    } else if (activeDrag && drake) {
-      try {
-        drake.cancel();
-      } catch (err) {
-      }
-      cleanupDragMirrors();
-      activeDrag = false;
-      scrollable = true;
-    }
-
-    if (imageElement && imageElement.parentNode) {
-      imageElement.remove();
-    }
-
-    currentImageElement = null;
-    closeImageModal();
-
-    try {
-      await saveImagePositions();
-    } catch (err) {
-    }
-  });
 }
 
 function togglePlatformDropdown() {

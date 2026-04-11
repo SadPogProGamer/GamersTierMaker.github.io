@@ -11,7 +11,6 @@ const defaultColors = [
 
 let tierOrderingStates = {}; // Track which tiers have order-on-platform enabled
 let tierLimitStates = {}; // Track which tiers have limit-to-10 enabled
-let pickrInstances = [];
 
 const platformPriority = {
   // Arcade
