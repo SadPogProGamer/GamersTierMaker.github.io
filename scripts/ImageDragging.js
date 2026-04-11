@@ -66,9 +66,17 @@ function initializeDragula() {
       return;
     }
 
-    const referenceNode = sibling && sibling.parentNode === target ? sibling : null;
+    const referenceNode = sibling && sibling.parentNode === target && target.contains(sibling) ? sibling : null;
     if (!target.contains(el)) {
-      target.insertBefore(el, referenceNode);
+      try {
+        target.insertBefore(el, referenceNode);
+      } catch (insertError) {
+        if (referenceNode && target.contains(referenceNode)) {
+          target.insertBefore(el, referenceNode);
+        } else {
+          target.appendChild(el);
+        }
+      }
     }
 
     try {
