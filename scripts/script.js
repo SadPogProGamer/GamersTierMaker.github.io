@@ -157,8 +157,6 @@ initializeFirebase().then(() => {
   alert('Failed to initialize app. See console for details.');
 });
 
-// (Genre UI removed) previously exposed genre helper functions
-
 // If we're on the My Tierlists page, render saved tierlists into the page
 document.addEventListener('DOMContentLoaded', () => {
   if (document.querySelector('.profile-page')) {
@@ -872,36 +870,16 @@ function renderPlatformOptions() {
 
   optionsContainer.innerHTML = "";
 
-  // Platform aliases for shortcuts
-  const platformAliases = {
-    "ps": "playstation",
-    "psp": "playstation portable",
-    "xbox": "xbox",
-    "nintendo": ["nintendo", "game boy", "game boy advance", "ds", "3ds", "gamecube", "wii", "switch"],
-    "switch": "switch",
-    "wii": "wii",
-    "n64": "nintendo 64",
-    "valve": ["valve index", "steam deck"],
-    "vsmile": "v.smile",
-  };
-
-  // Category aliases
-  const categoryAliases = {
-    "console": "Console",
-    "handheld": "Handhelds",
-    "mobile": "Mobile",
-    "arcade": "Arcade",
-    "pc": "PC",
-  };
+  // Alias maps are defined in AliasesAndAbreviations.js
 
   // Check if search query matches a category alias
   let selectedCategory = null;
-  if (categoryAliases[searchQuery]) {
+  if (categoryAliases && categoryAliases[searchQuery]) {
     selectedCategory = categoryAliases[searchQuery];
   }
 
   // Check if search query matches a platform alias
-  if (platformAliases[searchQuery]) {
+  if (platformAliases && platformAliases[searchQuery]) {
     const aliasValue = platformAliases[searchQuery];
     // Convert alias to array if it's not already
     const aliasArray = Array.isArray(aliasValue) ? aliasValue : [aliasValue];
