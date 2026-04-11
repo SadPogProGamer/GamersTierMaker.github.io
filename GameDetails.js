@@ -147,7 +147,6 @@ function openImageModal(imgElement) {
 
     modal.classList.remove("hidden");
   }).catch(err => {
-    console.error('Failed to load image metadata:', err);
   });
 }
 
@@ -160,7 +159,6 @@ function setupMetadataAutoSave(imageId) {
     const developerField = document.getElementById("image-developer");
 
     if (!descriptionField || !dateField || !statusField || !nameField || !developerField) {
-      console.error("One or more form fields not found in DOM");
       return;
     }
 
@@ -206,7 +204,6 @@ function setupMetadataAutoSave(imageId) {
     document.getElementById("image-status").addEventListener("change", createDebouncedHandler(imageId));
     document.getElementById("image-date-100").addEventListener("input", createDebouncedHandler(imageId));
   } catch (err) {
-    console.error("Error setting up metadata auto-save:", err);
   }
 }
 
@@ -218,12 +215,10 @@ function autoSaveMetadataWrapper() {
 
 function autoSaveMetadata(imageId) {
   if (!currentImageElement) {
-    console.warn("autoSaveMetadata: currentImageElement is null");
     return;
   }
 
   if (currentImageElement.dataset.imageId !== imageId) {
-    console.warn(`autoSaveMetadata: imageId mismatch. Expected ${imageId}, got ${currentImageElement.dataset.imageId}`);
     return;
   }
 
@@ -238,11 +233,9 @@ function autoSaveMetadata(imageId) {
     has100Replay: currentHas100Replay
   };
 
-  console.log(`Auto-saving metadata for image ${imageId}:`, imageMetadata);
 
   saveImageMetadataToIndexedDB(imageId, imageMetadata)
     .then(() => {
-      console.log(`Metadata saved to IndexedDB for image ${imageId}`);
 
       if (currentUser && firebaseDb) {
         showSyncStatus("syncing", "Syncing...");
@@ -256,31 +249,25 @@ function autoSaveMetadata(imageId) {
         }
 
         if (timeSinceLastSync > 5000) {
-          console.log(`Forcing Firebase sync after ${timeSinceLastSync}ms since last sync`);
           lastFirebaseSyncTime[imageId] = nowMs;
           saveTierListToFirebase()
             .then(() => {
-              console.log(`Firebase sync completed for image ${imageId}`);
               showSyncStatus("synced", "Synced");
               setTimeout(() => hideSyncStatus(), 2000);
             })
             .catch(err => {
-              console.error('Failed to sync to Firebase:', err);
               showSyncStatus("error", "Sync failed!");
               setTimeout(() => hideSyncStatus(), 3000);
             });
         } else {
           autoSaveTimers[imageId] = setTimeout(() => {
-            console.log(`Syncing to Firebase for image ${imageId} after debounce`);
             lastFirebaseSyncTime[imageId] = Date.now();
             saveTierListToFirebase()
               .then(() => {
-                console.log(`Firebase sync completed for image ${imageId}`);
                 showSyncStatus("synced", "Synced");
                 setTimeout(() => hideSyncStatus(), 2000);
               })
               .catch(err => {
-                console.error('Failed to sync to Firebase:', err);
                 showSyncStatus("error", "Sync failed!");
                 setTimeout(() => hideSyncStatus(), 3000);
               });
@@ -289,7 +276,6 @@ function autoSaveMetadata(imageId) {
       }
     })
     .catch(err => {
-      console.error('Failed to auto-save metadata to IndexedDB:', err);
     });
 }
 
@@ -362,7 +348,6 @@ function closeImageModal() {
   const modal = document.getElementById("image-modal");
 
   if (!currentImageElement) {
-    console.warn("closeImageModal: currentImageElement is null");
     modal.classList.add("hidden");
     return;
   }
@@ -379,7 +364,6 @@ function closeImageModal() {
     has100Replay: currentHas100Replay
   };
 
-  console.log(`Closing modal for image ${imageId}, saving metadata:`, imageMetadata);
 
   if (autoSaveTimers[imageId]) {
     clearTimeout(autoSaveTimers[imageId]);
@@ -392,7 +376,6 @@ function closeImageModal() {
 
   saveImageMetadataToIndexedDB(imageId, imageMetadata)
     .then(async () => {
-      console.log(`Metadata saved to IndexedDB on modal close for image ${imageId}`);
       await sortCurrentImageTierIfOrdered(currentImageElement);
 
       if (currentUser && firebaseDb) {
@@ -400,17 +383,14 @@ function closeImageModal() {
       }
     })
     .then(() => {
-      console.log(`Firebase sync completed on modal close for image ${imageId}`);
       const searchInput = document.getElementById('search-input');
       const currentQuery = searchInput ? searchInput.value : '';
       try {
         filterImages(currentQuery);
       } catch (e) {
-        console.error('Failed to refresh filters after saving metadata:', e);
       }
     })
     .catch(err => {
-      console.error('Failed to save image metadata on modal close:', err);
     })
     .finally(() => {
       if (window.currentModalEscapeHandler) {
@@ -436,9 +416,7 @@ async function sortCurrentImageTierIfOrdered(imageElement) {
 
   try {
     await sortTierByPlatform(row.children[1]);
-    console.log(`Sorted tier ${tierIndex} after saving platform metadata.`);
   } catch (err) {
-    console.warn(`Failed to sort tier ${tierIndex} after saving platform metadata:`, err);
   }
 }
 
@@ -460,12 +438,10 @@ function deleteImageFromModal() {
 
           if (currentUser && firebaseDb) {
             saveTierListToFirebase().catch(err => {
-              console.error('Failed to sync deletion to Firebase:', err);
             });
           }
         })
         .catch(err => {
-          console.error('Failed to delete image from modal:', err);
         });
     }
   }

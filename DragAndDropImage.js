@@ -34,7 +34,6 @@ function uploadImages(files) {
 
   // Check if IndexedDB is ready before proceeding
   if (!indexedDb) {
-    console.warn("IndexedDB not ready, waiting...");
     setTimeout(() => {
       if (!indexedDb) {
         loadingDiv.remove();
@@ -57,7 +56,6 @@ function uploadImages(files) {
         .then((fileHash) => {
           // Check if this file hash already exists
           if (existingHashes.has(fileHash)) {
-            console.warn(`Image already imported: ${file.name}`);
             skippedCount++;
             duplicateFiles.push(file.name);
             filesProcessed++;
@@ -93,7 +91,6 @@ function uploadImages(files) {
             });
         })
         .catch((err) => {
-          console.error(`Failed to process ${file.name}:`, err);
           filesProcessed++;
           // Continue processing other files even if one fails
           return null;
@@ -133,7 +130,6 @@ function uploadImages(files) {
           if (img) {
             const emptyMetadata = { name: "", developer: "", date: "", description: "", status: "", platform: null };
             return saveImageMetadataToIndexedDB(img.id, emptyMetadata).catch(err => {
-              console.warn(`Failed to initialize metadata for image ${img.id}:`, err);
             });
           }
         }));
@@ -144,19 +140,16 @@ function uploadImages(files) {
         // Sync to Firebase if user is logged in
         if (currentUser && firebaseDb) {
           saveTierListToFirebase().catch(err => {
-            console.error('Failed to sync new images to Firebase:', err);
           });
         }
         // Refresh counts (badges) after images are added
         try { updateTierCounts(countsAreShown()); } catch (e) { /* ignore */ }
       })
       .catch((err) => {
-        console.error("Failed to save images:", err);
         loadingDiv.remove();
         alert("Failed to upload images. Please try again.");
       });
   }).catch((err) => {
-    console.error("Failed to check existing images:", err);
     loadingDiv.remove();
     alert("Failed to check existing images. Please try again.");
   });

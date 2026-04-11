@@ -33,7 +33,6 @@ async function downloadAllImagesZip() {
       try {
         resp = await fetch(src);
       } catch (err) {
-        console.error('Failed to fetch image', src, err);
         continue;
       }
 
@@ -87,7 +86,6 @@ async function downloadAllImagesZip() {
       URL.revokeObjectURL(url);
     }
   } catch (err) {
-    console.error('Failed to create zip', err);
     alert('Failed to create zip. See console for details.');
   } finally {
     loadingDiv.remove();
@@ -113,7 +111,6 @@ async function getGameDetailsForExport() {
     try {
       metadata = await getImageMetadataFromIndexedDB(image.imageId);
     } catch (err) {
-      console.warn('Failed to load metadata for export:', image.imageId, err);
     }
     entries.push({
       imageId: image.imageId,
@@ -152,7 +149,6 @@ function downloadGameDetailsJSON() {
     a.remove();
     URL.revokeObjectURL(url);
   }).catch(err => {
-    console.error('Failed to prepare game details export:', err);
     alert('Failed to export game details. See console for details.');
   });
 }
@@ -219,7 +215,6 @@ async function share(shareButton, sharePositions) {
     tiers: [],
   };
 
-  console.log(`Sharing with${sharePositions ? "" : "out"} positions...`);
 
   tiers.forEach((tier, tierIndex) => {
     const betterTier = {
@@ -251,7 +246,6 @@ async function share(shareButton, sharePositions) {
     });
   });
 
-  console.log(shareJSON);
 
   barImages.forEach((img, imgIndex) => {
     const betterImage = {
@@ -288,7 +282,6 @@ async function share(shareButton, sharePositions) {
   });
   const hastebinResponse = await res.json();
 
-  console.log(hastebinResponse);
 
   const shareData = {
     title: "Share tier list!",
@@ -318,7 +311,6 @@ async function share(shareButton, sharePositions) {
 }
 
 async function load() {
-  console.log(`Loading with the id "${hash}"...`);
 
   // Get the chunks
   const response = await fetch(`https://hastebin.skyra.pw/raw/${hash}`);
@@ -337,7 +329,6 @@ async function load() {
 
   const res = chunksData.join(""); // Merge all chunks
   const data = JSON.parse(decodeUnicode(res));
-  console.log(data); // Print readable data
 
   for (const row of document.querySelectorAll(".row")) {
     deleteRow(row);

@@ -143,7 +143,6 @@ function initializeDragula() {
   }
   
   if (containers.length === 0) {
-    console.warn('No containers found for dragula');
     return;
   }
   
@@ -179,12 +178,10 @@ function initializeDragula() {
             const tierBelowIndex = tierIndex + 1;
             const tierBelow = rows[tierBelowIndex].children[1];
             tierBelow.insertBefore(lastImage, tierBelow.firstChild);
-            console.log(`Moved last image from tier ${tierIndex} to tier ${tierBelowIndex} due to limit`);
           }
         }
         
         if (tierOrderingStates[tierIndex]) {
-          sortTierByPlatform(target).catch(err => console.warn('Failed to re-sort tier:', err));
         }
       }
       

@@ -79,11 +79,9 @@ function clearImagesFromIndexedDB() {
 
 // Save setting to IndexedDB
 function saveSetting(key, value) {
-  console.log('saveSetting called for key:', key);
   return new Promise((resolve, reject) => {
     if (!indexedDb) {
       const err = new Error('indexedDb not available');
-      console.error('saveSetting error:', err);
       reject(err);
       return;
     }
@@ -92,28 +90,22 @@ function saveSetting(key, value) {
     const request = store.put({ key, value });
 
     request.onerror = (e) => {
-      console.error('saveSetting request.onerror:', e, request.error);
       reject(request.error || e);
     };
     request.onsuccess = () => {
-      console.log('saveSetting success for key:', key);
       resolve();
     };
     transaction.oncomplete = () => {
-      console.log('saveSetting transaction complete for key:', key);
     };
     transaction.onerror = (e) => {
-      console.error('saveSetting transaction error for key:', key, e);
     };
   });
 }
 
 // Get setting from IndexedDB
 function getSetting(key) {
-  console.log('getSetting called for key:', key);
   return new Promise((resolve, reject) => {
     if (!indexedDb) {
-      console.warn('getSetting: indexedDb not available');
       resolve(null);
       return;
     }
@@ -122,11 +114,9 @@ function getSetting(key) {
     const request = store.get(key);
 
     request.onerror = (e) => {
-      console.error('getSetting request.onerror:', e, request.error);
       reject(request.error || e);
     };
     request.onsuccess = () => {
-      console.log('getSetting success for key:', key, 'value:', request.result ? request.result.value : null);
       resolve(request.result ? request.result.value : null);
     };
   });
@@ -206,7 +196,6 @@ let syncPollInterval = null; // IntervalID for polling remote Firebase for updat
 
 async function initializeFirebase() {
   if (!FIREBASE_CONFIG || !FIREBASE_CONFIG.apiKey || FIREBASE_CONFIG.apiKey === "YOUR_API_KEY") {
-    console.warn("Firebase not configured. Syncing across devices will not work.");
     firebaseAvailable = false;
     return null;
   }
@@ -221,10 +210,7 @@ async function initializeFirebase() {
       updateAuthUI();
 
       if (currentUser) {
-        console.log("User logged in:", currentUser.email);
-        console.log("Firebase initialized:", !!firebaseApp);
         await loadTierListFromFirebase().catch(err => {
-          console.error("Failed to load from Firebase:", err);
         });
 
         if (initializationComplete) {
@@ -237,7 +223,6 @@ async function initializeFirebase() {
 
     return true;
   } catch (err) {
-    console.error("Firebase initialization failed:", err);
     firebaseAvailable = false;
     return null;
   }
@@ -286,7 +271,6 @@ function openProfileScreen() {
   try {
     window.location.href = 'my-tierlists.html';
   } catch (e) {
-    console.error('Failed to navigate to My Tierlists page', e);
   }
 }
 
@@ -304,7 +288,6 @@ async function signInWithGoogle() {
     const provider = new firebase.auth.GoogleAuthProvider();
     await firebaseAuth.signInWithPopup(provider);
   } catch (err) {
-    console.error("Sign in error:", err);
     alert("Failed to sign in. Make sure Firebase is configured and Google auth is enabled.");
   }
 }
@@ -317,7 +300,6 @@ async function signOut() {
     }
     await firebaseAuth.signOut();
   } catch (err) {
-    console.error("Sign out error:", err);
   }
 }
 
@@ -343,7 +325,6 @@ async function saveTierListToFirebase() {
           metadataMap[image.id] = metadata;
         }
       } catch (err) {
-        console.warn(`Failed to get metadata for image ${image.id}:`, err);
       }
     }
 
@@ -402,11 +383,8 @@ async function saveTierListToFirebase() {
       updated_at: new Date().toISOString()
     }, { merge: true });
 
-    console.log("Tier list saved to Firebase");
   } catch (err) {
-    console.error("Failed to save tier list to Firebase:", err);
     if (err && err.code === 'permission-denied') {
-      console.warn("Firebase save permission denied. Check Firestore rules and auth configuration.");
       firebaseAvailable = false;
       stopSyncPolling();
       alert('Firebase save failed because Firestore permissions are insufficient. Saving locally instead.');
@@ -429,7 +407,6 @@ async function validateImageUrl(url, timeoutMs = 5000) {
     clearTimeout(timeoutId);
     return response.status < 500;
   } catch (err) {
-    console.warn(`Image URL validation failed for ${url}:`, err.message);
     return false;
   }
 }
@@ -445,7 +422,6 @@ async function cleanupBrokenImages() {
     if (url && url.startsWith('http')) {
       const isValid = await validateImageUrl(url);
       if (!isValid) {
-        console.warn(`Removing broken image: ${imageId} (${url})`);
         img.remove();
         brokenImageIds.push(imageId);
       }
@@ -454,7 +430,6 @@ async function cleanupBrokenImages() {
 
   for (const imageId of brokenImageIds) {
     await deleteImageFromIndexedDB(imageId).catch(err => {
-      console.warn(`Could not delete image ${imageId} from IndexedDB:`, err);
     });
   }
 
@@ -467,30 +442,24 @@ async function loadTierListFromFirebase() {
   try {
     const doc = await firebaseDb.collection("tierLists").doc(currentUser.uid).get();
     if (!doc.exists) {
-      console.log("No saved tier list found in Firebase. Checking local storage...");
       loadTierListFromLocalStorage();
       return;
     }
 
     const data = doc.data();
     if (!data || !data.tier_data) {
-      console.log("No saved tier list found in Firebase. Checking local storage...");
       loadTierListFromLocalStorage();
       return;
     }
 
     await loadTierListFromObject(data.tier_data);
     lastRemoteSyncTime = new Date(data.updated_at || new Date()).getTime();
-    console.log("✓ Tier list loaded from Firebase");
   } catch (err) {
-    console.error("Failed to load tier list from Firebase:", err);
     if (err && err.code === 'permission-denied') {
-      console.warn("Firebase permission denied. Check your Firestore rules and authenticated user.");
       firebaseAvailable = false;
       stopSyncPolling();
       alert('Firebase access denied. Your tierlist will load locally until Firestore permissions are fixed.');
     }
-    console.log("Falling back to local storage...");
     loadTierListFromLocalStorage();
   }
 }
@@ -507,15 +476,11 @@ async function pollFirebaseForUpdates() {
 
     const remoteUpdatedAt = new Date(data.updated_at).getTime();
     if (lastRemoteSyncTime === null || remoteUpdatedAt > lastRemoteSyncTime) {
-      console.log("🔥 Remote updates detected - syncing tier list...");
       await loadTierListFromObject(data.tier_data);
       lastRemoteSyncTime = remoteUpdatedAt;
-      console.log("✓ Synced with remote tier list");
     }
   } catch (err) {
-    console.warn("Error polling Firebase for updates:", err);
     if (err && err.code === 'permission-denied') {
-      console.warn("Firebase permission denied during polling. Disabling Firebase sync.");
       firebaseAvailable = false;
       stopSyncPolling();
       alert('Firebase sync disabled because Firestore permissions are insufficient.');
@@ -527,7 +492,6 @@ function startSyncPolling() {
   if (syncPollInterval) return;
   if (!currentUser || !firebaseDb || !firebaseAvailable) return;
 
-  console.log("🔄 Starting real-time sync polling (10 second interval)");
   syncPollInterval = setInterval(pollFirebaseForUpdates, 10000);
 }
 
@@ -535,7 +499,6 @@ function stopSyncPolling() {
   if (syncPollInterval) {
     clearInterval(syncPollInterval);
     syncPollInterval = null;
-    console.log("⛔ Stopped sync polling");
   }
 }
 
@@ -573,20 +536,17 @@ async function uploadToCloudinary(file) {
     const data = await response.json();
     return data.secure_url;
   } catch (err) {
-    console.error("Cloudinary upload error:", err);
     throw err;
   }
 }
 
 async function deleteFromCloudinary(cloudinaryUrl) {
   if (!CLOUDINARY_CONFIG.cloudName || CLOUDINARY_CONFIG.cloudName === "YOUR_CLOUD_NAME") {
-    console.warn("Cloudinary is not configured. Skipping remote deletion.");
     return;
   }
 
   const publicId = extractCloudinaryPublicId(cloudinaryUrl);
   if (!publicId) {
-    console.warn("Unable to derive Cloudinary public_id from URL. Skipping remote deletion.", cloudinaryUrl);
     return;
   }
 
@@ -610,26 +570,21 @@ async function deleteFromCloudinary(cloudinaryUrl) {
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.warn(`Cloudinary delete request failed ${response.status}: ${errorText}`);
         return;
       }
 
       const result = await response.json();
       if (result.result !== "ok" && result.result !== "not found") {
-        console.warn("Cloudinary delete response returned unexpected result:", result);
         return;
       }
 
-      console.log("Image deleted from Cloudinary:", cloudinaryUrl, publicId);
       return;
     } catch (err) {
-      console.warn("Cloudinary delete request failed:", err);
     }
   }
 
   const endpoint = CLOUDINARY_CONFIG.deleteEndpoint;
   if (!endpoint) {
-    console.warn("Cloudinary delete is not configured. Skipping remote deletion.");
     return;
   }
 
@@ -644,13 +599,10 @@ async function deleteFromCloudinary(cloudinaryUrl) {
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.warn(`Cloudinary delete endpoint returned ${response.status}: ${errorText}`);
       return;
     }
 
-    console.log("Image deleted via Cloudinary endpoint:", cloudinaryUrl);
   } catch (err) {
-    console.warn("Cloudinary delete endpoint request failed:", err);
   }
 }
 

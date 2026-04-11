@@ -1,4 +1,4 @@
-﻿const hash = location.hash.substring(1);
+const hash = location.hash.substring(1);
 
 let customPlatforms = [];
 let pickrInstances = [];
@@ -74,18 +74,14 @@ async function buildTierListData() {
 // Save tier list - uses Firebase if signed in, else saves locally
 async function saveTierList() {
   if (!initializationComplete || !indexedDb) {
-    console.error('App not fully initialized. indexedDb:', !!indexedDb, 'initComplete:', initializationComplete);
     alert('Database not ready yet. Please wait a moment and try again.');
     return;
   }
 
-  console.log('Building tier list data...');
   let data;
   try {
     data = await buildTierListData();
-    console.log('Tier list data built successfully:', data);
   } catch (err) {
-    console.error('Failed to build tier list data:', err);
     alert('Failed to prepare tierlist. See console for details.');
     return;
   }
@@ -93,30 +89,23 @@ async function saveTierList() {
   // Try Firebase first if signed in
   if (currentUser && firebaseDb && firebaseAvailable) {
     try {
-      console.log('Saving to Firebase...');
       await saveTierListToFirebase();
       alert('Tierlist saved to your account.');
       return;
     } catch (e) {
-      console.warn('Firebase save failed, falling back to local save:', e);
     }
   }
 
   // Save locally to IndexedDB
   try {
-    console.log('Saving to IndexedDB (localTierList)...');
     await saveSetting('localTierList', data);
-    console.log('Successfully saved to IndexedDB');
     alert('Tierlist saved locally in this browser.');
   } catch (err) {
-    console.error('Failed to save to IndexedDB, trying localStorage fallback:', err);
     // Fallback to localStorage as last resort
     try {
       localStorage.setItem('savedTierList', JSON.stringify(data));
-      console.log('Saved to localStorage fallback');
       alert('Tierlist saved (using fallback storage).');
     } catch (fallbackErr) {
-      console.error('All save methods failed:', fallbackErr);
       alert('Failed to save tierlist. See console for details.');
     }
   }
@@ -126,7 +115,6 @@ async function saveTierList() {
 initializeFirebase().then(() => {
   return initializeIndexedDB();
 }).then(async () => {
-  console.log('Firebase and IndexedDB initialized successfully');
   // Load header from storage on page load
   loadHeaderFromStorage();
   loadCustomPlatforms();
@@ -141,37 +129,31 @@ initializeFirebase().then(() => {
       delete sessionStorage.my_tierlist_to_load;
       loadTierListFromObject(data);
       initializationComplete = true;
-      console.log('App fully initialized and tier list loaded');
       return;
     } catch (e) {
-      console.warn('Failed to parse session saved tierlist:', e);
     }
   }
 
   // Check if user is already logged in from cache (will load from Firebase instead of local storage)
   if (currentUser) {
     // User is already logged in - Firebase should load the tier list
-    console.log("User already logged in, tier list loading from Firebase...");
     // Give Firebase a moment to load the tier list via the promise we created in initializeFirebase()
     // If no data from Firebase after 2 seconds, mark as complete
     await new Promise(resolve => setTimeout(resolve, 500));
   } else if (hash.length <= 0) {
     // User is not logged in, so load from local storage
-    console.log("Loading from local storage...");
     loadTierListFromLocalStorage();
   } else {
     load();
   }
   
   initializationComplete = true;
-  console.log('App fully initialized');
   
   // Start polling for remote updates if user is logged in
   if (currentUser && firebaseDb && firebaseAvailable) {
     startSyncPolling();
   }
 }).catch(err => {
-  console.error('âœ— INITIALIZATION FAILED:', err);
   alert('Failed to initialize app. See console for details.');
 });
 
@@ -182,7 +164,6 @@ document.addEventListener('DOMContentLoaded', () => {
   if (document.querySelector('.profile-page')) {
     // small timeout to allow Firebase/auth to initialize
     setTimeout(() => {
-      renderSavedTierlists().catch(err => console.error(err));
     }, 200);
   }
 });
@@ -212,14 +193,12 @@ window.addEventListener('beforeunload', () => {
         has100Replay: currentHas100Replay
       };
       // Note: IndexedDB saves in beforeunload may not work, but try anyway
-      console.log("Flushing pending metadata before page unload...");
       try {
         saveImageMetadataToIndexedDB(imageId, imageMetadata).catch(() => {});
       } catch (e) {
         // ignore - best effort
       }
     } catch (e) {
-      console.warn("Could not flush metadata before unload:", e);
     }
   }
 });
@@ -240,7 +219,6 @@ async function renderSavedTierlists() {
         data = result?.tier_data || null;
       }
     } catch (e) {
-      console.warn('Failed to load tierlist from Firebase:', e);
     }
   }
 
@@ -302,7 +280,6 @@ async function renderSavedTierlists() {
       sessionStorage.my_tierlist_to_load = JSON.stringify(data);
       window.location.href = 'index.html';
     } catch (e) {
-      console.error('Failed to transfer tierlist to editor:', e);
     }
   });
 
@@ -367,10 +344,8 @@ async function loadTierListFromObject(tierListData) {
       // Remove stale Cloudinary files (404s) from DOM and storage
       // Also trigger resync to Firebase to propagate cleanup to other devices
       image.onerror = () => {
-        console.warn(`Image failed to load: ${imageId} (${imgPos.imageSrc}). Removing from tier list.`);
         image.remove();
         deleteImageFromIndexedDB(imageId).catch(err => {
-          console.warn(`Could not delete stale image ${imageId} from storage:`, err);
         });
         
         // Resync to Firebase to propagate cleanup to other devices
@@ -379,7 +354,6 @@ async function loadTierListFromObject(tierListData) {
           clearTimeout(autoSaveTimeout);
           autoSaveTimeout = setTimeout(() => {
             saveTierListToFirebase().catch(err => {
-              console.warn('Failed to resync after image cleanup:', err);
             });
           }, 1000);
         }
@@ -400,7 +374,6 @@ async function loadTierListFromObject(tierListData) {
         cloudinaryUrl: imgPos.imageSrc,
       };
       saveImageToIndexedDB(imageData).catch(err => {
-        console.warn(`Failed to save image ${imageId} to IndexedDB:`, err);
       });
 
       // Restore metadata to IndexedDB from either the old gameMetadata map or new details field
@@ -445,7 +418,6 @@ document.getElementById("main-title").addEventListener("blur", saveHeaderToStora
 function saveHeaderToStorage() {
   const headerTitle = document.getElementById("main-title").textContent;
   saveSetting("tierListHeader", headerTitle).catch(err => {
-    console.error('Failed to save header:', err);
   });
 }
 
@@ -455,7 +427,6 @@ function loadHeaderFromStorage() {
       document.getElementById("main-title").textContent = storedHeader;
     }
   }).catch(err => {
-    console.error('Failed to load header:', err);
   });
 }
 
@@ -467,7 +438,6 @@ function loadCustomPlatforms() {
       customPlatforms = parsed.map(p => typeof p === 'string' ? { name: p, category: "Uncategorized" } : p);
     }
   }).catch(err => {
-    console.error('Failed to load custom platforms:', err);
   });
 }
 
@@ -477,7 +447,6 @@ function loadTierOrderingStates() {
       tierOrderingStates = stored;
     }
   }).catch(err => {
-    console.error('Failed to load tier ordering states:', err);
   });
 }
 
@@ -487,7 +456,6 @@ function loadTierLimitStates() {
       tierLimitStates = stored;
     }
   }).catch(err => {
-    console.error('Failed to load tier limit states:', err);
   });
 }
 
@@ -607,7 +575,6 @@ async function getImagePlatformPriority(imageId) {
       return priority !== undefined ? priority : 999; // 999 for unknown platforms
     }
   } catch (e) {
-    console.warn("Could not get platform for image:", imageId, e);
   }
   return 999;
 }
@@ -615,13 +582,11 @@ async function getImagePlatformPriority(imageId) {
 // Sort images in a tier by platform priority
 async function sortTierByPlatform(tierContainer) {
   const images = Array.from(tierContainer.querySelectorAll(".image"));
-  console.log(`Sorting ${images.length} images by platform priority`);
   
   // Get priorities for all images
   const imagePriorities = await Promise.all(
     images.map(async (img) => {
       const priority = await getImagePlatformPriority(img.dataset.imageId);
-      console.log(`Image ${img.dataset.imageId}: priority ${priority}`);
       return {
         element: img,
         priority: priority
@@ -631,14 +596,12 @@ async function sortTierByPlatform(tierContainer) {
   
   // Sort by priority
   imagePriorities.sort((a, b) => a.priority - b.priority);
-  console.log(`Priorities sorted:`, imagePriorities.map(p => p.priority));
   
   // Reorder DOM
   imagePriorities.forEach(({ element }) => {
     tierContainer.appendChild(element);
   });
   
-  console.log(`Finished sorting tier`);
 }
 
 // Toggle platform ordering for a tier
@@ -739,7 +702,6 @@ function saveImagePositions() {
       return saveTierListToFirebase();
     }
   }).catch(err => {
-    console.error('Failed to save image positions:', err);
   });
 }
 
@@ -804,11 +766,9 @@ async function loadTierListFromLocalStorage() {
     const data = await getSetting('localTierList');
     if (data) {
       loadTierListFromObject(data);
-      console.log("Loaded tier list from IndexedDB (localTierList)");
       return;
     }
   } catch (err) {
-    console.warn('Failed to load tier list from IndexedDB, falling back to localStorage/images:', err);
   }
 
   // Backwards-compat: try older localStorage key
@@ -817,11 +777,9 @@ async function loadTierListFromLocalStorage() {
     if (savedData) {
       const tierListData = JSON.parse(savedData);
       loadTierListFromObject(tierListData);
-      console.log("Loaded tier list from localStorage (savedTierList)");
       return;
     }
   } catch (err) {
-    console.warn("Failed to load tier list from localStorage, falling back to images only:", err);
   }
 
   // Fallback to loading just images
@@ -849,7 +807,6 @@ function loadImagesFromStorage() {
     for (const imageObj of storedImages) {
       // Skip if this image is already displayed
       if (displayedImageIds.has(imageObj.id)) {
-        console.log("Skipping duplicate image:", imageObj.id);
         continue;
       }
 
@@ -863,10 +820,8 @@ function loadImagesFromStorage() {
       setupImageSelection(image);
       // Remove stale images if they fail to load, and resync to propagate changes
       image.onerror = () => {
-        console.warn(`Image failed to load: ${imageObj.id} (${imageObj.src}). Removing from tier list.`);
         image.remove();
         deleteImageFromIndexedDB(imageObj.id).catch(err => {
-          console.warn(`Could not delete stale image ${imageObj.id} from storage:`, err);
         });
         
         // Resync to Firebase to propagate cleanup to other devices
@@ -874,7 +829,6 @@ function loadImagesFromStorage() {
           clearTimeout(autoSaveTimeout);
           autoSaveTimeout = setTimeout(() => {
             saveTierListToFirebase().catch(err => {
-              console.warn('Failed to resync after image cleanup:', err);
             });
           }, 1000);
         }
@@ -889,7 +843,6 @@ function loadImagesFromStorage() {
 
     initializeDragula();
   }).catch(err => {
-    console.error('Failed to load images:', err);
   });
 }
 
@@ -940,7 +893,6 @@ async function deleteTierList() {
       try {
         await firebaseDb.collection("tierLists").doc(currentUser.uid).delete();
       } catch (error) {
-        console.error('Failed to delete tierlist from Firebase:', error);
       }
     }
 
@@ -950,7 +902,6 @@ async function deleteTierList() {
     // Optionally reload the page to reset everything
     location.reload();
   } catch (err) {
-    console.error("Failed to delete tier list:", err);
     loadingDiv.remove();
     alert("Failed to delete tier list. Please try again.");
   }
@@ -965,14 +916,12 @@ function getImageMetadata(imageId) {
 function saveImageMetadata(imageId, metadata) {
   // Deprecated: Use saveImageMetadataToIndexedDB instead
   saveImageMetadataToIndexedDB(imageId, metadata).catch(err => {
-    console.error('Failed to save image metadata:', err);
   });
 }
 
 function deleteImageMetadata(imageId) {
   // Deprecated: Use deleteImageMetadataFromIndexedDB instead
   deleteImageMetadataFromIndexedDB(imageId).catch(err => {
-    console.error('Failed to delete image metadata:', err);
   });
 }
 
@@ -1194,7 +1143,6 @@ function triggerMetadataAutosaveDebounced(imageId) {
   if (!imageId) return;
   if (autoSaveTimers[imageId]) clearTimeout(autoSaveTimers[imageId]);
   autoSaveTimers[imageId] = setTimeout(() => {
-    try { autoSaveMetadata(imageId); } catch (e) { console.error(e); }
   }, 800);
 }
 
@@ -1262,7 +1210,6 @@ function handlePlatformDrop(e, targetPlatform, targetCategory) {
       saveSetting("customPlatforms", customPlatforms).then(() => {
         renderPlatformOptions();
       }).catch(err => {
-        console.error('Failed to save custom platform:', err);
       });
     }
   }
@@ -1281,7 +1228,6 @@ function handlePlatformDropOnCategory(e, targetCategory) {
       saveSetting("customPlatforms", customPlatforms).then(() => {
         renderPlatformOptions();
       }).catch(err => {
-        console.error('Failed to save custom platform:', err);
       });
     }
   }
@@ -1395,17 +1341,15 @@ function deletePlatform(platform) {
       deletePlatformMode = false;
       renderPlatformOptions();
     }).catch(err => {
-      console.error('Failed to update image metadata:', err);
     });
   }).catch(err => {
-    console.error('Failed to delete platform:', err);
   });
 }
 
 function updatePlatformButton() {
   const btn = document.getElementById("platform-btn");
   if (currentSelectedPlatform) {
-    btn.textContent = currentSelectedPlatform + " ▼";
+    btn.textContent = currentSelectedPlatform + " ?";
   } else {
     btn.textContent = "Select Platform";
   }

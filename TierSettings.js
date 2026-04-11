@@ -385,7 +385,6 @@ function saveTierColors() {
     });
   });
   saveSetting("tierColors", tiers).catch(err => {
-    console.error('Failed to save tier colors:', err);
   });
 
   if (currentUser) {
@@ -414,7 +413,6 @@ function loadTierColors() {
       }
     }
   }).catch(err => {
-    console.error('Failed to load tier colors:', err);
   });
 }
 

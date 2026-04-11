@@ -1,4 +1,4 @@
-﻿// SearchFunction.js
+// SearchFunction.js
 // Handles plain game search filtering logic.
 
 function clearSearch() {
@@ -102,7 +102,6 @@ function filterImages(searchQuery) {
         }
       }
     } catch (e) {
-      console.warn('Failed to update total count display', e);
     }
 
     const barImages = imagesBar.querySelectorAll(".image");
@@ -126,7 +125,6 @@ function filterImages(searchQuery) {
       img.style.display = shouldShow ? "" : "none";
     });
   }).catch(err => {
-    console.error('Failed to load image metadata for filtering:', err);
   });
 
   updateClearButtonVisibility();
