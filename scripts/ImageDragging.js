@@ -63,12 +63,20 @@ function selectImageRange(image) {
 function moveSelectedImagesToTarget(el, target, sibling) {
   if (!selectedImages.has(el) || selectedImages.size <= 1) return;
 
-  const imagesToMove = Array.from(selectedImages).filter(img => img !== el);
+  const imagesToMove = Array.from(selectedImages)
+    .filter(img => img !== el)
+    .sort((a, b) => {
+      if (a.parentNode === b.parentNode) {
+        const siblings = Array.from(a.parentNode.querySelectorAll('.image'));
+        return siblings.indexOf(a) - siblings.indexOf(b);
+      }
+      return 0;
+    });
+
   if (!imagesToMove.length) return;
 
   const referenceNode = sibling && sibling.parentNode === target ? sibling : null;
   for (const image of imagesToMove) {
-    if (image === el) continue;
     if (image.parentNode === target && image.nextSibling === referenceNode) {
       continue;
     }
@@ -175,6 +183,12 @@ function initializeDragula() {
     })
     .on('drop', (el, target, source, sibling) => {
       scrollable = true;
+      if (!target || !target.classList.contains('sort')) {
+        clearImageSelection();
+        cleanupDragMirrors();
+        return;
+      }
+
       moveSelectedImagesToTarget(el, target, sibling);
       
       const targetRow = target.parentNode;
@@ -207,6 +221,7 @@ function initializeDragula() {
         updateTierCounts(countsAreShown());
       }
       clearImageSelection();
+      cleanupDragMirrors();
     })
     .on('cancel', (el) => {
       scrollable = true;
