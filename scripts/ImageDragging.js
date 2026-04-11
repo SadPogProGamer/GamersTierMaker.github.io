@@ -1,263 +1,103 @@
 let scrollable = true;
 let drake;
-let selectedImages = new Set();
-let lastSelectedImage = null;
-let suppressNextLeftClick = false;
 let dragEndCleanupAttached = false;
-
-function clearImageSelection() {
-  selectedImages.forEach(img => img.classList.remove('selected'));
-  selectedImages.clear();
-}
 
 function cleanupDragMirrors() {
   const oldMirrors = document.querySelectorAll('.gu-mirror, .gu-transit');
-  oldMirrors.forEach(m => m.remove());
-}
-
-function selectImage(image, preserve = false) {
-  if (!preserve) {
-    clearImageSelection();
-  }
-  image.classList.add('selected');
-  selectedImages.add(image);
-  lastSelectedImage = image;
-}
-
-function toggleImageSelection(image) {
-  if (selectedImages.has(image)) {
-    image.classList.remove('selected');
-    selectedImages.delete(image);
-  } else {
-    image.classList.add('selected');
-    selectedImages.add(image);
-    lastSelectedImage = image;
-  }
-}
-
-function selectImageRange(image) {
-  if (!lastSelectedImage || lastSelectedImage === image || image.parentNode !== lastSelectedImage.parentNode) {
-    selectImage(image);
-    return;
-  }
-
-  const container = image.parentNode;
-  const images = Array.from(container.querySelectorAll('.image'));
-  const startIndex = images.indexOf(lastSelectedImage);
-  const endIndex = images.indexOf(image);
-
-  if (startIndex < 0 || endIndex < 0) {
-    selectImage(image);
-    return;
-  }
-
-  const [from, to] = startIndex < endIndex ? [startIndex, endIndex] : [endIndex, startIndex];
-  clearImageSelection();
-  for (let i = from; i <= to; i++) {
-    images[i].classList.add('selected');
-    selectedImages.add(images[i]);
-  }
-  lastSelectedImage = image;
-}
-
-function moveSelectedImagesToTarget(el, target) {
-  if (!selectedImages.has(el) || selectedImages.size <= 1) return;
-
-  const imagesToMove = Array.from(selectedImages).filter(img => img !== el && document.contains(img));
-  if (!imagesToMove.length) return;
-
-  const referenceNode = el.nextSibling || null;
-  for (const image of imagesToMove) {
-    if (image.parentNode === target && image.nextSibling === referenceNode) {
-      continue;
-    }
-    target.insertBefore(image, referenceNode);
-  }
-}
-
-function handleImageContextMenu(event, image) {
-  const isCtrl = event.ctrlKey || event.metaKey;
-  const isShift = event.shiftKey;
-
-  if (!isCtrl && !isShift) {
-    suppressNextLeftClick = true;
-    return;
-  }
-
-  event.preventDefault();
-
-  if (isShift) {
-    selectImageRange(image);
-    return;
-  }
-
-  if (isCtrl) {
-    toggleImageSelection(image);
-    return;
-  }
-}
-
-function updateDragMirror() {
-  const mirror = document.querySelector('.gu-mirror');
-  if (!mirror) return;
-
-  if (selectedImages.size <= 1) {
-    mirror.classList.remove('selected-group');
-    return;
-  }
-
-  mirror.classList.add('selected-group');
-  const wrapper = document.createElement('div');
-  wrapper.style.display = 'flex';
-  wrapper.style.gap = '8px';
-  wrapper.style.alignItems = 'center';
-  wrapper.style.padding = '4px';
-
-  mirror.innerHTML = '';
-
-  selectedImages.forEach((img) => {
-    const clone = img.cloneNode(true);
-    clone.classList.remove('selected');
-    clone.style.margin = '0';
-    clone.style.outline = 'none';
-    clone.style.maxHeight = '85px';
-    clone.style.width = getComputedStyle(img).width;
-    clone.style.height = getComputedStyle(img).height;
-    wrapper.appendChild(clone);
-  });
-
-  mirror.appendChild(wrapper);
+  oldMirrors.forEach((mirror) => mirror.remove());
 }
 
 function setupImageSelection(image) {
-  image.addEventListener('contextmenu', (event) => handleImageContextMenu(event, image));
-  image.addEventListener('mousedown', (event) => {
-    if (event.button === 0 && suppressNextLeftClick) {
-      suppressNextLeftClick = false;
-      event.preventDefault();
-      event.stopPropagation();
-    }
-  });
+  image.addEventListener('mousedown', () => {});
 }
-
 
 function initializeDragula() {
   const containers = Array.from(document.querySelectorAll('.sort'));
 
   if (drake) {
-    // Destroy existing dragula instance and remove any leftover mirror elements
-    try { drake.destroy(); } catch (e) { }
+    try {
+      drake.destroy();
+    } catch (e) {
+    }
     cleanupDragMirrors();
   }
-  
+
   if (containers.length === 0) {
     return;
   }
-  
+
   drake = dragula(containers, {
     removeOnSpill: false,
     revertOnSpill: true,
     mirrorContainer: document.body,
-    moves: (el, source, handle, sibling) => el.classList.contains('image'),
-    accepts: (el, target) => {
-      return target && target.classList.contains('sort') && el.classList.contains('image');
+    moves: (el) => el.classList.contains('image'),
+    accepts: (el, target) => target && target.classList.contains('sort'),
+  });
+
+  drake.on('drag', () => {
+    scrollable = false;
+  });
+
+  drake.on('drop', async (el, target, source, sibling) => {
+    scrollable = true;
+
+    if (!target || !target.classList.contains('sort')) {
+      cleanupDragMirrors();
+      return;
+    }
+
+    const referenceNode = sibling && sibling.parentNode === target ? sibling : null;
+    if (!target.contains(el)) {
+      target.insertBefore(el, referenceNode);
+    }
+
+    try {
+      const p = saveImagePositions();
+      if (p && typeof p.then === 'function') {
+        await p;
+      }
+    } catch (e) {
+    }
+
+    try {
+      updateTierCounts(countsAreShown());
+    } catch (e) {
+    }
+
+    if (currentUser && firebaseDb) {
+      saveTierListToFirebase().catch(() => {});
+    }
+
+    cleanupDragMirrors();
+  });
+
+  drake.on('cancel', () => {
+    scrollable = true;
+    cleanupDragMirrors();
+  });
+
+  drake.on('over', (el, container) => {
+    if (container.classList.contains('sort')) {
+      container.style.backgroundColor = 'rgba(127, 255, 255, 0.1)';
     }
   });
-  
-  drake
-    .on('drag', (el, source) => {
-      scrollable = false;
-      if (!selectedImages.has(el)) {
-        selectImage(el);
-      }
-      updateDragMirror();
-    })
-    .on('drop', (el, target, source, sibling) => {
-      scrollable = true;
-      if (!target || !target.classList.contains('sort')) {
-        clearImageSelection();
-        cleanupDragMirrors();
-        return;
-      }
 
-      const referenceNode = sibling && sibling.parentNode === target ? sibling : null;
-      moveSelectedImagesToTarget(el, target);
-      if (!target.contains(el)) {
-        target.insertBefore(el, referenceNode);
-      }
+  drake.on('out', (el, container) => {
+    if (container.classList.contains('sort')) {
+      container.style.backgroundColor = '';
+    }
+  });
 
-      const targetRow = target.parentNode;
-      if (targetRow && targetRow.classList.contains('row')) {
-        const rows = document.querySelectorAll('.row');
-        const tierIndex = Array.from(rows).indexOf(targetRow);
-        
-        if (tierLimitStates[tierIndex]) {
-          const tierImages = target.querySelectorAll('.image');
-          if (tierImages.length > 10 && tierIndex < rows.length - 1) {
-            const lastImage = tierImages[tierImages.length - 1];
-            const tierBelowIndex = tierIndex + 1;
-            const tierBelow = rows[tierBelowIndex].children[1];
-            tierBelow.insertBefore(lastImage, tierBelow.firstChild);
-          }
-        }
-        
-        if (tierOrderingStates[tierIndex]) {
-        }
-      }
-      
-      try {
-        const p = saveImagePositions();
-        if (p && typeof p.then === 'function') {
-          p.then(() => updateTierCounts(countsAreShown())).catch(() => updateTierCounts(countsAreShown()));
-        } else {
-          updateTierCounts(countsAreShown());
-        }
-      } catch (e) {
-        updateTierCounts(countsAreShown());
-      }
-      if (!target.contains(el)) {
-        target.insertBefore(el, referenceNode);
-      }
-      selectedImages.forEach((image) => {
-        if (image !== el && document.contains(image) && !target.contains(image)) {
-          target.insertBefore(image, referenceNode);
-        }
-      });
-      clearImageSelection();
-      cleanupDragMirrors();
-    })
-    .on('cancel', (el) => {
-      scrollable = true;
-      clearImageSelection();
-      // Ensure mirror is removed if cancel left it behind
-      cleanupDragMirrors();
-    })
-    .on('over', (el, container) => {
-      if (container.classList.contains('sort')) {
-        container.style.backgroundColor = 'rgba(127, 255, 255, 0.1)';
-      }
-    })
-    .on('out', (el, container) => {
-      if (container.classList.contains('sort')) {
-        container.style.backgroundColor = '';
-      }
-    });
-
-  // Safety: remove any leftover mirror elements if the drag sequence ends unexpectedly
   if (!dragEndCleanupAttached) {
     document.addEventListener('dragend', cleanupDragMirrors);
     dragEndCleanupAttached = true;
   }
 }
 
-document.addEventListener(
-  'touchmove',
-  (event) => {
-    if (!scrollable) {
-      event.preventDefault();
-    }
-  },
-  {
-    passive: false,
+document.addEventListener('touchmove', (event) => {
+  if (!scrollable) {
+    event.preventDefault();
   }
-);
+}, {
+  passive: false,
+});
