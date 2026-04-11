@@ -1,5 +1,195 @@
 // DatabaseSyncing.js
-// Contains Firebase sync and Cloudinary upload/delete logic.
+// Contains Firebase sync, Cloudinary upload/delete logic, and IndexedDB persistence helpers.
+
+let indexedDb; // IndexedDB database
+
+// IndexedDB globals
+function initializeIndexedDB() {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open('TierListDB', 2);
+
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => {
+      indexedDb = request.result;
+      resolve(indexedDb);
+    };
+
+    request.onupgradeneeded = (event) => {
+      const database = event.target.result;
+      if (!database.objectStoreNames.contains('images')) {
+        database.createObjectStore('images', { keyPath: 'id' });
+      }
+      if (!database.objectStoreNames.contains('settings')) {
+        database.createObjectStore('settings', { keyPath: 'key' });
+      }
+      if (!database.objectStoreNames.contains('imageMetadata')) {
+        database.createObjectStore('imageMetadata', { keyPath: 'id' });
+      }
+    };
+  });
+}
+
+// Save image to IndexedDB
+function saveImageToIndexedDB(imageData) {
+  return new Promise((resolve, reject) => {
+    const transaction = indexedDb.transaction(['images'], 'readwrite');
+    const store = transaction.objectStore('images');
+    const request = store.add(imageData);
+
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => resolve(request.result);
+  });
+}
+
+// Get all images from IndexedDB
+function getImagesFromIndexedDB() {
+  return new Promise((resolve, reject) => {
+    const transaction = indexedDb.transaction(['images'], 'readonly');
+    const store = transaction.objectStore('images');
+    const request = store.getAll();
+
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => resolve(request.result);
+  });
+}
+
+// Delete image from IndexedDB
+function deleteImageFromIndexedDB(id) {
+  return new Promise((resolve, reject) => {
+    const transaction = indexedDb.transaction(['images'], 'readwrite');
+    const store = transaction.objectStore('images');
+    const request = store.delete(id);
+
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => resolve();
+  });
+}
+
+// Clear all images from IndexedDB
+function clearImagesFromIndexedDB() {
+  return new Promise((resolve, reject) => {
+    const transaction = indexedDb.transaction(['images'], 'readwrite');
+    const store = transaction.objectStore('images');
+    const request = store.clear();
+
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => resolve();
+  });
+}
+
+// Save setting to IndexedDB
+function saveSetting(key, value) {
+  console.log('saveSetting called for key:', key);
+  return new Promise((resolve, reject) => {
+    if (!indexedDb) {
+      const err = new Error('indexedDb not available');
+      console.error('saveSetting error:', err);
+      reject(err);
+      return;
+    }
+    const transaction = indexedDb.transaction(['settings'], 'readwrite');
+    const store = transaction.objectStore('settings');
+    const request = store.put({ key, value });
+
+    request.onerror = (e) => {
+      console.error('saveSetting request.onerror:', e, request.error);
+      reject(request.error || e);
+    };
+    request.onsuccess = () => {
+      console.log('saveSetting success for key:', key);
+      resolve();
+    };
+    transaction.oncomplete = () => {
+      console.log('saveSetting transaction complete for key:', key);
+    };
+    transaction.onerror = (e) => {
+      console.error('saveSetting transaction error for key:', key, e);
+    };
+  });
+}
+
+// Get setting from IndexedDB
+function getSetting(key) {
+  console.log('getSetting called for key:', key);
+  return new Promise((resolve, reject) => {
+    if (!indexedDb) {
+      console.warn('getSetting: indexedDb not available');
+      resolve(null);
+      return;
+    }
+    const transaction = indexedDb.transaction(['settings'], 'readonly');
+    const store = transaction.objectStore('settings');
+    const request = store.get(key);
+
+    request.onerror = (e) => {
+      console.error('getSetting request.onerror:', e, request.error);
+      reject(request.error || e);
+    };
+    request.onsuccess = () => {
+      console.log('getSetting success for key:', key, 'value:', request.result ? request.result.value : null);
+      resolve(request.result ? request.result.value : null);
+    };
+  });
+}
+
+// Save image metadata to IndexedDB
+function saveImageMetadataToIndexedDB(id, metadata) {
+  return new Promise((resolve, reject) => {
+    const transaction = indexedDb.transaction(['imageMetadata'], 'readwrite');
+    const store = transaction.objectStore('imageMetadata');
+    const request = store.put({ id, ...metadata });
+
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => resolve();
+  });
+}
+
+// Get image metadata from IndexedDB
+function getImageMetadataFromIndexedDB(id) {
+  return new Promise((resolve, reject) => {
+    const transaction = indexedDb.transaction(['imageMetadata'], 'readonly');
+    const store = transaction.objectStore('imageMetadata');
+    const request = store.get(id);
+
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => {
+      const result = request.result;
+      if (result) {
+        const genres = Array.isArray(result.genres) ? result.genres.slice() : (result.genre ? [result.genre] : []);
+        // Preserve 100% completion fields if present so exports/imports include them
+        const date100 = result.date100 || result.date_100 || "";
+        const has100Replay = !!result.has100Replay || !!result.has100 || false;
+        resolve({ name: result.name || "", developer: result.developer || "", date: result.date || "", date100: date100, description: result.description || "", status: result.status || "", platform: result.platform || null, genres, has100Replay });
+      } else {
+        resolve({ name: "", developer: "", date: "", date100: "", description: "", status: "", platform: null, genres: [], has100Replay: false });
+      }
+    };
+  });
+}
+
+// Get all image metadata from IndexedDB
+function getAllImageMetadataFromIndexedDB() {
+  return new Promise((resolve, reject) => {
+    const transaction = indexedDb.transaction(['imageMetadata'], 'readonly');
+    const store = transaction.objectStore('imageMetadata');
+    const request = store.getAll();
+
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => resolve(request.result);
+  });
+}
+
+// Delete image metadata from IndexedDB
+function deleteImageMetadataFromIndexedDB(id) {
+  return new Promise((resolve, reject) => {
+    const transaction = indexedDb.transaction(['imageMetadata'], 'readwrite');
+    const store = transaction.objectStore('imageMetadata');
+    const request = store.delete(id);
+
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => resolve();
+  });
+}
 
 // Firebase globals
 let firebaseApp;
