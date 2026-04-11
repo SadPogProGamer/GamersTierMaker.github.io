@@ -1030,7 +1030,7 @@ function deletePlatform(platform) {
 function updatePlatformButton() {
   const btn = document.getElementById("platform-btn");
   if (currentSelectedPlatform) {
-    btn.textContent = currentSelectedPlatform + " ?";
+    btn.textContent = currentSelectedPlatform;
   } else {
     btn.textContent = "Select Platform";
   }
