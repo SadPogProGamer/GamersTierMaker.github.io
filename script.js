@@ -348,7 +348,7 @@ async function saveTierList() {
 initializeFirebase().then(() => {
   return initializeIndexedDB();
 }).then(async () => {
-  console.log('âœ“ Firebase and IndexedDB initialized successfully');
+  console.log('Firebase and IndexedDB initialized successfully');
   // Load header from storage on page load
   loadHeaderFromStorage();
   loadCustomPlatforms();
@@ -363,7 +363,7 @@ initializeFirebase().then(() => {
       delete sessionStorage.my_tierlist_to_load;
       loadTierListFromObject(data);
       initializationComplete = true;
-      console.log('âœ“ App fully initialized and tier list loaded');
+      console.log('App fully initialized and tier list loaded');
       return;
     } catch (e) {
       console.warn('Failed to parse session saved tierlist:', e);
@@ -386,7 +386,7 @@ initializeFirebase().then(() => {
   }
   
   initializationComplete = true;
-  console.log('âœ“ App fully initialized');
+  console.log('App fully initialized');
   
   // Start polling for remote updates if user is logged in
   if (currentUser && firebaseDb && firebaseAvailable) {
