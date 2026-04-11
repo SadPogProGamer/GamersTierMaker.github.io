@@ -241,7 +241,7 @@ async function loadTierListFromLocalStorage() {
   try {
     const data = await getSetting('localTierList');
     if (data) {
-      loadTierListFromObject(data);
+      await loadTierListFromObject(data);
       return;
     }
   } catch (err) {
@@ -252,21 +252,21 @@ async function loadTierListFromLocalStorage() {
     const savedData = localStorage.getItem("savedTierList");
     if (savedData) {
       const tierListData = JSON.parse(savedData);
-      loadTierListFromObject(tierListData);
+      await loadTierListFromObject(tierListData);
       return;
     }
   } catch (err) {
   }
 
   // Fallback to loading just images
-  loadImagesFromStorage();
+  await loadImagesFromStorage();
 }
 
 function loadImagesFromStorage() {
   const imagesBar = document.querySelector("#images-bar");
   const rows = document.querySelectorAll(".row");
 
-  getImagesFromIndexedDB().then((storedImages) => {
+  return getImagesFromIndexedDB().then((storedImages) => {
     // Get all currently displayed images to avoid duplicates
     const displayedImageIds = new Set();
     document.querySelectorAll(".image").forEach(img => {
@@ -318,6 +318,8 @@ function loadImagesFromStorage() {
     }
 
     initializeDragula();
+  }).then(() => {
+    return applyTierSettingsToRows();
   }).catch(err => {
   });
 }

@@ -128,7 +128,7 @@ initializeFirebase().then(() => {
     try {
       const data = JSON.parse(sessionStorage.my_tierlist_to_load);
       delete sessionStorage.my_tierlist_to_load;
-      loadTierListFromObject(data);
+      await loadTierListFromObject(data);
       initializationComplete = true;
       return;
     } catch (e) {
@@ -143,7 +143,7 @@ initializeFirebase().then(() => {
     await new Promise(resolve => setTimeout(resolve, 500));
   } else if (hash.length <= 0) {
     // User is not logged in, so load from local storage
-    loadTierListFromLocalStorage();
+    await loadTierListFromLocalStorage();
   } else {
     load();
   }
@@ -407,6 +407,9 @@ async function loadTierListFromObject(tierListData) {
     tierLimitStates = tierListData.tierLimitStates;
   }
   
+  // Enforce saved tier settings after the tier list has been restored
+  await applyTierSettingsToRows();
+  
   // Reinitialize dragula/dragging
   try { initializeDragula(); } catch (e) { /* ignore */ }
   try { updateTierCounts(countsAreShown()); } catch (e) {}
@@ -446,6 +449,49 @@ function loadTierLimitStates() {
     }
   }).catch(err => {
   });
+}
+
+async function applyTierSettingsToRows() {
+  const rows = Array.from(document.querySelectorAll('.row'));
+  const imagesBar = document.querySelector('#images-bar');
+
+  for (let tierIndex = 0; tierIndex < rows.length; tierIndex++) {
+    const tierContainer = rows[tierIndex].children[1];
+
+    if (tierOrderingStates[tierIndex]) {
+      try {
+        await sortTierByPlatform(tierContainer);
+      } catch (e) {
+      }
+    }
+
+    if (tierLimitStates[tierIndex]) {
+      enforceTierLimitForRow(rows, tierIndex, imagesBar);
+    }
+  }
+}
+
+function enforceTierLimitForRow(rows, tierIndex, imagesBar) {
+  const row = rows[tierIndex];
+  if (!row) return;
+
+  const tierContainer = row.children[1];
+  const tierImages = Array.from(tierContainer.querySelectorAll('.image'));
+  if (tierImages.length <= 10) {
+    return;
+  }
+
+  const nextTier = rows[tierIndex + 1];
+  const nextContainer = nextTier ? nextTier.children[1] : imagesBar;
+
+  for (let i = 10; i < tierImages.length; i++) {
+    const extraImage = tierImages[i];
+    if (nextContainer) {
+      nextContainer.appendChild(extraImage);
+    } else {
+      imagesBar.appendChild(extraImage);
+    }
+  }
 }
 
 function dynamicStyle(checkbox, css) {
