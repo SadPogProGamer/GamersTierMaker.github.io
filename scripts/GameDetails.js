@@ -422,8 +422,7 @@ async function sortCurrentImageTierIfOrdered(imageElement) {
 
 function deleteImageFromModal() {
   if (currentImageElement) {
-    const confirmDelete = confirm("Are you sure you want to delete this image? This will also remove it from Cloudinary.");
-    if (confirmDelete) {
+    promptDeleteImage(() => {
       const imageId = currentImageElement.dataset.imageId;
       const cloudinaryUrl = currentImageElement.dataset.cloudinaryUrl || currentImageElement.src;
 

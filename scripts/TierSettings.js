@@ -327,10 +327,10 @@ function openRowMenu(element, event) {
   deleteBtn.className = "row-menu-btn delete";
   deleteBtn.textContent = "Delete Tier";
   deleteBtn.onclick = () => {
-    if (confirm("Are you sure you want to delete this tier? All images in it will be moved to the uncategorized section.")) {
+    promptDeleteTier(() => {
       deleteRow(element);
       menu.remove();
-    }
+    });
   };
 
   const orderCheckboxContainer = document.createElement("div");
