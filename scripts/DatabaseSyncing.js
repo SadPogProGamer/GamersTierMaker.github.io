@@ -214,6 +214,11 @@ function saveImagePositions() {
     const updatePromises = images.map((image) => {
       const position = imagePositions.find(p => p.id === image.id);
       if (position) {
+        const domImage = document.querySelector(`.image[data-image-id="${image.id}"]`);
+        if (domImage) {
+          image.src = domImage.dataset.imageSrc || domImage.dataset.cloudinaryUrl || domImage.src;
+          image.cloudinaryUrl = domImage.dataset.cloudinaryUrl || domImage.dataset.imageSrc || domImage.src || image.cloudinaryUrl;
+        }
         image.tier = position.tier;
         image.order = position.order;
         // Update in IndexedDB
@@ -252,7 +257,7 @@ async function loadTierListFromLocalStorage() {
   try {
     const data = await getSetting('localTierList');
     if (data) {
-      loadTierListFromObject(data);
+      await loadTierListFromObject(data);
       return;
     }
   } catch (err) {
@@ -263,7 +268,7 @@ async function loadTierListFromLocalStorage() {
     const savedData = localStorage.getItem("savedTierList");
     if (savedData) {
       const tierListData = JSON.parse(savedData);
-      loadTierListFromObject(tierListData);
+      await loadTierListFromObject(tierListData);
       return;
     }
   } catch (err) {
@@ -297,12 +302,17 @@ function loadImagesFromStorage() {
         continue;
       }
 
+      const imageSrc = imageObj.src || imageObj.cloudinaryUrl || '';
+      if (!imageSrc) {
+        continue;
+      }
+
       const image = document.createElement("img");
-      image.src = imageObj.src;
+      image.src = imageSrc;
       image.className = "image";
-      image.dataset.imageSrc = imageObj.src;
+      image.dataset.imageSrc = imageSrc;
       image.dataset.imageId = imageObj.id;
-      image.dataset.cloudinaryUrl = imageObj.cloudinaryUrl || imageObj.src;
+      image.dataset.cloudinaryUrl = imageObj.cloudinaryUrl || imageSrc;
       image.onclick = () => openImageModal(image);
       setupImageSelection(image);
       // Remove stale images if they fail to load, and resync to propagate changes
@@ -321,10 +331,11 @@ function loadImagesFromStorage() {
         }
       };
 
-      if (imageObj.tier === -1 || !rows[imageObj.tier]) {
+      const tier = Number(imageObj.tier);
+      if (!Number.isFinite(tier) || tier < 0 || !rows[tier]) {
         imagesBar.appendChild(image);
-      } else if (rows[imageObj.tier]) {
-        rows[imageObj.tier].children[1].appendChild(image);
+      } else {
+        rows[tier].children[1].appendChild(image);
       }
     }
 

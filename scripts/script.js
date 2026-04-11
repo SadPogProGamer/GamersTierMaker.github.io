@@ -323,22 +323,41 @@ async function loadTierListFromObject(tierListData) {
   // Place images and collect metadata save promises
   const imagesBar = document.querySelector('#images-bar');
   const metadataSavePromises = [];
+  const storedImageDataMap = {};
+  try {
+    const storedImages = await getImagesFromIndexedDB();
+    storedImages.forEach(img => {
+      if (img && img.id) {
+        storedImageDataMap[img.id] = img;
+      }
+    });
+  } catch (e) {
+  }
   
   if (tierListData.imagePositions && tierListData.imagePositions.length) {
     const sortedImagePositions = [...tierListData.imagePositions].sort((a, b) => {
-      const tierA = a.tier === -1 ? Number.MAX_SAFE_INTEGER : a.tier;
-      const tierB = b.tier === -1 ? Number.MAX_SAFE_INTEGER : b.tier;
+      const tierA = Number.isFinite(Number(a.tier)) ? Number(a.tier) : Number.MAX_SAFE_INTEGER;
+      const tierB = Number.isFinite(Number(b.tier)) ? Number(b.tier) : Number.MAX_SAFE_INTEGER;
       if (tierA !== tierB) return tierA - tierB;
-      return (a.order || 0) - (b.order || 0);
+      return (Number.isFinite(Number(a.order)) ? Number(a.order) : 0) - (Number.isFinite(Number(b.order)) ? Number(b.order) : 0);
     });
     for (const imgPos of sortedImagePositions) {
       const imageId = imgPos.imageId || ('img_' + Math.random().toString(36).slice(2));
+      const storedImage = storedImageDataMap[imageId] || {};
+      const rawTier = imgPos.tier ?? storedImage.tier;
+      const tier = Number.isFinite(Number(rawTier)) ? Number(rawTier) : -1;
+      const order = Number.isFinite(Number(imgPos.order)) ? Number(imgPos.order) : (Number.isFinite(Number(storedImage.order)) ? Number(storedImage.order) : 0);
+      const imageSrc = imgPos.imageSrc || storedImage.src || storedImage.cloudinaryUrl || '';
+      if (!imageSrc) {
+        continue;
+      }
+      const cloudinaryUrl = imgPos.cloudinaryUrl || storedImage.cloudinaryUrl || imageSrc;
       const image = document.createElement('img');
-      image.src = imgPos.imageSrc;
+      image.src = imageSrc;
       image.className = 'image';
-      image.dataset.imageSrc = imgPos.imageSrc;
+      image.dataset.imageSrc = imageSrc;
       image.dataset.imageId = imageId;
-      image.dataset.cloudinaryUrl = imgPos.imageSrc;
+      image.dataset.cloudinaryUrl = cloudinaryUrl;
       image.onclick = () => openImageModal(image);
       setupImageSelection(image);
       // Remove stale Cloudinary files (404s) from DOM and storage
@@ -359,19 +378,19 @@ async function loadTierListFromObject(tierListData) {
         }
       };
 
-      if (typeof imgPos.tier === 'number' && imgPos.tier >= 0 && rows[imgPos.tier]) {
-        rows[imgPos.tier].children[1].appendChild(image);
+      if (tier >= 0 && rows[tier]) {
+        rows[tier].children[1].appendChild(image);
       } else {
         imagesBar.appendChild(image);
       }
 
       // Save image to IndexedDB images store (needed for buildTierListData to find it later)
       const imageData = {
-        src: imgPos.imageSrc,
-        tier: imgPos.tier,
+        src: imageSrc,
+        tier,
         id: imageId,
-        order: imgPos.order || 0,
-        cloudinaryUrl: imgPos.imageSrc,
+        order,
+        cloudinaryUrl,
       };
       saveImageToIndexedDB(imageData).catch(err => {
       });
