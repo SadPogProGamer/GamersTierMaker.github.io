@@ -838,6 +838,8 @@ async function saveTierListToFirebase() {
     });
 
     await firebaseDb.collection("tierLists").doc(currentUser.uid).set({
+      userId: currentUser.uid,
+      userEmail: currentUser.email || null,
       tier_data: tierListData,
       updated_at: new Date().toISOString()
     }, { merge: true });
@@ -845,6 +847,12 @@ async function saveTierListToFirebase() {
     console.log("Tier list saved to Firebase");
   } catch (err) {
     console.error("Failed to save tier list to Firebase:", err);
+    if (err && err.code === 'permission-denied') {
+      console.warn("Firebase save permission denied. Check Firestore rules and auth configuration.");
+      firebaseAvailable = false;
+      stopSyncPolling();
+      alert('Firebase save failed because Firestore permissions are insufficient. Saving locally instead.');
+    }
     throw err;
   }
 }
@@ -1045,6 +1053,12 @@ async function loadTierListFromFirebase() {
     console.log("âœ“ Tier list loaded from Firebase");
   } catch (err) {
     console.error("Failed to load tier list from Firebase:", err);
+    if (err && err.code === 'permission-denied') {
+      console.warn("Firebase permission denied. Check your Firestore rules and authenticated user.");
+      firebaseAvailable = false;
+      stopSyncPolling();
+      alert('Firebase access denied. Your tierlist will load locally until Firestore permissions are fixed.');
+    }
     console.log("Falling back to local storage...");
     loadTierListFromLocalStorage();
   }
@@ -1072,6 +1086,12 @@ async function pollFirebaseForUpdates() {
     }
   } catch (err) {
     console.warn("Error polling Firebase for updates:", err);
+    if (err && err.code === 'permission-denied') {
+      console.warn("Firebase permission denied during polling. Disabling Firebase sync.");
+      firebaseAvailable = false;
+      stopSyncPolling();
+      alert('Firebase sync disabled because Firestore permissions are insufficient.');
+    }
   }
 }
 
