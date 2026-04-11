@@ -2260,7 +2260,8 @@ function selectImages() {
 }
 
 function getCloudinaryFolder() {
-  if (typeof isRunningOnLocalhost === 'function' && isRunningOnLocalhost()) {
+  const env = getStorageEnvironment();
+  if (env === 'localhost') {
     return CLOUDINARY_CONFIG.localHostFolder || CLOUDINARY_CONFIG.folder || null;
   }
   return CLOUDINARY_CONFIG.folder || null;
@@ -2408,7 +2409,7 @@ function isRunningInBrowserFile() {
 // Helper function to check whether the app is running on localhost for debugging
 function isRunningOnLocalhost() {
   const hostname = window.location.hostname;
-  return hostname === 'localhost' || hostname === '127.0.0.1';
+  return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1' || hostname.endsWith('.localhost');
 }
 
 // Helper function to check if the app is running in any local environment
