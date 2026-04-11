@@ -135,6 +135,141 @@ function setupImageSelection(image) {
   });
 }
 
+let draggedPlatform = null;
+let draggedCategory = null;
+let draggedPlaceholder = null;
+
+function handlePlatformDragStart(e, platform, category) {
+  draggedPlatform = platform;
+  draggedCategory = category;
+  e.dataTransfer.effectAllowed = 'move';
+  e.target.style.opacity = '0.5';
+
+  // Enable auto-scroll on drag
+  document.addEventListener('dragover', autoScrollDuringDrag);
+}
+
+function autoScrollDuringDrag(e) {
+  const dropdownMenu = document.getElementById('platform-dropdown-menu');
+  if (!dropdownMenu || dropdownMenu.classList.contains('hidden')) {
+    document.removeEventListener('dragover', autoScrollDuringDrag);
+    return;
+  }
+
+  const rect = dropdownMenu.getBoundingClientRect();
+  const scrollThreshold = 30;
+
+  if (e.clientY < rect.top + scrollThreshold) {
+    dropdownMenu.scrollTop -= 10;
+  } else if (e.clientY > rect.bottom - scrollThreshold) {
+    dropdownMenu.scrollTop += 10;
+  }
+}
+
+function handlePlatformDragOver(e) {
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+
+  if (e.target.classList.contains('platform-option') || e.target.classList.contains('platform-category-header')) {
+    e.target.classList.add('drag-over');
+  }
+}
+
+function handlePlatformDragLeave(e) {
+  e.target.classList.remove('drag-over');
+}
+
+function handlePlatformDrop(e, targetPlatform, targetCategory) {
+  e.preventDefault();
+  e.target.classList.remove('drag-over');
+  removePlaceholder();
+  if (draggedPlatform && draggedPlatform !== targetPlatform) {
+    const draggedCustomIndex = customPlatforms.findIndex(p => p.name === draggedPlatform);
+
+    if (draggedCustomIndex > -1) {
+      customPlatforms[draggedCustomIndex].category = targetCategory;
+      saveSetting('customPlatforms', customPlatforms).then(() => {
+        renderPlatformOptions();
+      }).catch(err => {
+      });
+    }
+  }
+}
+
+function handlePlatformDropOnCategory(e, targetCategory) {
+  e.preventDefault();
+  e.target.classList.remove('drag-over');
+  removePlaceholder();
+  if (draggedPlatform) {
+    const draggedCustomIndex = customPlatforms.findIndex(p => p.name === draggedPlatform);
+
+    if (draggedCustomIndex > -1) {
+      customPlatforms[draggedCustomIndex].category = targetCategory;
+      saveSetting('customPlatforms', customPlatforms).then(() => {
+        renderPlatformOptions();
+      }).catch(err => {
+      });
+    }
+  }
+}
+
+function showPlaceholder(targetCategory) {
+  removePlaceholder();
+
+  const optionsContainer = document.getElementById('platform-options');
+  const placeholder = document.createElement('div');
+  placeholder.className = 'platform-option draggable placeholder';
+  placeholder.textContent = draggedPlatform;
+  placeholder.id = 'drag-placeholder';
+
+  let inserted = false;
+  const children = optionsContainer.querySelectorAll('.platform-category-header');
+
+  for (let header of children) {
+    if (header.textContent === targetCategory) {
+      let nextSibling = header.nextElementSibling;
+      while (nextSibling && !nextSibling.classList.contains('platform-category-header') && !nextSibling.classList.contains('platform-drop-zone')) {
+        if (nextSibling.classList.contains('platform-drop-zone')) {
+          header.parentNode.insertBefore(placeholder, nextSibling);
+          inserted = true;
+          break;
+        }
+        nextSibling = nextSibling.nextElementSibling;
+      }
+      if (!inserted) {
+        if (nextSibling) {
+          header.parentNode.insertBefore(placeholder, nextSibling);
+        } else {
+          header.parentNode.appendChild(placeholder);
+        }
+      }
+      break;
+    }
+  }
+
+  draggedPlaceholder = placeholder;
+}
+
+function removePlaceholder() {
+  if (draggedPlaceholder) {
+    draggedPlaceholder.remove();
+    draggedPlaceholder = null;
+  }
+}
+
+function handlePlatformDragEnd(e) {
+  e.target.style.opacity = '1';
+  draggedPlatform = null;
+  draggedCategory = null;
+  removePlaceholder();
+
+  document.removeEventListener('dragover', autoScrollDuringDrag);
+
+  document.querySelectorAll('.platform-option.drag-over, .platform-category-header.drag-over').forEach(el => {
+    el.classList.remove('drag-over');
+  });
+}
+
 function initializeDragula() {
   const containers = Array.from(document.querySelectorAll('.sort'));
 
