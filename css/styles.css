@@ -818,6 +818,20 @@ img {
   background-color: rgba(127, 255, 255, 0.1);
 }
 
+.platform-drop-zone {
+  grid-column: 1 / -1;
+  min-height: 8px;
+  background-color: transparent;
+  border: 2px dashed transparent;
+  transition: all 200ms;
+  cursor: default;
+}
+
+.platform-drop-zone.drag-over {
+  background-color: rgba(127, 255, 255, 0.2);
+  border: 2px dashed #7fffff;
+}
+
 .platform-option {
   padding: 8px;
   background-color: #3d3a3b;
@@ -827,6 +841,16 @@ img {
   text-align: center;
   font-size: 13px;
   color: var(--button-text);
+}
+
+.platform-option.draggable {
+  cursor: move;
+}
+
+.platform-option.placeholder {
+  opacity: 0.5;
+  border: 2px dashed #7fffff;
+  pointer-events: none;
 }
 
 .platform-option:hover {
@@ -854,6 +878,79 @@ img {
   border-radius: 3px;
   margin-right: 4px;
   font-size: 12px;
+}
+
+.platform-option.delete-mode {
+  background-color: #ff6b6b;
+  border-color: #ff5252;
+  color: #fff;
+  cursor: not-allowed;
+}
+
+.platform-option.delete-mode:hover {
+  background-color: #ff5252;
+  border-color: #ff4242;
+}
+
+.platform-add-container {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  padding: 8px 0;
+  border-top: 1px solid #555;
+  margin-top: 8px;
+  grid-column: 1 / -1;
+}
+
+.platform-add-input {
+  padding: 6px 8px;
+  background-color: #3d3a3b;
+  border: 1px solid #555;
+  border-radius: 3px;
+  color: var(--button-text);
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 13px;
+  box-sizing: border-box;
+}
+
+.platform-add-input:focus {
+  outline: none;
+  border-color: #7fffff;
+  background-color: #4d4a4b;
+}
+
+.platform-add-btn {
+  padding: 6px 12px;
+  background-color: #7fffff;
+  color: #000;
+  border: none;
+  border-radius: 3px;
+  cursor: pointer;
+  font-weight: bold;
+  font-size: 13px;
+  transition: all 200ms;
+  width: 100%;
+}
+
+.platform-add-btn:hover {
+  background-color: #5fe6ff;
+}
+
+.platform-delete-btn {
+  padding: 6px 12px;
+  background-color: #ff6b6b;
+  color: #fff;
+  border: none;
+  border-radius: 3px;
+  cursor: pointer;
+  font-weight: bold;
+  font-size: 13px;
+  transition: all 200ms;
+  width: 100%;
+}
+
+.platform-delete-btn:hover {
+  background-color: #ff5252;
 }
 
 .row-menu {

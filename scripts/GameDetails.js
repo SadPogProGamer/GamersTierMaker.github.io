@@ -461,19 +461,3 @@ document.addEventListener("DOMContentLoaded", () => {
     platformSearch.addEventListener("keyup", renderPlatformOptions);
   }
 });
-
-function updatePlatformButton() {
-  const btn = document.getElementById("platform-btn");
-  if (currentSelectedPlatform) {
-    btn.textContent = currentSelectedPlatform + " ▼";
-  } else {
-    btn.textContent = "Select Platform ▼";
-  }
-}
-
-function selectPlatform(platform) {
-  currentSelectedPlatform = platform;
-  updatePlatformButton();
-  renderPlatformOptions();
-  document.getElementById("platform-dropdown-menu").classList.add("hidden");
-}
