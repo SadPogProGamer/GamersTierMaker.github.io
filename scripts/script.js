@@ -400,7 +400,7 @@ async function loadTierListFromObject(tierListData) {
   }
 
   // Apply saved ordering and limit settings
-  const rows = document.querySelectorAll('.row');
+  rows = document.querySelectorAll('.row');
   for (let i = 0; i < rows.length; i++) {
     if (tierOrderingStates[i]) {
       const tierContainer = rows[i].children[1];
