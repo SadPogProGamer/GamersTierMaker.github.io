@@ -2217,6 +2217,14 @@ function selectImages() {
 }
 
 function getCloudinaryFolder() {
+  const isLocalHost5500 =
+    (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") &&
+    window.location.port === "5500";
+
+  if (isLocalHost5500) {
+    return "LocalHost";
+  }
+
   return CLOUDINARY_CONFIG.folder || null;
 }
 
