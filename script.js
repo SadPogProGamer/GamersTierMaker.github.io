@@ -861,10 +861,9 @@ async function saveTierListToFirebase() {
     }
 
     const env = getStorageEnvironment();
+    const tierFieldKey = getFirebaseTierFieldKey();
     await firebaseDb.collection("tierLists").doc(firebaseDocId).set({
-      tier_data: {
-        [env]: tierListData
-      },
+      [tierFieldKey]: tierListData,
       updated_at: new Date().toISOString()
     }, { merge: true });
 
@@ -1078,8 +1077,8 @@ async function loadTierListFromFirebase() {
       return;
     }
 
-    const env = getStorageEnvironment();
-    const tierData = data.tier_data[env] || data.tier_data || null;
+    const tierFieldKey = getFirebaseTierFieldKey();
+    const tierData = data[tierFieldKey] || data.tier_data || null;
     if (!tierData) {
       console.log("No saved tier list found for this environment in Firebase. Checking local storage...");
       loadTierListFromLocalStorage();
@@ -1108,10 +1107,10 @@ async function pollFirebaseForUpdates() {
     if (!doc.exists) return;
 
     const data = doc.data();
-    if (!data || !data.tier_data) return;
+    if (!data) return;
 
-    const env = getStorageEnvironment();
-    const tierData = data.tier_data[env] || data.tier_data || null;
+    const tierFieldKey = getFirebaseTierFieldKey();
+    const tierData = data[tierFieldKey] || data.tier_data || null;
     if (!tierData) return;
 
     // Check if remote data is newer than what we have locally
@@ -2442,6 +2441,11 @@ function getStorageEnvironment() {
   if (isRunningOnLocalhost()) return 'localhost';
   if (isRunningInBrowserFile()) return 'browser';
   return 'browser';
+}
+
+function getFirebaseTierFieldKey() {
+  const env = getStorageEnvironment();
+  return env === 'localhost' ? 'tier_data_localhost' : 'tier_data_browser';
 }
 
 function getEnvironmentKey(key) {
