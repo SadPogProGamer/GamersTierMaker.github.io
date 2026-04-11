@@ -112,7 +112,11 @@ async function saveTierList() {
 
 // Initialize Firebase first, then IndexedDB
 initializeFirebase().then(() => {
-  return initializeIndexedDB();
+  return initializeIndexedDB().catch(err => {
+    console.warn('IndexedDB initialization failed; continuing without IndexedDB:', err);
+    indexedDb = null;
+    return null;
+  });
 }).then(async () => {
   // Load header from storage on page load
   loadHeaderFromStorage();
@@ -152,6 +156,7 @@ initializeFirebase().then(() => {
     startSyncPolling();
   }
 }).catch(err => {
+  console.error('App initialization failed:', err);
   alert('Failed to initialize app. See console for details.');
 });
 
