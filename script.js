@@ -1,15 +1,4 @@
-﻿const defaultColors = [
-  "rgb(191, 255, 127)",
-  "rgb(255, 127, 127)",
-  "rgb(255, 191, 127)",
-  "rgb(255, 223, 127)",
-  "#FFFF7F",
-  "rgb(191, 255, 127)",
-  "rgb(127, 255, 127)",
-  "rgb(255, 127, 255)",
-];
-
-const hash = location.hash.substring(1);
+﻿const hash = location.hash.substring(1);
 
 let customPlatforms = [];
 let pickrInstances = [];

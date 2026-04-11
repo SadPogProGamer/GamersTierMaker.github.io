@@ -1,3 +1,14 @@
+const defaultColors = [
+  "rgb(191, 255, 127)",
+  "rgb(255, 127, 127)",
+  "rgb(255, 191, 127)",
+  "rgb(255, 223, 127)",
+  "#FFFF7F",
+  "rgb(191, 255, 127)",
+  "rgb(127, 255, 127)",
+  "rgb(255, 127, 255)",
+];
+
 function addRow(tierName = "New tier", defaultColor = "lightslategray") {
   const mainContainer = document.querySelector("main");
   const newRow = document.createElement("div");
