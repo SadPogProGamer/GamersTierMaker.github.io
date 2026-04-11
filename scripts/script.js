@@ -1,6 +1,6 @@
 const hash = location.hash.substring(1);
 
-let pickrInstances = [];
+window.pickrInstances = window.pickrInstances || [];
 let initializationComplete = false; // Track when app is fully initialized
 
 // Build tier list data (used for both Firebase and local save)

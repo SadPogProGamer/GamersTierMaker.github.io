@@ -11,6 +11,7 @@ const defaultColors = [
 
 let tierOrderingStates = {}; // Track which tiers have order-on-platform enabled
 let tierLimitStates = {}; // Track which tiers have limit-to-10 enabled
+window.pickrInstances = window.pickrInstances || [];
 
 const platformPriority = {
   // Arcade
@@ -527,7 +528,7 @@ function deleteRow(element) {
     const colorPickerDiv = tooltip.querySelector(".color-picker");
     if (colorPickerDiv && colorPickerDiv._pickr) {
       colorPickerDiv._pickr.destroy();
-      pickrInstances = pickrInstances.filter(p => p !== colorPickerDiv._pickr);
+      window.pickrInstances = window.pickrInstances.filter(p => p !== colorPickerDiv._pickr);
     }
   });
 
@@ -666,7 +667,7 @@ function createColorPicker(colorPicker, onPreview, onSave, defaultColor) {
   });
 
   colorPicker._pickr = pickr;
-  pickrInstances.push(pickr);
+  window.pickrInstances.push(pickr);
 }
 
 document.querySelectorAll(".tooltip").forEach((tooltip) => {
