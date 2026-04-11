@@ -5,7 +5,6 @@
 const CLOUDINARY_CONFIG = {
   cloudName: "dfdibdfcm",
   uploadPreset: "GamersTierMaker",
-  folder: "LocalHost",
   apiKey: "719223247567395",
   apiSecret: "XK0jW7As5-haxT5j-Kf_4Vk3ar8",
   // Optional fallback server-side delete endpoint if you do not want to expose secrets in client code.

@@ -2304,10 +2304,7 @@ function selectImages() {
 }
 
 function getCloudinaryFolder() {
-  if (window.location.hostname === "localhost" && window.location.port === "5500") {
-    return CLOUDINARY_CONFIG.localhostFolder || "LocalHost";
-  }
-  return CLOUDINARY_CONFIG.folder;
+  return CLOUDINARY_CONFIG.folder || null;
 }
 
 // Upload image to Cloudinary
@@ -2319,7 +2316,10 @@ async function uploadToCloudinary(file) {
   const formData = new FormData();
   formData.append("file", file);
   formData.append("upload_preset", CLOUDINARY_CONFIG.uploadPreset);
-  formData.append("folder", getCloudinaryFolder());
+  const cloudinaryFolder = getCloudinaryFolder();
+  if (cloudinaryFolder) {
+    formData.append("folder", cloudinaryFolder);
+  }
 
   try {
     const response = await fetch(
