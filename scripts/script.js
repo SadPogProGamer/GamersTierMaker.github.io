@@ -828,6 +828,7 @@ function triggerMetadataAutosaveDebounced(imageId) {
 }
 
 // Genre UI and helpers removed
+function enterDeletePlatformMode() {
   deletePlatformMode = !deletePlatformMode;
   const deleteBtn = document.querySelector(".platform-delete-btn");
   if (deletePlatformMode) {
