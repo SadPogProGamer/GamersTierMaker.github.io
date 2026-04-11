@@ -110,14 +110,19 @@ async function saveTierList() {
   }
 }
 
-// Initialize Firebase first, then IndexedDB
-initializeFirebase().then(() => {
-  return initializeIndexedDB().catch(err => {
+async function initializeApp() {
+  await initializeFirebase().catch(err => {
+    console.warn('Firebase initialization failed; continuing without Firebase:', err);
+    firebaseAvailable = false;
+    return null;
+  });
+
+  await initializeIndexedDB().catch(err => {
     console.warn('IndexedDB initialization failed; continuing without IndexedDB:', err);
     indexedDb = null;
     return null;
   });
-}).then(async () => {
+
   // Load header from storage on page load
   loadHeaderFromStorage();
   loadTierColors();
@@ -133,6 +138,7 @@ initializeFirebase().then(() => {
       initializationComplete = true;
       return;
     } catch (e) {
+      console.error('Failed to load tierlist from session storage:', e);
     }
   }
 
@@ -155,13 +161,15 @@ initializeFirebase().then(() => {
   if (currentUser && firebaseDb && firebaseAvailable) {
     startSyncPolling();
   }
-}).catch(err => {
-  console.error('App initialization failed:', err);
-  alert('Failed to initialize app. See console for details.');
-});
+}
 
-// If we're on the My Tierlists page, render saved tierlists into the page
 document.addEventListener('DOMContentLoaded', () => {
+  initializeApp().catch(err => {
+    console.error('App initialization failed:', err);
+    alert('Failed to initialize app. See console for details.');
+  });
+
+  // If we're on the My Tierlists page, render saved tierlists into the page
   if (document.querySelector('.profile-page')) {
     // small timeout to allow Firebase/auth to initialize
     setTimeout(() => {

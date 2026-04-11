@@ -20,6 +20,28 @@ async function computeFileHash(file) {
   return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
+async function readFileAsDataURL(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(new Error('Failed to read image file.'));
+    reader.readAsDataURL(file);
+  });
+}
+
+function isLocalImageMode() {
+  const hostname = window.location.hostname;
+  const runningLocally = hostname === 'localhost' || hostname === '127.0.0.1';
+  return runningLocally || !CLOUDINARY_CONFIG.cloudName || CLOUDINARY_CONFIG.cloudName === "YOUR_CLOUD_NAME";
+}
+
+async function getImageUploadUrl(file) {
+  if (isLocalImageMode()) {
+    return await readFileAsDataURL(file);
+  }
+  return await uploadToCloudinary(file);
+}
+
 function uploadImages(files) {
   const imagesBar = document.querySelector("#images-bar");
   const imageDataArray = [];
@@ -29,7 +51,7 @@ function uploadImages(files) {
   const loadingDiv = document.createElement("div");
   loadingDiv.id = "upload-loading";
   loadingDiv.style.cssText = "position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.8); color: white; padding: 20px 40px; border-radius: 8px; z-index: 10000; font-size: 16px;";
-  loadingDiv.textContent = "Uploading images...";
+  loadingDiv.textContent = "Importing images...";
   document.body.appendChild(loadingDiv);
 
   // Check if IndexedDB is ready before proceeding
@@ -62,26 +84,26 @@ function uploadImages(files) {
             return null; // Skip this image
           }
 
-          return uploadToCloudinary(file)
-            .then((cloudinaryUrl) => {
+          return getImageUploadUrl(file)
+            .then((imageUrl) => {
               const uniqueId = "img_" + Date.now() + "_" + Math.random().toString(36).substr(2, 9);
               const image = document.createElement("img");
-              image.src = cloudinaryUrl;
+              image.src = imageUrl;
               image.className = "image";
-              image.dataset.imageSrc = cloudinaryUrl;
+              image.dataset.imageSrc = imageUrl;
               image.dataset.imageId = uniqueId;
-              image.dataset.cloudinaryUrl = cloudinaryUrl;
+              image.dataset.cloudinaryUrl = imageUrl;
               image.onclick = () => openImageModal(image);
               setupImageSelection(image);
 
               imagesBar.appendChild(image);
 
               const imageData = {
-                src: cloudinaryUrl, // Store Cloudinary URL instead of base64
+                src: imageUrl,
                 tier: -1,
                 id: uniqueId,
-                fileHash: fileHash, // Store file hash for duplicate detection
-                cloudinaryUrl: cloudinaryUrl, // Store for deletion later
+                fileHash: fileHash,
+                cloudinaryUrl: imageUrl,
               };
 
               imageDataArray.push(imageData);
@@ -103,7 +125,8 @@ function uploadImages(files) {
         const successfulImages = imageDataArray.filter(img => img !== null);
 
         if (successfulImages.length === 0 && skippedCount === 0) {
-          alert("Failed to upload any images. Please check your Cloudinary configuration and try again.");
+          const prefix = isLocalImageMode() ? "Failed to import any images." : "Failed to upload any images.";
+          alert(`${prefix} Please try again.`);
           loadingDiv.remove();
           return;
         }
