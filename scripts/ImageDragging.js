@@ -2,6 +2,7 @@ let scrollable = true;
 let drake;
 let dragEndCleanupAttached = false;
 let activeDrag = false;
+let dragulaReinitPending = false;
 
 function cleanupDragMirrors() {
   const oldMirrors = document.querySelectorAll('.gu-mirror, .gu-transit');
@@ -37,6 +38,17 @@ function setupImageSelection(image) {
 }
 
 function initializeDragula() {
+  if (activeDrag) {
+    if (!dragulaReinitPending) {
+      dragulaReinitPending = true;
+      setTimeout(() => {
+        dragulaReinitPending = false;
+        initializeDragula();
+      }, 100);
+    }
+    return;
+  }
+
   const containers = Array.from(document.querySelectorAll('.sort'));
 
   if (drake) {
@@ -67,6 +79,7 @@ function initializeDragula() {
   drake.on('drop', async (el, target, source, sibling) => {
     activeDrag = false;
     scrollable = true;
+    cleanupDragMirrors();
 
     if (!target || !target.classList.contains('sort')) {
       return;
@@ -89,6 +102,7 @@ function initializeDragula() {
   drake.on('cancel', () => {
     activeDrag = false;
     scrollable = true;
+    cleanupDragMirrors();
   });
 
   drake.on('over', (el, container) => {
