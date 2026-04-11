@@ -157,9 +157,11 @@ function initializeDragula() {
   
   drake = dragula(containers, {
     removeOnSpill: false,
+    revertOnSpill: true,
     mirrorContainer: document.body,
+    moves: (el, source, handle, sibling) => el.classList.contains('image'),
     accepts: (el, target) => {
-      return target && target.classList.contains('sort');
+      return target && target.classList.contains('sort') && el.classList.contains('image');
     }
   });
   
