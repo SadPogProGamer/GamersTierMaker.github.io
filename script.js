@@ -1,4 +1,11 @@
-const hash = location.hash.substring(1);
+const rawHash = location.hash.substring(1);
+const hash = isSupabaseAuthRedirectHash(rawHash) ? "" : rawHash;
+
+function isSupabaseAuthRedirectHash(value) {
+  if (!value) return false;
+  return value.includes('=') || value.includes('&') || /access_token|refresh_token|expires_in|token_type|provider_token|provider_refresh_token/.test(value);
+}
+
 const defaultColors = [
   "rgb(191, 255, 127)",
   "rgb(255, 127, 127)",
@@ -1189,6 +1196,11 @@ initializeSupabase().then(() => {
     } catch (e) {
       console.warn('Failed to parse session saved tierlist:', e);
     }
+  }
+
+  // Clear Supabase OAuth callback fragments from the URL once handled
+  if (isSupabaseAuthRedirectHash(rawHash)) {
+    history.replaceState(null, '', location.pathname + location.search);
   }
 
   // Check if user is already logged in from cache (will load from Supabase instead of local storage)
