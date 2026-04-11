@@ -400,10 +400,8 @@ function updateAuthUI() {
 
     const userMeta = currentUser.user_metadata || {};
     const rawMeta = currentUser.raw_user_meta_data || {};
-    const avatarUrl = userMeta.avatar_url || userMeta.picture || rawMeta.avatar_url || rawMeta.picture || "";
-    if (avatarUrl) {
-      profileAvatar.src = avatarUrl;
-    }
+    const customAvatarUrl = "assets/aerith.jpg";
+    profileAvatar.src = customAvatarUrl;
 
     userName.textContent = userMeta.full_name || userMeta.name || rawMeta.full_name || rawMeta.name || currentUser.email || "Signed in";
     userName.style.display = "block";
