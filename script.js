@@ -394,7 +394,22 @@ function saveImageToIndexedDB(imageData) {
   });
 }
 
-// Get all images from IndexedDB
+function getImageRecordEnvironment(imageRecord) {
+  if (!imageRecord) return getStorageEnvironment();
+  if (imageRecord.environment) return imageRecord.environment;
+  if (typeof imageRecord.id === 'string') {
+    if (imageRecord.id.startsWith('localhost_')) return 'localhost';
+    if (imageRecord.id.startsWith('browser_')) return 'browser';
+  }
+  if (typeof imageRecord.cloudinaryUrl === 'string') {
+    if (imageRecord.cloudinaryUrl.startsWith('data:')) return 'browser';
+    return 'localhost';
+  }
+  if (imageRecord.isLocalStorage) return 'browser';
+  return getStorageEnvironment();
+}
+
+// Get all images from IndexedDB for the current environment
 function getImagesFromIndexedDB() {
   return new Promise((resolve, reject) => {
     const transaction = indexedDb.transaction(['images'], 'readonly');
@@ -402,7 +417,11 @@ function getImagesFromIndexedDB() {
     const request = store.getAll();
     
     request.onerror = () => reject(request.error);
-    request.onsuccess = () => resolve(request.result);
+    request.onsuccess = () => {
+      const env = getStorageEnvironment();
+      const filteredImages = request.result.filter(img => getImageRecordEnvironment(img) === env);
+      resolve(filteredImages);
+    };
   });
 }
 
@@ -837,7 +856,12 @@ async function saveTierListToFirebase() {
       }
     });
 
-    await firebaseDb.collection("tierLists").doc(currentUser.uid).set({
+    const firebaseDocId = getFirebaseTierListDocId();
+    if (!firebaseDocId) {
+      throw new Error("Unable to determine Firebase document ID for the current environment.");
+    }
+
+    await firebaseDb.collection("tierLists").doc(firebaseDocId).set({
       tier_data: tierListData,
       updated_at: new Date().toISOString()
     }, { merge: true });
@@ -1004,14 +1028,14 @@ async function saveTierList() {
   // Save locally to IndexedDB
   try {
     console.log('Saving to IndexedDB (localTierList)...');
-    await saveSetting('localTierList', data);
+    await saveEnvironmentSetting('localTierList', data);
     console.log('Successfully saved to IndexedDB');
     alert('Tierlist saved locally in this browser.');
   } catch (err) {
     console.error('Failed to save to IndexedDB, trying localStorage fallback:', err);
     // Fallback to localStorage as last resort
     try {
-      localStorage.setItem('savedTierList', JSON.stringify(data));
+      localStorage.setItem(getEnvironmentLocalStorageKey('savedTierList'), JSON.stringify(data));
       console.log('Saved to localStorage fallback');
       alert('Tierlist saved (using fallback storage).');
     } catch (fallbackErr) {
@@ -1026,7 +1050,19 @@ async function loadTierListFromFirebase() {
   if (!currentUser || !firebaseDb || !firebaseAvailable) return;
 
   try {
-    const doc = await firebaseDb.collection("tierLists").doc(currentUser.uid).get();
+    const firebaseDocId = getFirebaseTierListDocId();
+    if (!firebaseDocId) {
+      console.warn("Firebase tier list document ID not available. Falling back to local storage.");
+      loadTierListFromLocalStorage();
+      return;
+    }
+
+    let doc = await firebaseDb.collection("tierLists").doc(firebaseDocId).get();
+    if (!doc.exists && getStorageEnvironment() === 'browser') {
+      // Legacy fallback for older browser data saved under the plain UID.
+      doc = await firebaseDb.collection("tierLists").doc(currentUser.uid).get();
+    }
+
     if (!doc.exists) {
       console.log("No saved tier list found in Firebase. Checking local storage...");
       loadTierListFromLocalStorage();
@@ -1042,7 +1078,7 @@ async function loadTierListFromFirebase() {
 
     await loadTierListFromObject(data.tier_data);
     lastRemoteSyncTime = new Date(data.updated_at || new Date()).getTime();
-    console.log("âœ“ Tier list loaded from Firebase");
+    console.log("✓ Tier list loaded from Firebase");
   } catch (err) {
     console.error("Failed to load tier list from Firebase:", err);
     console.log("Falling back to local storage...");
@@ -1055,7 +1091,10 @@ async function pollFirebaseForUpdates() {
   if (!currentUser || !firebaseDb || !firebaseAvailable) return;
 
   try {
-    const doc = await firebaseDb.collection("tierLists").doc(currentUser.uid).get();
+    const firebaseDocId = getFirebaseTierListDocId();
+    if (!firebaseDocId) return;
+
+    const doc = await firebaseDb.collection("tierLists").doc(firebaseDocId).get();
     if (!doc.exists) return;
 
     const data = doc.data();
@@ -1206,8 +1245,12 @@ async function renderSavedTierlists() {
   let data = null;
   if (currentUser && firebaseDb) {
     try {
-      const doc = await firebaseDb.collection('tierLists').doc(currentUser.uid).get();
-      if (doc.exists) {
+      const firebaseDocId = getFirebaseTierListDocId();
+      let doc = firebaseDocId ? await firebaseDb.collection('tierLists').doc(firebaseDocId).get() : null;
+      if ((!doc || !doc.exists) && getStorageEnvironment() === 'browser') {
+        doc = await firebaseDb.collection('tierLists').doc(currentUser.uid).get();
+      }
+      if (doc && doc.exists) {
         const result = doc.data();
         data = result?.tier_data || null;
       }
@@ -1219,7 +1262,7 @@ async function renderSavedTierlists() {
   // Fallback to local save
   if (!data) {
     try {
-      data = await getSetting('localTierList');
+      data = await getEnvironmentSetting('localTierList');
     } catch (e) {
       data = null;
     }
@@ -1432,7 +1475,7 @@ function togglePlatformDropdown() {
 
 function saveHeaderToStorage() {
   const headerTitle = document.getElementById("main-title").textContent;
-  saveSetting("tierListHeader", headerTitle).catch(err => {
+  saveEnvironmentSetting("tierListHeader", headerTitle).catch(err => {
     console.error('Failed to save header:', err);
   });
 }
@@ -1446,7 +1489,7 @@ function saveTierColors() {
       color: tierLabel.style.backgroundColor,
     });
   });
-  saveSetting("tierColors", tiers).catch(err => {
+  saveEnvironmentSetting("tierColors", tiers).catch(err => {
     console.error('Failed to save tier colors:', err);
   });
 
@@ -1457,7 +1500,7 @@ function saveTierColors() {
 }
 
 function loadTierColors() {
-  getSetting("tierColors").then(storedTiers => {
+  getEnvironmentSetting("tierColors").then(storedTiers => {
     if (storedTiers) {
       const rows = document.querySelectorAll(".row");
       const defaultTierCount = rows.length;
@@ -1484,7 +1527,7 @@ function loadTierColors() {
 }
 
 function loadHeaderFromStorage() {
-  getSetting("tierListHeader").then(storedHeader => {
+  getEnvironmentSetting("tierListHeader").then(storedHeader => {
     if (storedHeader) {
       document.getElementById("main-title").textContent = storedHeader;
     }
@@ -1494,7 +1537,7 @@ function loadHeaderFromStorage() {
 }
 
 function loadCustomPlatforms() {
-  getSetting("customPlatforms").then(stored => {
+  getEnvironmentSetting("customPlatforms").then(stored => {
     if (stored) {
       const parsed = Array.isArray(stored) ? stored : JSON.parse(stored);
       // Handle migration from old format (array of strings) to new format (array of objects)
@@ -1506,7 +1549,7 @@ function loadCustomPlatforms() {
 }
 
 function loadTierOrderingStates() {
-  getSetting("tierOrderingStates").then(stored => {
+  getEnvironmentSetting("tierOrderingStates").then(stored => {
     if (stored) {
       tierOrderingStates = stored;
     }
@@ -1516,7 +1559,7 @@ function loadTierOrderingStates() {
 }
 
 function loadTierLimitStates() {
-  getSetting("tierLimitStates").then(stored => {
+  getEnvironmentSetting("tierLimitStates").then(stored => {
     if (stored) {
       tierLimitStates = stored;
     }
@@ -1732,7 +1775,7 @@ async function toggleTierOrdering(tierIndex, enabled) {
   }
   
   // Save state to IndexedDB
-  await saveSetting("tierOrderingStates", tierOrderingStates);
+  await saveEnvironmentSetting("tierOrderingStates", tierOrderingStates);
   
   // Also save to Firebase if user is logged in
   if (currentUser && firebaseDb) {
@@ -1745,7 +1788,7 @@ async function toggleTierLimit(tierIndex, enabled) {
   tierLimitStates[tierIndex] = enabled;
   
   // Save state to IndexedDB
-  await saveSetting("tierLimitStates", tierLimitStates);
+  await saveEnvironmentSetting("tierLimitStates", tierLimitStates);
   
   // Also save to Firebase if user is logged in
   if (currentUser && firebaseDb) {
@@ -2373,6 +2416,34 @@ function isRunningLocally() {
   return isRunningInBrowserFile() || isRunningOnLocalhost();
 }
 
+function getStorageEnvironment() {
+  if (isRunningOnLocalhost()) return 'localhost';
+  if (isRunningInBrowserFile()) return 'browser';
+  return 'browser';
+}
+
+function getEnvironmentKey(key) {
+  return `${getStorageEnvironment()}_${key}`;
+}
+
+function saveEnvironmentSetting(key, value) {
+  return saveSetting(getEnvironmentKey(key), value);
+}
+
+function getEnvironmentSetting(key) {
+  return getSetting(getEnvironmentKey(key));
+}
+
+function getEnvironmentLocalStorageKey(key) {
+  return `${getStorageEnvironment()}_${key}`;
+}
+
+function getFirebaseTierListDocId() {
+  if (!currentUser || !currentUser.uid || !firebaseDb) return null;
+  const env = getStorageEnvironment();
+  return `${currentUser.uid}_${env}`;
+}
+
 // Helper function to convert file to data URL
 function fileToDataURL(file) {
   return new Promise((resolve, reject) => {
@@ -2436,11 +2507,12 @@ function uploadImages(files) {
           }
 
           // Check if running from a browser file environment
+          const environment = getStorageEnvironment();
           if (isRunningInBrowserFile()) {
             // Use data URL for local storage
             return fileToDataURL(file)
               .then((dataUrl) => {
-                const uniqueId = "img_" + Date.now() + "_" + Math.random().toString(36).substr(2, 9);
+                const uniqueId = `${environment}_img_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
                 const image = document.createElement("img");
                 image.src = dataUrl;
                 image.className = "image";
@@ -2456,6 +2528,7 @@ function uploadImages(files) {
                   src: dataUrl,
                   tier: -1,
                   id: uniqueId,
+                  environment,
                   fileHash: fileHash,
                   cloudinaryUrl: dataUrl,
                   isLocalStorage: true, // Mark as local storage
@@ -2470,7 +2543,7 @@ function uploadImages(files) {
             // Use Cloudinary for remote storage
             return uploadToCloudinary(file)
               .then((cloudinaryUrl) => {
-                const uniqueId = "img_" + Date.now() + "_" + Math.random().toString(36).substr(2, 9);
+                const uniqueId = `${environment}_img_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
                 const image = document.createElement("img");
                 image.src = cloudinaryUrl;
                 image.className = "image";
@@ -2486,6 +2559,7 @@ function uploadImages(files) {
                   src: cloudinaryUrl, // Store Cloudinary URL instead of base64
                   tier: -1,
                   id: uniqueId,
+                  environment,
                   fileHash: fileHash, // Store file hash for duplicate detection
                   cloudinaryUrl: cloudinaryUrl, // Store for deletion later
                 };
@@ -2769,7 +2843,7 @@ function dynamicStyle(checkbox, css) {
 async function loadTierListFromLocalStorage() {
   // Try IndexedDB settings store first (key: 'localTierList')
   try {
-    const data = await getSetting('localTierList');
+    const data = await getEnvironmentSetting('localTierList');
     if (data) {
       loadTierListFromObject(data);
       console.log("Loaded tier list from IndexedDB (localTierList)");
@@ -2781,7 +2855,7 @@ async function loadTierListFromLocalStorage() {
 
   // Backwards-compat: try older localStorage key
   try {
-    const savedData = localStorage.getItem("savedTierList");
+    const savedData = localStorage.getItem(getEnvironmentLocalStorageKey("savedTierList"));
     if (savedData) {
       const tierListData = JSON.parse(savedData);
       loadTierListFromObject(tierListData);
@@ -3673,7 +3747,7 @@ function handlePlatformDrop(e, targetPlatform, targetCategory) {
     if (draggedCustomIndex > -1) {
       // Moving custom platform to a different category
       customPlatforms[draggedCustomIndex].category = targetCategory;
-      saveSetting("customPlatforms", customPlatforms).then(() => {
+      saveEnvironmentSetting("customPlatforms", customPlatforms).then(() => {
         renderPlatformOptions();
       }).catch(err => {
         console.error('Failed to save custom platform:', err);
@@ -3692,7 +3766,7 @@ function handlePlatformDropOnCategory(e, targetCategory) {
     if (draggedCustomIndex > -1) {
       // Moving custom platform to a different category
       customPlatforms[draggedCustomIndex].category = targetCategory;
-      saveSetting("customPlatforms", customPlatforms).then(() => {
+      saveEnvironmentSetting("customPlatforms", customPlatforms).then(() => {
         renderPlatformOptions();
       }).catch(err => {
         console.error('Failed to save custom platform:', err);
@@ -3792,7 +3866,7 @@ function deletePlatform(platform) {
   
   // Remove from customPlatforms
   customPlatforms = customPlatforms.filter(p => p.name !== platform);
-  saveSetting("customPlatforms", customPlatforms).then(() => {
+  saveEnvironmentSetting("customPlatforms", customPlatforms).then(() => {
     // Remove from any image metadata that references this platform
     getAllImageMetadataFromIndexedDB().then(allMetadata => {
       allMetadata.forEach(metadata => {
