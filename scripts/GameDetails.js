@@ -442,7 +442,7 @@ function deleteImageFromModal() {
         })
         .catch(err => {
         });
-    }
+    });
   }
 }
 
