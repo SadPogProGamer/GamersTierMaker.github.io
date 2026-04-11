@@ -77,6 +77,11 @@ function moveSelectedImagesToTarget(el, target, sibling) {
 
   const referenceNode = sibling && sibling.parentNode === target ? sibling : null;
   for (const image of imagesToMove) {
+    if (!document.contains(image)) {
+      target.insertBefore(image, referenceNode);
+      continue;
+    }
+
     if (image.parentNode === target && image.nextSibling === referenceNode) {
       continue;
     }

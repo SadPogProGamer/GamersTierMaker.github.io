@@ -311,7 +311,7 @@ function loadImagesFromStorage() {
         }
       };
 
-      if (imageObj.tier === -1) {
+      if (imageObj.tier === -1 || !rows[imageObj.tier]) {
         imagesBar.appendChild(image);
       } else if (rows[imageObj.tier]) {
         rows[imageObj.tier].children[1].appendChild(image);
