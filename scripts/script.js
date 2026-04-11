@@ -118,11 +118,10 @@ initializeFirebase().then(() => {
     return null;
   });
 }).then(async () => {
-  // Load header from storage on page load
+  // Load header and tier settings from storage on page load
   loadHeaderFromStorage();
   loadTierColors();
-  loadTierOrderingStates();
-  loadTierLimitStates();
+  await Promise.all([loadTierOrderingStates(), loadTierLimitStates()]);
   
   // If a saved tierlist was selected from My Tierlists page, load it now
   if (sessionStorage && sessionStorage.my_tierlist_to_load) {
@@ -432,7 +431,7 @@ function loadHeaderFromStorage() {
 }
 
 function loadTierOrderingStates() {
-  getSetting("tierOrderingStates").then(stored => {
+  return getSetting("tierOrderingStates").then(stored => {
     if (stored) {
       tierOrderingStates = stored;
     }
@@ -441,7 +440,7 @@ function loadTierOrderingStates() {
 }
 
 function loadTierLimitStates() {
-  getSetting("tierLimitStates").then(stored => {
+  return getSetting("tierLimitStates").then(stored => {
     if (stored) {
       tierLimitStates = stored;
     }
