@@ -858,22 +858,6 @@ function deletePlatform(platform) {
   });
 }
 
-function updatePlatformButton() {
-  const btn = document.getElementById("platform-btn");
-  if (currentSelectedPlatform) {
-    btn.textContent = currentSelectedPlatform + " ▼";
-  } else {
-    btn.textContent = "Select Platform ▼";
-  }
-}
-
-function selectPlatform(platform) {
-  currentSelectedPlatform = platform;
-  updatePlatformButton();
-  renderPlatformOptions();
-  document.getElementById("platform-dropdown-menu").classList.add("hidden");
-}
-
 document.addEventListener("DOMContentLoaded", function() {
   // prevent copying of tier background color by forcing plain text
   document.addEventListener('copy', function(e) {
