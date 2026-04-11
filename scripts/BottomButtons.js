@@ -356,10 +356,17 @@ async function deleteTierList() {
   try {
     const allImages = await getImagesFromIndexedDB();
 
-    for (const image of allImages) {
+    // Attempt to delete images from Cloudinary, but guard each remote call with a timeout
+    // so a stuck remote endpoint doesn't hang the whole deletion flow.
+    const DELETE_TIMEOUT_MS = 10000; // 10s per delete
+
+    await Promise.allSettled(allImages.map(image => {
       const cloudinaryUrl = image.cloudinaryUrl || image.src;
-      await deleteFromCloudinary(cloudinaryUrl);
-    }
+      return Promise.race([
+        deleteFromCloudinary(cloudinaryUrl).catch(() => {}),
+        new Promise(resolve => setTimeout(resolve, DELETE_TIMEOUT_MS))
+      ]);
+    }));
 
     await clearImagesFromIndexedDB();
 
