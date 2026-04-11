@@ -626,9 +626,25 @@ async function initializeSupabase() {
       throw new Error("Supabase JS library not loaded. Make sure the script tag is present.");
     }
 
-    const { data: sessionData, error: sessionError } = await supabaseClient.auth.getSession();
-    if (sessionError) {
-      console.warn("Supabase session fetch failed:", sessionError);
+    let sessionData = null;
+    let sessionError = null;
+
+    if (isSupabaseAuthRedirectHash(rawHash) && typeof supabaseClient.auth.getSessionFromUrl === 'function') {
+      const result = await supabaseClient.auth.getSessionFromUrl({ storeSession: true });
+      sessionData = result.data;
+      sessionError = result.error;
+      if (sessionError) {
+        console.warn("Supabase session-from-url fetch failed:", sessionError);
+      }
+    }
+
+    if (!sessionData || !sessionData.session) {
+      const result = await supabaseClient.auth.getSession();
+      sessionData = result.data;
+      sessionError = result.error;
+      if (sessionError) {
+        console.warn("Supabase session fetch failed:", sessionError);
+      }
     }
 
     currentUser = sessionData?.session?.user ?? null;
