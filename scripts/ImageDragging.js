@@ -60,28 +60,14 @@ function selectImageRange(image) {
   lastSelectedImage = image;
 }
 
-function moveSelectedImagesToTarget(el, target, sibling) {
+function moveSelectedImagesToTarget(el, target) {
   if (!selectedImages.has(el) || selectedImages.size <= 1) return;
 
-  const imagesToMove = Array.from(selectedImages)
-    .filter(img => img !== el)
-    .sort((a, b) => {
-      if (a.parentNode === b.parentNode) {
-        const siblings = Array.from(a.parentNode.querySelectorAll('.image'));
-        return siblings.indexOf(a) - siblings.indexOf(b);
-      }
-      return 0;
-    });
-
+  const imagesToMove = Array.from(selectedImages).filter(img => img !== el && document.contains(img));
   if (!imagesToMove.length) return;
 
-  const referenceNode = sibling && sibling.parentNode === target ? sibling : null;
+  const referenceNode = el.nextSibling || null;
   for (const image of imagesToMove) {
-    if (!document.contains(image)) {
-      target.insertBefore(image, referenceNode);
-      continue;
-    }
-
     if (image.parentNode === target && image.nextSibling === referenceNode) {
       continue;
     }
@@ -194,8 +180,12 @@ function initializeDragula() {
         return;
       }
 
-      moveSelectedImagesToTarget(el, target, sibling);
-      
+      const referenceNode = sibling && sibling.parentNode === target ? sibling : null;
+      moveSelectedImagesToTarget(el, target);
+      if (!target.contains(el)) {
+        target.insertBefore(el, referenceNode);
+      }
+
       const targetRow = target.parentNode;
       if (targetRow && targetRow.classList.contains('row')) {
         const rows = document.querySelectorAll('.row');
@@ -225,6 +215,14 @@ function initializeDragula() {
       } catch (e) {
         updateTierCounts(countsAreShown());
       }
+      if (!target.contains(el)) {
+        target.insertBefore(el, referenceNode);
+      }
+      selectedImages.forEach((image) => {
+        if (image !== el && document.contains(image) && !target.contains(image)) {
+          target.insertBefore(image, referenceNode);
+        }
+      });
       clearImageSelection();
       cleanupDragMirrors();
     })
