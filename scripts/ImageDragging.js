@@ -64,10 +64,6 @@ function initializeDragula() {
     } catch (e) {
     }
 
-    if (currentUser && firebaseDb) {
-      saveTierListToFirebase().catch(() => {});
-    }
-
     cleanupDragMirrors();
   });
 

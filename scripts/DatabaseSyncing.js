@@ -227,11 +227,21 @@ function saveImagePositions() {
       }
     }).filter(p => p);
     return Promise.all(updatePromises);
-  }).then(() => {
-    // Also save to Firebase if user is logged in
-    if (currentUser && firebaseDb) {
-      return saveTierListToFirebase();
+  }).then(async () => {
+    const savePromises = [];
+
+    // Always update the local tier list cache so refresh loads the latest positions.
+    try {
+      savePromises.push(buildTierListData().then((data) => saveSetting('localTierList', data)).catch(() => {}));
+    } catch (e) {
     }
+
+    // Also save to Firebase if the user is signed in.
+    if (currentUser && firebaseDb) {
+      savePromises.push(saveTierListToFirebase().catch(() => {}));
+    }
+
+    return Promise.all(savePromises);
   }).catch(err => {
   });
 }
