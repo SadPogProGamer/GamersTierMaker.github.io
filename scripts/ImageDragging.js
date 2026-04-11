@@ -61,7 +61,6 @@ function initializeDragula() {
     scrollable = true;
 
     if (!target || !target.classList.contains('sort')) {
-      cleanupDragMirrors();
       return;
     }
 
@@ -77,8 +76,6 @@ function initializeDragula() {
       updateTierCounts(countsAreShown());
     } catch (e) {
     }
-
-    cleanupDragMirrors();
   });
 
   drake.on('cancel', () => {
