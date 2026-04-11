@@ -2277,7 +2277,13 @@ async function uploadToCloudinary(file) {
   formData.append("file", file);
   formData.append("upload_preset", CLOUDINARY_CONFIG.uploadPreset);
   const cloudinaryFolder = getCloudinaryFolder();
-  if (cloudinaryFolder) {
+  const env = getStorageEnvironment();
+
+  if (env === 'localhost') {
+    const folderPath = cloudinaryFolder || 'LocalHost';
+    const publicId = `${folderPath}/img_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    formData.append("public_id", publicId);
+  } else if (cloudinaryFolder) {
     formData.append("folder", cloudinaryFolder);
   }
 
