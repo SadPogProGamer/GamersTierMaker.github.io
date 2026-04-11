@@ -3,10 +3,16 @@ let drake;
 let selectedImages = new Set();
 let lastSelectedImage = null;
 let suppressNextLeftClick = false;
+let dragEndCleanupAttached = false;
 
 function clearImageSelection() {
   selectedImages.forEach(img => img.classList.remove('selected'));
   selectedImages.clear();
+}
+
+function cleanupDragMirrors() {
+  const oldMirrors = document.querySelectorAll('.gu-mirror, .gu-transit');
+  oldMirrors.forEach(m => m.remove());
 }
 
 function selectImage(image, preserve = false) {
@@ -142,8 +148,7 @@ function initializeDragula() {
   if (drake) {
     // Destroy existing dragula instance and remove any leftover mirror elements
     try { drake.destroy(); } catch (e) { }
-    const oldMirrors = document.querySelectorAll('.gu-mirror, .gu-transit');
-    oldMirrors.forEach(m => m.remove());
+    cleanupDragMirrors();
   }
   
   if (containers.length === 0) {
@@ -205,8 +210,7 @@ function initializeDragula() {
       scrollable = true;
       clearImageSelection();
       // Ensure mirror is removed if cancel left it behind
-      const oldMirrors = document.querySelectorAll('.gu-mirror, .gu-transit');
-      oldMirrors.forEach(m => m.remove());
+      cleanupDragMirrors();
     })
     .on('over', (el, container) => {
       if (container.classList.contains('sort')) {
@@ -220,10 +224,10 @@ function initializeDragula() {
     });
 
   // Safety: remove any leftover mirror elements if the drag sequence ends unexpectedly
-  document.addEventListener('dragend', () => {
-    const oldMirrors = document.querySelectorAll('.gu-mirror, .gu-transit');
-    oldMirrors.forEach(m => m.remove());
-  });
+  if (!dragEndCleanupAttached) {
+    document.addEventListener('dragend', cleanupDragMirrors);
+    dragEndCleanupAttached = true;
+  }
 }
 
 document.addEventListener(
