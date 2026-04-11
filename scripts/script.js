@@ -608,24 +608,6 @@ function loadImagesFromStorage() {
   });
 }
 
-function getImageMetadata(imageId) {
-  // This function is kept for backward compatibility but uses IndexedDB asynchronously
-  // For synchronous metadata access, use getImageMetadataFromIndexedDB instead
-  return { name: "", date: "", description: "", status: "", platform: null };
-}
-
-function saveImageMetadata(imageId, metadata) {
-  // Deprecated: Use saveImageMetadataToIndexedDB instead
-  saveImageMetadataToIndexedDB(imageId, metadata).catch(err => {
-  });
-}
-
-function deleteImageMetadata(imageId) {
-  // Deprecated: Use deleteImageMetadataFromIndexedDB instead
-  deleteImageMetadataFromIndexedDB(imageId).catch(err => {
-  });
-}
-
 function renderPlatformOptions() {
   const searchInput = document.getElementById("platform-search");
   const optionsContainer = document.getElementById("platform-options");

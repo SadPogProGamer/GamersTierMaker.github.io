@@ -181,6 +181,25 @@ function deleteImageMetadataFromIndexedDB(id) {
   });
 }
 
+// Deprecated metadata wrappers kept for compatibility
+function getImageMetadata(imageId) {
+  // This function is kept for backward compatibility but uses IndexedDB asynchronously
+  // For synchronous metadata access, use getImageMetadataFromIndexedDB instead
+  return { name: "", developer: "", date: "", date100: "", description: "", status: "", platform: null, genres: [], has100Replay: false };
+}
+
+function saveImageMetadata(imageId, metadata) {
+  // Deprecated: Use saveImageMetadataToIndexedDB instead
+  saveImageMetadataToIndexedDB(imageId, metadata).catch(err => {
+  });
+}
+
+function deleteImageMetadata(imageId) {
+  // Deprecated: Use deleteImageMetadataFromIndexedDB instead
+  deleteImageMetadataFromIndexedDB(imageId).catch(err => {
+  });
+}
+
 // Firebase globals
 let firebaseApp;
 let firebaseAuth;
