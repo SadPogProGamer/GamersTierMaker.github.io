@@ -4,31 +4,6 @@ let customPlatforms = [];
 let pickrInstances = [];
 let initializationComplete = false; // Track when app is fully initialized
 
-// Show local-only button when running locally and wire click for quick checks
-document.addEventListener('DOMContentLoaded', () => {
-  const btn = document.getElementById('local-check-btn');
-  if (!btn) return;
-
-  const isLocal = () => {
-    try {
-      return location.protocol === 'file:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1' || location.hostname === '';
-    } catch (e) {
-      return false;
-    }
-  };
-
-  if (isLocal()) {
-    btn.style.display = 'inline-block';
-    btn.addEventListener('click', (e) => {
-      e.preventDefault();
-      openProfileScreen();
-    });
-  } else {
-    // Remove the button in non-local environments to avoid accidental exposure
-    btn.remove();
-  }
-});
-
 // Build tier list data (used for both Firebase and local save)
 async function buildTierListData() {
   const tierListData = {
