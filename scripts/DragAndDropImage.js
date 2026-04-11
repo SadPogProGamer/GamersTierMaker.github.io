@@ -160,7 +160,17 @@ function uploadImages(files) {
 
 function isFileDrag(event) {
   const dataTransfer = event.dataTransfer;
-  return dataTransfer && dataTransfer.types && Array.from(dataTransfer.types).includes("Files");
+  if (!dataTransfer) return false;
+
+  if (dataTransfer.files && dataTransfer.files.length > 0) {
+    return true;
+  }
+
+  if (dataTransfer.items && dataTransfer.items.length > 0) {
+    return Array.from(dataTransfer.items).some(item => item.kind === 'file');
+  }
+
+  return false;
 }
 
 // Handle drag enter event
@@ -247,13 +257,18 @@ function handleImageDrop(event) {
   }
 }
 
-// Set up drag and drop for whole document
-// Only handle actual file drops so dragula image dragging is not interfered with.
+// Set up drag and drop for the images bar only.
+// This ensures internal tier dragging is not interfered with.
 document.addEventListener("DOMContentLoaded", function() {
-  document.addEventListener("dragenter", handleDragEnter);
-  document.addEventListener("dragover", handleDragOver);
-  document.addEventListener("dragleave", handleDragLeave);
-  document.addEventListener("drop", removeImagesBarHighlight);
-  document.addEventListener("drop", handleImageDrop);
+  const imagesBar = document.getElementById("images-bar");
+  if (!imagesBar) {
+    return;
+  }
+
+  imagesBar.addEventListener("dragenter", handleDragEnter);
+  imagesBar.addEventListener("dragover", handleDragOver);
+  imagesBar.addEventListener("dragleave", handleDragLeave);
+  imagesBar.addEventListener("drop", removeImagesBarHighlight);
+  imagesBar.addEventListener("drop", handleImageDrop);
   document.addEventListener("dragend", removeImagesBarHighlight);
 });
