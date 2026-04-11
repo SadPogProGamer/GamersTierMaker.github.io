@@ -403,7 +403,6 @@ function getImageRecordEnvironment(imageRecord) {
   }
   if (typeof imageRecord.cloudinaryUrl === 'string') {
     if (imageRecord.cloudinaryUrl.startsWith('data:')) return 'browser';
-    return 'localhost';
   }
   if (imageRecord.isLocalStorage) return 'browser';
   return getStorageEnvironment();
@@ -1413,6 +1412,7 @@ async function loadTierListFromObject(tierListData) {
         id: imageId,
         order: imgPos.order || 0,
         cloudinaryUrl: imgPos.imageSrc,
+        environment: getStorageEnvironment(),
       };
       saveImageToIndexedDB(imageData).catch(err => {
         console.warn(`Failed to save image ${imageId} to IndexedDB:`, err);
