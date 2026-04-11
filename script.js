@@ -706,27 +706,27 @@ function closeProfileScreen() {
   if (screen) screen.classList.add('hidden');
 }
 
-// Show local-only button when running locally and wire click for quick checks
+// Show browser-file-only button when running from local files, and keep localhost as a separate debug environment
 document.addEventListener('DOMContentLoaded', () => {
   const btn = document.getElementById('local-check-btn');
   if (!btn) return;
 
-  const isLocal = () => {
+  const isBrowserFileMode = () => {
     try {
-      return location.protocol === 'file:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1' || location.hostname === '';
+      return location.protocol === 'file:' || location.hostname === '';
     } catch (e) {
       return false;
     }
   };
 
-  if (isLocal()) {
+  if (isBrowserFileMode()) {
     btn.style.display = 'inline-block';
     btn.addEventListener('click', (e) => {
       e.preventDefault();
       openProfileScreen();
     });
   } else {
-    // Remove the button in non-local environments to avoid accidental exposure
+    // Remove the button in non-browser-file environments to avoid accidental exposure
     btn.remove();
   }
 });
@@ -2217,6 +2217,9 @@ function selectImages() {
 }
 
 function getCloudinaryFolder() {
+  if (typeof isRunningOnLocalhost === 'function' && isRunningOnLocalhost()) {
+    return CLOUDINARY_CONFIG.localHostFolder || CLOUDINARY_CONFIG.folder || null;
+  }
   return CLOUDINARY_CONFIG.folder || null;
 }
 
@@ -2353,10 +2356,21 @@ function extractCloudinaryPublicId(cloudinaryUrl) {
   }
 }
 
-// Helper function to check if running locally
-function isRunningLocally() {
+// Helper function to check whether the app is running from a local browser file
+function isRunningInBrowserFile() {
   const hostname = window.location.hostname;
-  return hostname === 'localhost' || hostname === '127.0.0.1' || window.location.protocol === 'file:';
+  return window.location.protocol === 'file:' || hostname === '';
+}
+
+// Helper function to check whether the app is running on localhost for debugging
+function isRunningOnLocalhost() {
+  const hostname = window.location.hostname;
+  return hostname === 'localhost' || hostname === '127.0.0.1';
+}
+
+// Helper function to check if the app is running in any local environment
+function isRunningLocally() {
+  return isRunningInBrowserFile() || isRunningOnLocalhost();
 }
 
 // Helper function to convert file to data URL
@@ -2421,8 +2435,8 @@ function uploadImages(files) {
             return null; // Skip this image
           }
 
-          // Check if running locally
-          if (isRunningLocally()) {
+          // Check if running from a browser file environment
+          if (isRunningInBrowserFile()) {
             // Use data URL for local storage
             return fileToDataURL(file)
               .then((dataUrl) => {
@@ -2497,7 +2511,7 @@ function uploadImages(files) {
         const successfulImages = imageDataArray.filter(img => img !== null);
 
         if (successfulImages.length === 0 && skippedCount === 0) {
-          const errorMsg = isRunningLocally() 
+          const errorMsg = isRunningInBrowserFile() 
             ? "Failed to load any images. Please try again." 
             : "Failed to upload any images. Please check your Cloudinary configuration and try again.";
           alert(errorMsg);
