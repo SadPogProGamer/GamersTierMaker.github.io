@@ -422,26 +422,43 @@ async function sortCurrentImageTierIfOrdered(imageElement) {
 
 function deleteImageFromModal() {
   if (currentImageElement) {
-    promptDeleteImage(() => {
+    promptDeleteImage(async () => {
       const imageId = currentImageElement.dataset.imageId;
       const cloudinaryUrl = currentImageElement.dataset.cloudinaryUrl || currentImageElement.src;
 
       deleteImageMetadataFromIndexedDB(imageId);
-      deleteFromCloudinary(cloudinaryUrl).then(() => {
-        return deleteImageFromIndexedDB(imageId);
-      })
-        .then(() => {
-          currentImageElement.remove();
-          closeImageModal();
-          saveImagePositions();
+      try {
+        await deleteFromCloudinary(cloudinaryUrl);
+      } catch (err) {
+      }
 
-          if (currentUser && firebaseDb) {
-            saveTierListToFirebase().catch(err => {
-            });
-          }
-        })
-        .catch(err => {
-        });
+      try {
+        await deleteImageFromIndexedDB(imageId);
+      } catch (err) {
+      }
+
+      if (typeof resetDragState === 'function') {
+        try {
+          resetDragState();
+        } catch (err) {
+        }
+      } else if (activeDrag && drake) {
+        try {
+          drake.cancel();
+        } catch (err) {
+        }
+        cleanupDragMirrors();
+        activeDrag = false;
+        scrollable = true;
+      }
+
+      currentImageElement.remove();
+      closeImageModal();
+
+      try {
+        await saveImagePositions();
+      } catch (err) {
+      }
     });
   }
 }

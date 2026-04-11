@@ -8,18 +8,26 @@ function cleanupDragMirrors() {
   oldMirrors.forEach((mirror) => mirror.remove());
 }
 
+function resetDragState() {
+  activeDrag = false;
+  scrollable = true;
+
+  if (drake) {
+    try {
+      drake.cancel();
+    } catch (e) {
+    }
+  }
+
+  cleanupDragMirrors();
+}
+
 function handleEscapeCancel(event) {
   if (event.key !== 'Escape' || !activeDrag || !drake) {
     return;
   }
 
-  try {
-    drake.cancel();
-  } catch (e) {
-  }
-
-  activeDrag = false;
-  scrollable = true;
+  resetDragState();
 }
 
 document.addEventListener('keydown', handleEscapeCancel);
