@@ -498,15 +498,6 @@ function renderPlatformOptions() {
   }
 }
 
-// Trigger a debounced metadata autosave for the current image
-function triggerMetadataAutosaveDebounced(imageId) {
-  if (!imageId) imageId = currentImageElement && currentImageElement.dataset && currentImageElement.dataset.imageId;
-  if (!imageId) return;
-  if (autoSaveTimers[imageId]) clearTimeout(autoSaveTimers[imageId]);
-  autoSaveTimers[imageId] = setTimeout(() => {
-  }, 800);
-}
-
 document.addEventListener("DOMContentLoaded", function() {
   // prevent copying of tier background color by forcing plain text
   document.addEventListener('copy', function(e) {
