@@ -1640,110 +1640,7 @@ function selectPlatform(platform) {
   document.getElementById("platform-dropdown-menu").classList.add("hidden");
 }
 
-function filterImages(searchQuery) {
-  const rows = document.querySelectorAll(".row");
-  const imagesBar = document.querySelector("#images-bar");
-
-  // If the user typed only "/", show all games and let the command dropdown appear.
-  const rawQuery = searchQuery.trim();
-  // Convert search query to lowercase for case-insensitive search
-  // Replace & with "and" for interchangeability
-  const query = rawQuery === "/" ? "" : searchQuery.toLowerCase().replace(/&/g, "and");
-
-  // Get all image metadata from IndexedDB
-  getAllImageMetadataFromIndexedDB().then(allMetadata => {
-    // Create a map of imageId to metadata for quick lookup
-    const metadataMap = {};
-    allMetadata.forEach(metadata => {
-      metadataMap[metadata.id] = metadata;
-    });
-
-    // Determine if we should show counts
-    let showCounts = false;
-    let filteredQuery = query;
-    if (query.includes("/showamount")) {
-      showCounts = true;
-      filteredQuery = query.replace("/showamount", "").trim();
-    }
-
-    // Filter images in tiers
-    rows.forEach((row) => {
-      const tierImages = row.children[1].querySelectorAll(".image");
-      tierImages.forEach((img) => {
-        const imageId = img.dataset.imageId;
-        const metadata = metadataMap[imageId] || { name: "", date: "", description: "", status: "", platform: null, developer: "" };
-        const imageName = metadata.name;
-        const imagePlatform = metadata.platform ? metadata.platform : "";
-        const imageDescription = metadata.description || "";
-        const imageDate = metadata.date || "";
-        const imageStatus = metadata.status || "";
-        const imageDeveloper = metadata.developer || "";
-
-        let shouldShow = false;
-
-        // Process command filtering
-        shouldShow = processCommandFilter(filteredQuery, imageName, imagePlatform, imageDate, imageStatus, imageDescription, imageDeveloper);
-
-        img.style.display = shouldShow ? "" : "none";
-      });
-    });
-
-    // After filtering, update badges (keeps counts accurate and visible when command used)
-    updateTierCounts(showCounts);
-
-    // Update total count display next to search bar when showing counts or when filtering
-    try {
-      const totalCountEl = document.getElementById('total-count');
-      if (totalCountEl) {
-        // Count visible images in tier rows, exclude images in the lower bar
-        const total = Array.from(document.querySelectorAll('.row .image')).filter(img => img.style.display !== 'none').length;
-        if ((showCounts || filteredQuery !== "") && total > 0) {
-          totalCountEl.textContent = `Total: ${total}`;
-          totalCountEl.style.display = '';
-        } else {
-          totalCountEl.style.display = 'none';
-        }
-      }
-    } catch (e) {
-      console.warn('Failed to update total count display', e);
-    }
-
-    // Filter images in images bar
-    const barImages = imagesBar.querySelectorAll(".image");
-    barImages.forEach((img) => {
-      const imageId = img.dataset.imageId;
-      const metadata = metadataMap[imageId] || { name: "", date: "", description: "", status: "", platform: null, developer: "" };
-      const imageName = metadata.name;
-      const imagePlatform = metadata.platform ? metadata.platform : "";
-      const imageDescription = metadata.description || "";
-      const imageDate = metadata.date || "";
-      const imageStatus = metadata.status || "";
-      const imageDeveloper = metadata.developer || "";
-
-      let shouldShow = false;
-
-      // Process command filtering
-      shouldShow = processCommandFilter(filteredQuery, imageName, imagePlatform, imageDate, imageStatus, imageDescription, imageDeveloper);
-
-      img.style.display = shouldShow ? "" : "none";
-    });
-  }).catch(err => {
-    console.error('Failed to load image metadata for filtering:', err);
-  });
-  
-  // Update clear button visibility
-  updateClearButtonVisibility();
-}
-
-// Set up event listener for search input to update clear button visibility
 document.addEventListener("DOMContentLoaded", function() {
-  const searchInput = document.getElementById("search-input");
-  if (searchInput) {
-    searchInput.addEventListener("input", updateClearButtonVisibility);
-  }
-  
-
-
   // prevent copying of tier background color by forcing plain text
   document.addEventListener('copy', function(e) {
     try {
@@ -1754,7 +1651,6 @@ document.addEventListener("DOMContentLoaded", function() {
       // fall back gracefully
     }
   });
-
 });
 
 

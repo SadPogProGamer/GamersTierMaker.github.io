@@ -1,5 +1,5 @@
 // Commands.js
-// Handles search commands and command processing functionality.
+// Handles slash-command suggestions and command filter processing.
 
 // Search commands (ordered to match game details modal: Name, Date, Description, Platform, Status)
 const SEARCH_COMMANDS = {
@@ -16,10 +16,8 @@ const SEARCH_COMMANDS = {
   "/ShowAmount": "Show number of images in each tier (can combine with other commands or search)"
 };
 
-// State for keyboard navigation in commands dropdown
 let searchCommandHighlightedIndex = -1;
 
-// Common game abbreviations map
 const abbreviationsMap = {
   "gta": "grand theft auto",
   "rdr": "red dead redemption",
@@ -69,7 +67,6 @@ const abbreviationsMap = {
   "vsmile": "v.smile"
 };
 
-// Platform abbreviations map
 const platformAbbreviationsMap = {
   "ps": "playstation",
   "ps1": "PlayStation 1",
@@ -82,7 +79,6 @@ const platformAbbreviationsMap = {
   "psvr2": "PlayStation VR2"
 };
 
-// Developer abbreviations map (common short forms -> full studio/publisher names)
 const developerAbbreviationsMap = {
   "ea": "electronic arts",
   "ubi": "ubisoft",
@@ -102,7 +98,7 @@ const developerAbbreviationsMap = {
   "bungee": "bungie",
   "bungie": "bungie",
   "fromsoftware": "fromsoftware",
-  "from": "fromsoftware",
+  "from": "fromsoftware"
 };
 
 function highlightSearchCommand(dropdown, index) {
@@ -126,12 +122,10 @@ function selectHighlightedSearchCommand() {
   }
 }
 
-// Handle search input to show/hide commands dropdown
 function handleSearchInput(searchQuery) {
   const dropdown = document.getElementById("search-commands-dropdown");
   const trimmedQuery = searchQuery.trim();
 
-  // Check if there's an incomplete command (starts with /)
   const lastSlashIndex = trimmedQuery.lastIndexOf("/");
   if (lastSlashIndex >= 0) {
     const partialCommand = trimmedQuery.substring(lastSlashIndex);
@@ -141,7 +135,6 @@ function handleSearchInput(searchQuery) {
   }
 }
 
-// Show search commands dropdown
 function showSearchCommandsDropdown(searchQuery, dropdown) {
   const query = searchQuery.toLowerCase().trim();
   const filteredCommands = Object.keys(SEARCH_COMMANDS).filter(cmd =>
@@ -173,7 +166,6 @@ function showSearchCommandsDropdown(searchQuery, dropdown) {
       filterImages(input.value);
       dropdown.classList.add("hidden");
     };
-    // highlight on hover
     item.addEventListener('mouseover', () => {
       highlightSearchCommand(dropdown, parseInt(item.dataset.index, 10));
     });
@@ -181,75 +173,17 @@ function showSearchCommandsDropdown(searchQuery, dropdown) {
   });
 
   dropdown.classList.remove("hidden");
-  // reset and highlight first item for keyboard navigation
   highlightSearchCommand(dropdown, 0);
 }
 
-// Clear search input and show all images
-function clearSearch() {
-  const searchInput = document.getElementById("search-input");
-  searchInput.value = "";
-  document.getElementById("search-commands-dropdown").classList.add("hidden");
-  filterImages("");
-  searchInput.focus();
-}
-
-// Show/hide clear button based on search input value
-function updateClearButtonVisibility() {
-  const searchInput = document.getElementById("search-input");
-  const clearBtn = document.getElementById("clear-search");
-
-  if (searchInput.value.length > 0) {
-    clearBtn.classList.add("visible");
-  } else {
-    clearBtn.classList.remove("visible");
-  }
-}
-
-// Function to check if a game name matches the query (including abbreviations)
-function matchesQuery(gameName, searchQuery) {
-  const nameWords = gameName.toLowerCase().replace(/&/g, "and").split(/\s+/);
-  const gameNameLower = gameName.toLowerCase().replace(/&/g, "and");
-
-  // Direct string match
-  if (gameNameLower.includes(searchQuery)) {
-    return true;
-  }
-
-  // Check if query is an abbreviation that matches
-  if (abbreviationsMap[searchQuery]) {
-    const fullName = abbreviationsMap[searchQuery].toLowerCase();
-    if (gameNameLower.includes(fullName)) {
-      return true;
-    }
-  }
-
-  // Special case: SMT/Shin Megami Tensei should also show Persona games
-  if ((searchQuery === "smt" || searchQuery === "shin megami tensei") && gameNameLower.includes("persona")) {
-    return true;
-  }
-
-  // Special case: Persona should also show SMT games
-  if (searchQuery === "persona" && gameNameLower.includes("shin megami tensei")) {
-    return true;
-  }
-
-  return false;
-}
-
-// Process command filtering logic
 function processCommandFilter(filteredQuery, imageName, imagePlatform, imageDescription, imageDate, imageStatus, imageDeveloper) {
   let shouldShow = false;
 
-  // Handle special commands
   if (filteredQuery.startsWith("/platform")) {
-    // Support both /platform (shows all console games) and /platform switch (filters by specific platform)
     if (filteredQuery === "/platform") {
       shouldShow = imagePlatform && imagePlatform.toLowerCase().includes("console");
     } else if (filteredQuery.startsWith("/platform ")) {
-      // Search by platform name: /platform switch
       let platformQuery = filteredQuery.substring("/platform ".length).trim().toLowerCase();
-      // Expand common abbreviations (e.g., ps -> playstation)
       if (platformAbbreviationsMap[platformQuery]) {
         platformQuery = platformAbbreviationsMap[platformQuery].toLowerCase();
       }
@@ -272,32 +206,20 @@ function processCommandFilter(filteredQuery, imageName, imagePlatform, imageDesc
   } else if (filteredQuery === "/nodeveloper") {
     shouldShow = !imageDeveloper || imageDeveloper.trim() === "";
   } else if (filteredQuery.startsWith("/developer ")) {
-    // Search by developer name: /developer rockstar
     let developerQuery = filteredQuery.substring("/developer ".length).trim().toLowerCase();
-    // Expand common abbreviations (e.g., ea -> electronic arts)
     if (developerAbbreviationsMap[developerQuery]) {
       developerQuery = developerAbbreviationsMap[developerQuery].toLowerCase();
     }
     shouldShow = imageDeveloper.toLowerCase().includes(developerQuery);
-  } else if (filteredQuery === "") {
-    // Empty search shows all
-    shouldShow = true;
   } else {
-    // Regular search - only match game names, not platforms
-    shouldShow = matchesQuery(imageName, filteredQuery);
+    shouldShow = true;
   }
 
   return shouldShow;
 }
 
-// Set up command-related event listeners
+// Keyboard navigation for command dropdown
 document.addEventListener("DOMContentLoaded", function() {
-  const searchInput = document.getElementById("search-input");
-  if (searchInput) {
-    searchInput.addEventListener("input", updateClearButtonVisibility);
-  }
-
-  // Keyboard navigation for search commands dropdown
   const searchInputElement = document.getElementById('search-input');
   if (searchInputElement) {
     searchInputElement.addEventListener('keydown', (e) => {
