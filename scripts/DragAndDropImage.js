@@ -137,6 +137,9 @@ function uploadImages(files) {
       .then(() => {
         loadingDiv.remove();
         initializeDragula();
+        // Ensure no stray dragula mirror remains after reinitializing
+        const oldMirrors = document.querySelectorAll('.gu-mirror, .gu-transit');
+        oldMirrors.forEach(m => m.remove());
         // Sync to Firebase if user is logged in
         if (currentUser && firebaseDb) {
           saveTierListToFirebase().catch(err => {

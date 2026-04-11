@@ -34,7 +34,8 @@ function saveImageToIndexedDB(imageData) {
   return new Promise((resolve, reject) => {
     const transaction = indexedDb.transaction(['images'], 'readwrite');
     const store = transaction.objectStore('images');
-    const request = store.add(imageData);
+    // Use put to upsert — prevents duplicate records when an id already exists
+    const request = store.put(imageData);
 
     request.onerror = () => reject(request.error);
     request.onsuccess = () => resolve(request.result);

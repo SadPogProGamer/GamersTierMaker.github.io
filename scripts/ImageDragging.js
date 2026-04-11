@@ -140,7 +140,10 @@ function initializeDragula() {
   const containers = Array.from(document.querySelectorAll('.sort'));
 
   if (drake) {
-    drake.destroy();
+    // Destroy existing dragula instance and remove any leftover mirror elements
+    try { drake.destroy(); } catch (e) { }
+    const oldMirrors = document.querySelectorAll('.gu-mirror, .gu-transit');
+    oldMirrors.forEach(m => m.remove());
   }
   
   if (containers.length === 0) {
@@ -201,6 +204,9 @@ function initializeDragula() {
     .on('cancel', (el) => {
       scrollable = true;
       clearImageSelection();
+      // Ensure mirror is removed if cancel left it behind
+      const oldMirrors = document.querySelectorAll('.gu-mirror, .gu-transit');
+      oldMirrors.forEach(m => m.remove());
     })
     .on('over', (el, container) => {
       if (container.classList.contains('sort')) {
@@ -212,6 +218,12 @@ function initializeDragula() {
         container.style.backgroundColor = '';
       }
     });
+
+  // Safety: remove any leftover mirror elements if the drag sequence ends unexpectedly
+  document.addEventListener('dragend', () => {
+    const oldMirrors = document.querySelectorAll('.gu-mirror, .gu-transit');
+    oldMirrors.forEach(m => m.remove());
+  });
 }
 
 document.addEventListener(
