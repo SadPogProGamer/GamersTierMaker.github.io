@@ -167,7 +167,7 @@ function autoSaveMetadata(imageId) {
           saveTierListToFirebase()
             .then(() => {
               console.log(`Firebase sync completed for image ${imageId}`);
-              showSyncStatus("synced", "Synced âœ“");
+              showSyncStatus("synced", "Synced");
               setTimeout(() => hideSyncStatus(), 2000);
             })
             .catch(err => {
