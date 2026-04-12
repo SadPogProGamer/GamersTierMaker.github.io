@@ -25,6 +25,31 @@ function getImagesBarForButtons() {
   return document.getElementById("images-bar");
 }
 
+// --- Game Key Helpers ---
+function normalizeGameKeyPart(value) {
+  return String(value || "")
+    .toLowerCase()
+    .trim()
+    .replace(/['’]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+function makeGameKey(name, developer) {
+  const normalizedName = normalizeGameKeyPart(name);
+  const normalizedDeveloper = normalizeGameKeyPart(developer);
+
+  if (!normalizedName && !normalizedDeveloper) {
+    return "";
+  }
+
+  if (!normalizedDeveloper) {
+    return normalizedName;
+  }
+
+  return `${normalizedName}__${normalizedDeveloper}`;
+}
+
 function createLoadingOverlay(message = "Working...") {
   removeLoadingOverlay();
 
