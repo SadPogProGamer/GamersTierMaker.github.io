@@ -4,9 +4,27 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Games I played tierlist</title>
+  <title>Gamers Tiermaker</title>
   <link rel="icon" href="assets/icon.svg" />
   <link rel="stylesheet" href="css/styles.css" />
+
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/dragula/3.7.3/dragula.min.css" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@simonwep/pickr/dist/themes/monolith.min.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css" />
+
+  <style id="dynamic-styles"></style>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/dragula/3.7.3/dragula.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@simonwep/pickr/dist/pickr.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.7.1/jszip.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+
+  <script defer src="scripts/config.js"></script>
   <script defer src="scripts/DatabaseSyncing.js"></script>
   <script defer src="scripts/AliasesAndAbreviations.js"></script>
   <script defer src="scripts/deletePopUps.js"></script>
@@ -16,64 +34,61 @@
   <script defer src="scripts/BottomButtons.js"></script>
   <script defer src="scripts/Commands.js"></script>
   <script defer src="scripts/SearchFunction.js"></script>
-
-  <style id="dynamic-styles"></style>
-  <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.2/jquery.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css" />
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/dragula/3.7.3/dragula.min.css" />
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@simonwep/pickr/dist/themes/monolith.min.css" />
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/dragula/3.7.3/dragula.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@simonwep/pickr/dist/pickr.min.js"></script>
-  <script src="https://upload-widget.cloudinary.com/latest/global/loader.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.7.1/jszip.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
-
-  <!-- Firebase JS SDK -->
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
-  <script src="scripts/config.js"></script>
 </head>
 
 <body>
   <div class="top-bar">
     <div class="top-bar-content">
-      <img src="assets/Logo.jpg" alt="Logo" class="logo">
-      <h1 class="top-title">GAMERS TIERMAKER</h1>
+      <img src="assets/Logo.jpg" alt="Logo" class="logo" />
+      <h1 class="top-title">GAMERS TIERMAKER, This is Fix</h1>
+
       <div id="auth-container" style="margin-left: auto; display: flex; gap: 10px; align-items: center;">
         <span id="user-name" style="color: white; display: none;"></span>
-        <button id="login-btn" onclick="signInWithGoogle()"
-          style="padding: 8px 16px; background: #4285f4; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 14px;">Sign
-          in with Google</button>
+
+        <button id="login-btn" type="button" onclick="signInWithGoogle()"
+          style="padding: 8px 16px; background: #4285f4; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 14px;">
+          Sign in with Google
+        </button>
+
         <div id="profile-dropdown" class="profile-dropdown hidden">
           <img id="profile-avatar" class="profile-avatar" alt="Profile" onclick="toggleProfileDropdown()"
-            title="Account menu">
+            title="Account menu" />
           <div id="profile-menu" class="profile-menu hidden">
-            <button class="profile-menu-btn logout-btn" onclick="signOut()">Sign Out</button>
+            <button type="button" class="profile-menu-btn" onclick="openProfileScreen()">
+              My Tierlists
+            </button>
+            <button type="button" class="profile-menu-btn logout-btn" onclick="signOut()">
+              Sign Out
+            </button>
           </div>
         </div>
       </div>
     </div>
   </div>
+
   <div class="header-container">
     <h1 class="headerTitle" contenteditable="true" spellcheck="true" id="main-title">
       Games I played tierlist
     </h1>
+
     <div class="search-container" style="position: relative;">
       <input type="text" id="search-input" class="search-input" placeholder="Type here to search for a game"
         onkeyup="filterImages(this.value)" oninput="handleSearchInput(this.value)" />
       <div id="total-count" class="total-count"
-        style="display:none; position: absolute; right: -120px; top: 50%; transform: translateY(-50%); color: #fff; font-size: 13px;">
-        Total: 0</div>
-      <button id="clear-search" class="clear-search-btn" onclick="clearSearch()" title="Clear search">✕</button>
+        style="display: none; position: absolute; right: -120px; top: 50%; transform: translateY(-50%); color: #fff; font-size: 13px;">
+        Total: 0
+      </div>
+      <button id="clear-search" class="clear-search-btn" type="button" onclick="clearSearch()" title="Clear search">
+        ✕
+      </button>
       <div id="search-commands-dropdown" class="search-commands-dropdown hidden"></div>
     </div>
   </div>
+
   <main id="htmlContent">
     <div class="row">
       <div class="tier-label" contenteditable="true" style="background-color: rgb(191, 255, 127);">
-        <p spellcheck="true">Top 10<br>(in order)</p>
+        <p spellcheck="true">Top 10<br />(in order)</p>
         <div class="tooltip" contenteditable="false">
           <div class="color-picker"></div>
         </div>
@@ -96,7 +111,7 @@
 
     <div class="row">
       <div class="tier-label" contenteditable="true" style="background-color: rgb(255, 127, 127);">
-        <p spellcheck="true">S</p>
+        <p spellcheck="true">Masterpiece</p>
         <div class="tooltip" contenteditable="false">
           <div class="color-picker"></div>
         </div>
@@ -104,22 +119,25 @@
       <div class="tier sort"></div>
       <div class="tier-options">
         <div class="options-container">
+          <div class="option up">
+            <img class="option-hover" src="assets/chevron-up.svg" alt="Up" onclick="moveRow(this, -1)" />
+          </div>
+
           <div class="option delete">
             <img class="option-hover" src="assets/Cog.png" alt="Menu" onclick="openRowMenu(this, event)" />
           </div>
-          <div class="option">
-            <img class="option-hover" src="assets/chevron-up.svg" alt="Up" onclick="moveRow(this, -1)" />
-          </div>
-          <div class="option">
+
+          <div class="option down">
             <img class="option-hover" src="assets/chevron-down.svg" alt="Down" onclick="moveRow(this, 1)" />
           </div>
         </div>
+
       </div>
     </div>
 
     <div class="row">
       <div class="tier-label" contenteditable="true" style="background-color: rgb(255, 191, 127);">
-        <p spellcheck="true">A</p>
+        <p spellcheck="true">Amazing</p>
         <div class="tooltip" contenteditable="false">
           <div class="color-picker"></div>
         </div>
@@ -142,7 +160,7 @@
 
     <div class="row">
       <div class="tier-label" contenteditable="true" style="background-color: rgb(255, 223, 127);">
-        <p spellcheck="true">B</p>
+        <p spellcheck="true">Great</p>
         <div class="tooltip" contenteditable="false">
           <div class="color-picker"></div>
         </div>
@@ -164,8 +182,8 @@
     </div>
 
     <div class="row">
-      <div class="tier-label" contenteditable="true" style="background-color:#FFFF7F">
-        <p spellcheck="true">C</p>
+      <div class="tier-label" contenteditable="true" style="background-color: #FFFF7F;">
+        <p spellcheck="true">Good</p>
         <div class="tooltip" contenteditable="false">
           <div class="color-picker"></div>
         </div>
@@ -188,7 +206,7 @@
 
     <div class="row">
       <div class="tier-label" contenteditable="true" style="background-color: rgb(191, 255, 127);">
-        <p spellcheck="true">D</p>
+        <p spellcheck="true">Fine</p>
         <div class="tooltip" contenteditable="false">
           <div class="color-picker"></div>
         </div>
@@ -211,7 +229,7 @@
 
     <div class="row">
       <div class="tier-label" contenteditable="true" style="background-color: rgb(127, 255, 127);">
-        <p spellcheck="true">F</p>
+        <p spellcheck="true">Bad</p>
         <div class="tooltip" contenteditable="false">
           <div class="color-picker"></div>
         </div>
@@ -259,67 +277,76 @@
       <div class="unassigned-header">Unassigned games <span>(Drag into a tier)</span></div>
       <div id="images-bar" class="sort drop-zone" ondrop="handleImageDrop(event)" ondragover="handleDragOver(event)"
         ondragleave="handleDragLeave(event)">
-        <div class="drop-zone-hint" id="drop-zone-hint">Drag games here</div>
       </div>
     </div>
   </main>
+
   <div id="buttons-container">
     <button type="button" onclick="selectImages()">Click here to add images</button>
+    <button id="save-tierlist-btn" type="button" onclick="saveTierList()">Save Tierlist</button>
     <button id="btn" type="button">Download Tierlist</button>
     <button id="download-all-btn" type="button" onclick="downloadAllImagesZip()">Download All Images</button>
-    <button type="button" onclick="importGameDetails()">Import Game Details</button>
     <button type="button" onclick="downloadGameDetailsJSON()">Export Game Details</button>
     <button type="button" onclick="deleteTierList()" style="background: #dc3545; color: white;">Delete Tier
       List</button>
+
+    <!-- ✅ ADD THIS -->
+    <div id="upload-status" class="upload-status hidden"></div>
   </div>
 
   <div id="image-modal" class="modal hidden">
     <div class="modal-content">
       <div id="sync-notification" class="sync-notification hidden">
         <span>Sign in with Google to sync your game data across devices</span>
-        <button onclick="signInWithGoogle()"
-          style="padding: 4px 12px; background: #4285f4; color: white; border: none; border-radius: 3px; cursor: pointer; font-size: 12px; margin-left: 10px;">Sign
-          In</button>
+        <button type="button" onclick="signInWithGoogle()"
+          style="padding: 4px 12px; background: #4285f4; color: white; border: none; border-radius: 3px; cursor: pointer; font-size: 12px; margin-left: 10px;">
+          Sign In
+        </button>
       </div>
+
       <div class="modal-header">
         <h2>Game Details</h2>
         <div id="sync-status" class="sync-status"
           style="display: none; font-size: 12px; color: #666; margin-right: auto; margin-left: 10px;">
           <span id="sync-status-text">Syncing...</span>
         </div>
-        <button class="modal-close" onclick="closeImageModal()">✕</button>
+        <button class="modal-close" type="button" onclick="closeImageModal()">✕</button>
       </div>
+
       <div class="modal-body">
         <div class="form-group">
           <label for="image-name">Name:</label>
-          <input type="text" id="image-name" placeholder="Enter game name">
+          <input type="text" id="image-name" placeholder="Enter game name" />
         </div>
-        <!-- Genre field removed -->
+
         <div class="form-group">
           <label for="image-developer">Developer:</label>
-          <input type="text" id="image-developer" placeholder="Enter developer name">
+          <input type="text" id="image-developer" placeholder="Enter developer" />
         </div>
+
         <div class="form-group">
-          <label for="image-date" id="image-date-label">Date Beaten:</label>
-          <input type="text" id="image-date" placeholder="Enter date">
+          <label for="image-date">Date Beaten:</label>
+          <input type="text" id="image-date" placeholder="Enter Date Beaten" />
         </div>
-        <div class="form-group hidden" id="image-date-100-group">
-          <label for="image-date-100">Date 100%:</label>
-          <input type="text" id="image-date-100" placeholder="Enter date 100%">
+
+        <div class="form-group hidden" id="date-100-group">
+          <label for="image-date-100">Date 100% Completed:</label>
+          <input type="text" id="image-date-100" placeholder="Optional" />
         </div>
+
         <div class="form-group">
           <label for="image-description">Personal Review:</label>
-          <textarea id="image-description" placeholder="Enter review description"></textarea>
+          <textarea id="image-description" placeholder="Add notes about the game"></textarea>
         </div>
+
         <div class="form-group">
           <label>Platform:</label>
           <div class="platform-dropdown">
-            <button type="button" class="platform-dropdown-btn" id="platform-btn" onclick="togglePlatformDropdown()">
-              Select Platform ▼
+            <button type="button" id="platform-btn" class="platform-dropdown-btn" onclick="togglePlatformDropdown()">
+              Select Platform
             </button>
             <div id="platform-dropdown-menu" class="platform-dropdown-menu hidden">
-              <input type="text" id="platform-search" class="platform-search"
-                placeholder="Search for a console or platform..." />
+              <input type="text" id="platform-search" class="platform-search" placeholder="Search platform..." />
               <div id="platform-options" class="platform-options"></div>
             </div>
           </div>
@@ -327,42 +354,27 @@
 
         <div class="form-group">
           <label for="image-status">Completion:</label>
-          <select id="image-status" onchange="updateDateLabel(); autoSaveMetadataWrapper();">
-            <option value="">-- No status --</option>
-            <option value="Story complete">Story complete</option>
+          <select id="image-status">
+            <option value="">-- Select status --</option>
+            <option value="Completed">Story complete</option>
             <option value="100% complete">100% complete</option>
             <option value="Played">Played</option>
-            <option value="dropped">Dropped</option>
+            <option value="Dropped">Dropped</option>
           </select>
-          <div class="replay-toggle-container hidden" id="replay-toggle-group">
-            <button type="button" id="replay-toggle-btn" class="replay-toggle red" onclick="toggleReplayFlag()">Has 100%
-              replay</button>
+
+          <div class="hidden" id="replay-group">
+            <button type="button" id="replay-button" class="replay-toggle red" onclick="toggleReplayStatus()">
+              Has 100% replay
+            </button>
           </div>
         </div>
       </div>
       <div class="modal-footer">
-        <button class="btn-close" onclick="closeImageModal()">Save</button>
-        <button class="btn-delete" onclick="deleteImageFromModal()">Delete Image</button>
+        <button type="button" class="btn-close" onclick="closeImageModal()">Save</button>
+        <button type="button" class="btn-delete" onclick="deleteImageFromModal()">Delete Image</button>
       </div>
     </div>
   </div>
-
-  <script>
-    const elementcap = document.getElementById("htmlContent");
-    const downloadbtn = document.getElementById("btn");
-
-    downloadbtn.addEventListener("click", function () {
-      html2canvas(elementcap, {
-        allowTaint: true,
-        useCORS: true,
-      }).then((canvas) => {
-        const downloadLink = document.createElement("a");
-        downloadLink.href = canvas.toDataURL("image/png");
-        downloadLink.download = "Tier-Ranking.png";
-        downloadLink.click();
-      });
-    });
-  </script>
 </body>
 
 </html>

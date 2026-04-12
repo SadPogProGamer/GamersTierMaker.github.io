@@ -1,14 +1,262 @@
 // DatabaseSyncing.js
-// Contains Firebase sync, Cloudinary upload/delete logic, and IndexedDB persistence helpers.
+// Safer rewrite for IndexedDB, Firebase sync, and Cloudinary helpers.
+// This file keeps the same public function names so the rest of the app can keep calling them.
 
-let indexedDb; // IndexedDB database
+let indexedDb = null;
 
-// IndexedDB globals
+// Firebase globals used elsewhere in the app
+let firebaseApp = null;
+let firebaseAuth = null;
+let firebaseDb = null;
+let currentUser = null;
+let firebaseAvailable = true;
+
+let autoSaveTimeout = null;
+let autoSaveTimers = {};
+let lastFirebaseSyncTime = {};
+let lastRemoteSyncTime = null;
+let syncPollInterval = null;
+
+const DB_NAME = "TierListDB";
+const DB_VERSION = 2;
+const STORE_IMAGES = "images";
+const STORE_SETTINGS = "settings";
+const STORE_IMAGE_METADATA = "imageMetadata";
+const FIREBASE_COLLECTION = "tierLists";
+const SYNC_POLL_MS = 10000;
+const IMAGE_VALIDATE_TIMEOUT_MS = 8000;
+
+function logDbSyncError(context, err) {
+  console.error(`[DatabaseSyncing] ${context}`, err);
+}
+
+function hasIndexedDb() {
+  return !!window.indexedDB;
+}
+
+function getDefaultImageMetadata() {
+  return {
+    name: "",
+    developer: "",
+    date: "",
+    date100: "",
+    description: "",
+    status: "",
+    platform: null,
+    genres: [],
+    has100Replay: false,
+  };
+}
+
+function normalizeImageMetadata(record) {
+  if (!record) return getDefaultImageMetadata();
+
+  const genres = Array.isArray(record.genres)
+    ? record.genres.slice()
+    : record.genre
+      ? [record.genre]
+      : [];
+
+  return {
+    name: record.name || "",
+    developer: record.developer || "",
+    date: record.date || "",
+    date100: record.date100 || record.date_100 || "",
+    description: record.description || "",
+    status: record.status || "",
+    platform: record.platform || null,
+    genres,
+    has100Replay: !!record.has100Replay || !!record.has100,
+  };
+}
+
+function ensureIndexedDbReady() {
+  if (!indexedDb) {
+    throw new Error("IndexedDB is not initialized.");
+  }
+}
+
+function runStoreRequest(storeName, mode, operation) {
+  return new Promise((resolve, reject) => {
+    try {
+      ensureIndexedDbReady();
+      const transaction = indexedDb.transaction([storeName], mode);
+      const store = transaction.objectStore(storeName);
+      const request = operation(store);
+
+      request.onerror = () => reject(request.error || new Error(`IndexedDB request failed for ${storeName}`));
+      request.onsuccess = () => resolve(request.result);
+      transaction.onerror = () => reject(transaction.error || new Error(`IndexedDB transaction failed for ${storeName}`));
+    } catch (err) {
+      reject(err);
+    }
+  });
+}
+
+function safeElementTextContent(element, fallback = "") {
+  return element ? element.textContent || fallback : fallback;
+}
+
+function getImagesBarElement() {
+  return document.querySelector("#images-bar");
+}
+
+function getTierRows() {
+  return Array.from(document.querySelectorAll(".row"));
+}
+
+function getMainTitleText() {
+  const title = document.getElementById("main-title");
+  return title ? title.textContent || "Untitled Tierlist" : "Untitled Tierlist";
+}
+
+function getTierOrderingStateSnapshot() {
+  return typeof tierOrderingStates === "object" && tierOrderingStates ? { ...tierOrderingStates } : {};
+}
+
+function getTierLimitStateSnapshot() {
+  return typeof tierLimitStates === "object" && tierLimitStates ? { ...tierLimitStates } : {};
+}
+
+async function buildTierListDataForSync() {
+  const tierListData = {
+    header: getMainTitleText(),
+    tiers: [],
+    imagePositions: [],
+    gameMetadata: {},
+    tierOrderingStates: getTierOrderingStateSnapshot(),
+    tierLimitStates: getTierLimitStateSnapshot(),
+    lastUpdated: new Date().toISOString(),
+  };
+
+  let storedImages = [];
+  try {
+    storedImages = indexedDb ? await getImagesFromIndexedDB() : [];
+  } catch (err) {
+    logDbSyncError("Failed to read stored images while building sync payload.", err);
+  }
+
+  const metadataMap = {};
+  for (const image of storedImages) {
+    try {
+      const metadata = await getImageMetadataFromIndexedDB(image.id);
+      if (metadata) {
+        metadataMap[image.id] = metadata;
+      }
+    } catch (err) {
+      logDbSyncError(`Failed to load metadata for image ${image?.id}.`, err);
+    }
+  }
+
+  const rows = getTierRows();
+  rows.forEach((row, tierIndex) => {
+    const tierLabel = row.querySelector(".tier-label");
+    const tierNameElement = tierLabel ? tierLabel.querySelector("p") : null;
+    const tierContainer = row.children && row.children[1] ? row.children[1] : null;
+    const tierImages = tierContainer ? Array.from(tierContainer.querySelectorAll(".image")) : [];
+
+    tierListData.tiers.push({
+      index: tierIndex,
+      name: safeElementTextContent(tierNameElement, `Tier ${tierIndex + 1}`),
+      color: tierLabel ? tierLabel.style.backgroundColor || "lightslategray" : "lightslategray",
+    });
+
+    tierImages.forEach((img, order) => {
+      const imageId = img.dataset.imageId;
+      const imageSrc = img.dataset.imageSrc || img.dataset.cloudinaryUrl || img.src || "";
+      const details = metadataMap[imageId] || null;
+
+      tierListData.imagePositions.push({
+        imageId,
+        imageSrc,
+        tier: tierIndex,
+        order,
+        details,
+      });
+
+      if (details) {
+        tierListData.gameMetadata[imageId] = details;
+      }
+    });
+  });
+
+  const imagesBar = getImagesBarElement();
+  const barImages = imagesBar ? Array.from(imagesBar.querySelectorAll(".image")) : [];
+  barImages.forEach((img, order) => {
+    const imageId = img.dataset.imageId;
+    const imageSrc = img.dataset.imageSrc || img.dataset.cloudinaryUrl || img.src || "";
+    const details = metadataMap[imageId] || null;
+
+    tierListData.imagePositions.push({
+      imageId,
+      imageSrc,
+      tier: -1,
+      order,
+      details,
+    });
+
+    if (details) {
+      tierListData.gameMetadata[imageId] = details;
+    }
+  });
+
+  return tierListData;
+}
+
+function queueRemoteSave(delay = 1000) {
+  if (!currentUser || !firebaseDb || !firebaseAvailable) return;
+  clearTimeout(autoSaveTimeout);
+  autoSaveTimeout = setTimeout(() => {
+    saveTierListToFirebase().catch((err) => {
+      logDbSyncError("Queued Firebase save failed.", err);
+    });
+  }, delay);
+}
+
+function createImageElementFromStoredData(imageObj) {
+  const image = document.createElement("img");
+  image.src = imageObj.src;
+  image.className = "image";
+  image.dataset.imageSrc = imageObj.src || "";
+  image.dataset.imageId = imageObj.id;
+  image.dataset.cloudinaryUrl = imageObj.cloudinaryUrl || imageObj.src || "";
+
+  image.addEventListener("click", () => openImageModal(image));
+
+  if (typeof setupImageSelection === "function") {
+    try {
+      setupImageSelection(image);
+    } catch (err) {
+      logDbSyncError("setupImageSelection failed while rebuilding image element.", err);
+    }
+  }
+
+  image.addEventListener("error", () => {
+    image.remove();
+    deleteImageFromIndexedDB(imageObj.id).catch((err) => {
+      logDbSyncError(`Failed to remove broken image ${imageObj.id} from IndexedDB.`, err);
+    });
+    queueRemoteSave(1000);
+  }, { once: true });
+
+  return image;
+}
+
 function initializeIndexedDB() {
   return new Promise((resolve, reject) => {
-    const request = indexedDB.open('TierListDB', 2);
+    if (!hasIndexedDb()) {
+      const err = new Error("This browser does not support IndexedDB.");
+      logDbSyncError("IndexedDB unavailable.", err);
+      reject(err);
+      return;
+    }
 
-    request.onerror = () => reject(request.error);
+    const request = indexedDB.open(DB_NAME, DB_VERSION);
+
+    request.onerror = () => {
+      reject(request.error || new Error("Failed to open IndexedDB."));
+    };
+
     request.onsuccess = () => {
       indexedDb = request.result;
       resolve(indexedDb);
@@ -16,179 +264,90 @@ function initializeIndexedDB() {
 
     request.onupgradeneeded = (event) => {
       const database = event.target.result;
-      if (!database.objectStoreNames.contains('images')) {
-        database.createObjectStore('images', { keyPath: 'id' });
+
+      if (!database.objectStoreNames.contains(STORE_IMAGES)) {
+        database.createObjectStore(STORE_IMAGES, { keyPath: "id" });
       }
-      if (!database.objectStoreNames.contains('settings')) {
-        database.createObjectStore('settings', { keyPath: 'key' });
+
+      if (!database.objectStoreNames.contains(STORE_SETTINGS)) {
+        database.createObjectStore(STORE_SETTINGS, { keyPath: "key" });
       }
-      if (!database.objectStoreNames.contains('imageMetadata')) {
-        database.createObjectStore('imageMetadata', { keyPath: 'id' });
+
+      if (!database.objectStoreNames.contains(STORE_IMAGE_METADATA)) {
+        database.createObjectStore(STORE_IMAGE_METADATA, { keyPath: "id" });
       }
     };
   });
 }
 
-// Save image to IndexedDB
 function saveImageToIndexedDB(imageData) {
-  return new Promise((resolve, reject) => {
-    const transaction = indexedDb.transaction(['images'], 'readwrite');
-    const store = transaction.objectStore('images');
-    const request = store.add(imageData);
-
-    request.onerror = () => reject(request.error);
-    request.onsuccess = () => resolve(request.result);
+  return runStoreRequest(STORE_IMAGES, "readwrite", (store) => {
+    const normalized = {
+      id: imageData.id,
+      src: imageData.src,
+      cloudinaryUrl: imageData.cloudinaryUrl || imageData.src || "",
+      tier: typeof imageData.tier === "number" ? imageData.tier : -1,
+      order: typeof imageData.order === "number" ? imageData.order : 0,
+    };
+    return store.put(normalized);
   });
 }
 
-// Get all images from IndexedDB
 function getImagesFromIndexedDB() {
-  return new Promise((resolve, reject) => {
-    const transaction = indexedDb.transaction(['images'], 'readonly');
-    const store = transaction.objectStore('images');
-    const request = store.getAll();
-
-    request.onerror = () => reject(request.error);
-    request.onsuccess = () => resolve(request.result);
-  });
+  return runStoreRequest(STORE_IMAGES, "readonly", (store) => store.getAll());
 }
 
-// Delete image from IndexedDB
 function deleteImageFromIndexedDB(id) {
-  return new Promise((resolve, reject) => {
-    const transaction = indexedDb.transaction(['images'], 'readwrite');
-    const store = transaction.objectStore('images');
-    const request = store.delete(id);
-
-    request.onerror = () => reject(request.error);
-    request.onsuccess = () => resolve();
-  });
+  return runStoreRequest(STORE_IMAGES, "readwrite", (store) => store.delete(id)).then(() => undefined);
 }
 
-// Clear all images from IndexedDB
 function clearImagesFromIndexedDB() {
-  return new Promise((resolve, reject) => {
-    const transaction = indexedDb.transaction(['images'], 'readwrite');
-    const store = transaction.objectStore('images');
-    const request = store.clear();
-
-    request.onerror = () => reject(request.error);
-    request.onsuccess = () => resolve();
-  });
+  return runStoreRequest(STORE_IMAGES, "readwrite", (store) => store.clear()).then(() => undefined);
 }
 
-// Save setting to IndexedDB
 function saveSetting(key, value) {
-  return new Promise((resolve, reject) => {
-    if (!indexedDb) {
-      const err = new Error('indexedDb not available');
-      reject(err);
-      return;
-    }
-    const transaction = indexedDb.transaction(['settings'], 'readwrite');
-    const store = transaction.objectStore('settings');
-    const request = store.put({ key, value });
-
-    request.onerror = (e) => {
-      reject(request.error || e);
-    };
-    request.onsuccess = () => {
-      resolve();
-    };
-    transaction.oncomplete = () => {
-    };
-    transaction.onerror = (e) => {
-    };
-  });
+  return runStoreRequest(STORE_SETTINGS, "readwrite", (store) => store.put({ key, value })).then(() => undefined);
 }
 
-// Get setting from IndexedDB
 function getSetting(key) {
-  return new Promise((resolve, reject) => {
-    if (!indexedDb) {
-      resolve(null);
-      return;
-    }
-    const transaction = indexedDb.transaction(['settings'], 'readonly');
-    const store = transaction.objectStore('settings');
-    const request = store.get(key);
-
-    request.onerror = (e) => {
-      reject(request.error || e);
-    };
-    request.onsuccess = () => {
-      resolve(request.result ? request.result.value : null);
-    };
+  if (!indexedDb) return Promise.resolve(null);
+  return runStoreRequest(STORE_SETTINGS, "readonly", (store) => store.get(key)).then((result) => {
+    return result ? result.value : null;
   });
 }
 
-// Save image metadata to IndexedDB
 function saveImageMetadataToIndexedDB(id, metadata) {
-  return new Promise((resolve, reject) => {
-    const transaction = indexedDb.transaction(['imageMetadata'], 'readwrite');
-    const store = transaction.objectStore('imageMetadata');
-    const request = store.put({ id, ...metadata });
-
-    request.onerror = () => reject(request.error);
-    request.onsuccess = () => resolve();
-  });
+  const normalized = normalizeImageMetadata(metadata);
+  return runStoreRequest(STORE_IMAGE_METADATA, "readwrite", (store) => {
+    return store.put({ id, ...normalized });
+  }).then(() => undefined);
 }
 
-// Get image metadata from IndexedDB
 function getImageMetadataFromIndexedDB(id) {
-  return new Promise((resolve, reject) => {
-    const transaction = indexedDb.transaction(['imageMetadata'], 'readonly');
-    const store = transaction.objectStore('imageMetadata');
-    const request = store.get(id);
-
-    request.onerror = () => reject(request.error);
-    request.onsuccess = () => {
-      const result = request.result;
-      if (result) {
-        const genres = Array.isArray(result.genres) ? result.genres.slice() : (result.genre ? [result.genre] : []);
-        // Preserve 100% completion fields if present so exports/imports include them
-        const date100 = result.date100 || result.date_100 || "";
-        const has100Replay = !!result.has100Replay || !!result.has100 || false;
-        resolve({ name: result.name || "", developer: result.developer || "", date: result.date || "", date100: date100, description: result.description || "", status: result.status || "", platform: result.platform || null, genres, has100Replay });
-      } else {
-        resolve({ name: "", developer: "", date: "", date100: "", description: "", status: "", platform: null, genres: [], has100Replay: false });
-      }
-    };
+  return runStoreRequest(STORE_IMAGE_METADATA, "readonly", (store) => store.get(id)).then((result) => {
+    return normalizeImageMetadata(result);
   });
 }
 
-// Get all image metadata from IndexedDB
 function getAllImageMetadataFromIndexedDB() {
-  return new Promise((resolve, reject) => {
-    const transaction = indexedDb.transaction(['imageMetadata'], 'readonly');
-    const store = transaction.objectStore('imageMetadata');
-    const request = store.getAll();
-
-    request.onerror = () => reject(request.error);
-    request.onsuccess = () => resolve(request.result);
-  });
+  return runStoreRequest(STORE_IMAGE_METADATA, "readonly", (store) => store.getAll());
 }
 
-// Delete image metadata from IndexedDB
 function deleteImageMetadataFromIndexedDB(id) {
-  return new Promise((resolve, reject) => {
-    const transaction = indexedDb.transaction(['imageMetadata'], 'readwrite');
-    const store = transaction.objectStore('imageMetadata');
-    const request = store.delete(id);
-
-    request.onerror = () => reject(request.error);
-    request.onsuccess = () => resolve();
-  });
+  return runStoreRequest(STORE_IMAGE_METADATA, "readwrite", (store) => store.delete(id)).then(() => undefined);
 }
 
-function saveImagePositions() {
-  const imagePositions = [];
-  const rows = document.querySelectorAll(".row");
-  const imagesBar = document.querySelector("#images-bar");
+async function saveImagePositions() {
+  if (!indexedDb) return;
 
-  // Get images from tiers
+  const imagePositions = [];
+  const rows = getTierRows();
+  const imagesBar = getImagesBarElement();
+
   rows.forEach((row, tierIndex) => {
-    const tierImages = row.children[1].querySelectorAll(".image");
+    const tierContainer = row.children && row.children[1] ? row.children[1] : null;
+    const tierImages = tierContainer ? Array.from(tierContainer.querySelectorAll(".image")) : [];
+
     tierImages.forEach((img, order) => {
       imagePositions.push({
         id: img.dataset.imageId,
@@ -198,184 +357,156 @@ function saveImagePositions() {
     });
   });
 
-  // Get images from images bar
-  const barImages = imagesBar.querySelectorAll(".image");
-  barImages.forEach((img, order) => {
-    imagePositions.push({
-      id: img.dataset.imageId,
-      tier: -1,
-      order,
+  if (imagesBar) {
+    Array.from(imagesBar.querySelectorAll(".image")).forEach((img, order) => {
+      imagePositions.push({
+        id: img.dataset.imageId,
+        tier: -1,
+        order,
+      });
     });
-  });
+  }
 
-  // Update IndexedDB with new positions
-  return getImagesFromIndexedDB().then((images) => {
-    const updatePromises = images.map((image) => {
-      const position = imagePositions.find(p => p.id === image.id);
-      if (position) {
-        image.tier = position.tier;
-        image.order = position.order;
-        // Update in IndexedDB
-        const transaction = indexedDb.transaction(['images'], 'readwrite');
-        const store = transaction.objectStore('images');
-        return new Promise((resolve, reject) => {
-          const request = store.put(image);
-          request.onerror = () => reject(request.error);
-          request.onsuccess = () => resolve();
-        });
-      }
-    }).filter(p => p);
-    return Promise.all(updatePromises);
-  }).then(() => {
-    // Also save to Firebase if user is logged in
-    if (currentUser && firebaseDb) {
-      return saveTierListToFirebase();
-    }
-  }).catch(err => {
-  });
+  const positionMap = new Map(imagePositions.map((item) => [item.id, item]));
+  const images = await getImagesFromIndexedDB();
+
+  await Promise.all(images.map((image) => {
+    const position = positionMap.get(image.id);
+    if (!position) return Promise.resolve();
+
+    return saveImageToIndexedDB({
+      ...image,
+      tier: position.tier,
+      order: position.order,
+    });
+  }));
+
+  if (currentUser && firebaseDb && firebaseAvailable) {
+    await saveTierListToFirebase();
+  }
 }
 
-// Load tier list from localStorage including all metadata
 async function loadTierListFromLocalStorage() {
-  // Try IndexedDB settings store first (key: 'localTierList')
+  // Header / tier colors / ordering / limits are already loaded separately in bootstrap,
+  // so for refresh we should prefer the image store, which has the freshest tier/order.
+  await loadImagesFromStorage();
+
+  // Optional legacy fallback only if no images were restored.
+  const displayedImages = document.querySelectorAll(".image");
+  if (displayedImages.length > 0) return;
+
   try {
-    const data = await getSetting('localTierList');
+    const data = await getSetting("localTierList");
     if (data) {
       await loadTierListFromObject(data);
       return;
     }
   } catch (err) {
+    logDbSyncError("Failed loading local tier list from IndexedDB settings.", err);
   }
-
-  // Backwards-compat: try older localStorage key
-  try {
-    const savedData = localStorage.getItem("savedTierList");
-    if (savedData) {
-      const tierListData = JSON.parse(savedData);
-      await loadTierListFromObject(tierListData);
-      return;
-    }
-  } catch (err) {
-  }
-
-  // Fallback to loading just images
-  await loadImagesFromStorage();
 }
 
 function loadImagesFromStorage() {
-  const imagesBar = document.querySelector("#images-bar");
-  const rows = document.querySelectorAll(".row");
+  const imagesBar = getImagesBarElement();
+  const rows = getTierRows();
 
-  return getImagesFromIndexedDB().then((storedImages) => {
-    // Get all currently displayed images to avoid duplicates
-    const displayedImageIds = new Set();
-    document.querySelectorAll(".image").forEach(img => {
-      displayedImageIds.add(img.dataset.imageId);
-    });
+  if (!indexedDb) return Promise.resolve();
 
-    storedImages.sort((a, b) => {
-      const tierA = a.tier === -1 ? Number.MAX_SAFE_INTEGER : a.tier;
-      const tierB = b.tier === -1 ? Number.MAX_SAFE_INTEGER : b.tier;
-      if (tierA !== tierB) return tierA - tierB;
-      return (a.order || 0) - (b.order || 0);
-    });
+  return getImagesFromIndexedDB()
+    .then((storedImages) => {
+      const displayedImageIds = new Set(
+        Array.from(document.querySelectorAll(".image")).map((img) => img.dataset.imageId)
+      );
 
-    for (const imageObj of storedImages) {
-      // Skip if this image is already displayed
-      if (displayedImageIds.has(imageObj.id)) {
-        continue;
-      }
+      storedImages.sort((a, b) => {
+        const tierA = a.tier === -1 ? Number.MAX_SAFE_INTEGER : a.tier;
+        const tierB = b.tier === -1 ? Number.MAX_SAFE_INTEGER : b.tier;
+        if (tierA !== tierB) return tierA - tierB;
+        return (a.order || 0) - (b.order || 0);
+      });
 
-      const image = document.createElement("img");
-      image.src = imageObj.src;
-      image.className = "image";
-      image.dataset.imageSrc = imageObj.src;
-      image.dataset.imageId = imageObj.id;
-      image.dataset.cloudinaryUrl = imageObj.cloudinaryUrl || imageObj.src;
-      image.onclick = () => openImageModal(image);
-      setupImageSelection(image);
-      // Remove stale images if they fail to load, and resync to propagate changes
-      image.onerror = () => {
-        image.remove();
-        deleteImageFromIndexedDB(imageObj.id).catch(err => {
-        });
-        
-        // Resync to Firebase to propagate cleanup to other devices
-        if (currentUser && firebaseDb && firebaseAvailable) {
-          clearTimeout(autoSaveTimeout);
-          autoSaveTimeout = setTimeout(() => {
-            saveTierListToFirebase().catch(err => {
-            });
-          }, 1000);
+      for (const imageObj of storedImages) {
+        if (!imageObj?.id || !imageObj?.src) continue;
+        if (displayedImageIds.has(imageObj.id)) continue;
+
+        const image = createImageElementFromStoredData(imageObj);
+
+        if (imageObj.tier === -1 || !rows[imageObj.tier]) {
+          if (imagesBar) imagesBar.appendChild(image);
+        } else {
+          rows[imageObj.tier].children[1].appendChild(image);
         }
-      };
-
-      if (imageObj.tier === -1) {
-        imagesBar.appendChild(image);
-      } else if (rows[imageObj.tier]) {
-        rows[imageObj.tier].children[1].appendChild(image);
       }
-    }
-
-    initializeDragula();
-  }).then(() => {
-    return applyTierSettingsToRows();
-  }).catch(err => {
-  });
+    })
+    .then(() => {
+      if (typeof initializeDragula === "function") {
+        initializeDragula();
+      }
+    })
+    .then(() => {
+      if (typeof applyTierSettingsToRows === "function") {
+        return applyTierSettingsToRows();
+      }
+    })
+    .catch((err) => {
+      logDbSyncError("Failed loading images from IndexedDB.", err);
+    });
 }
 
-// Deprecated metadata wrappers kept for compatibility
-function getImageMetadata(imageId) {
-  // This function is kept for backward compatibility but uses IndexedDB asynchronously
-  // For synchronous metadata access, use getImageMetadataFromIndexedDB instead
-  return { name: "", developer: "", date: "", date100: "", description: "", status: "", platform: null, genres: [], has100Replay: false };
+// Deprecated wrappers kept for compatibility with other scripts.
+function getImageMetadata() {
+  return getDefaultImageMetadata();
 }
 
 function saveImageMetadata(imageId, metadata) {
-  // Deprecated: Use saveImageMetadataToIndexedDB instead
-  saveImageMetadataToIndexedDB(imageId, metadata).catch(err => {
+  saveImageMetadataToIndexedDB(imageId, metadata).catch((err) => {
+    logDbSyncError(`Deprecated saveImageMetadata failed for ${imageId}.`, err);
   });
 }
 
 function deleteImageMetadata(imageId) {
-  // Deprecated: Use deleteImageMetadataFromIndexedDB instead
-  deleteImageMetadataFromIndexedDB(imageId).catch(err => {
+  deleteImageMetadataFromIndexedDB(imageId).catch((err) => {
+    logDbSyncError(`Deprecated deleteImageMetadata failed for ${imageId}.`, err);
   });
 }
 
-// Firebase globals
-let firebaseApp;
-let firebaseAuth;
-let firebaseDb;
-let currentUser = null;
-let firebaseAvailable = true;
-
-let autoSaveTimeout = null; // Debounce timer for Firebase sync
-let autoSaveTimers = {}; // Track separate timers per image for faster saves
-let lastFirebaseSyncTime = {}; // Track last sync time per image to force periodic syncs
-let lastRemoteSyncTime = null; // Track last time we synced FROM Firebase
-let syncPollInterval = null; // IntervalID for polling remote Firebase for updates
+function isFirebaseConfigured() {
+  return !!(
+    typeof firebase !== "undefined" &&
+    FIREBASE_CONFIG &&
+    FIREBASE_CONFIG.apiKey &&
+    FIREBASE_CONFIG.apiKey !== "YOUR_API_KEY"
+  );
+}
 
 async function initializeFirebase() {
-  if (!FIREBASE_CONFIG || !FIREBASE_CONFIG.apiKey || FIREBASE_CONFIG.apiKey === "YOUR_API_KEY") {
+  if (!isFirebaseConfigured()) {
     firebaseAvailable = false;
     return null;
   }
 
   try {
-    firebaseApp = firebase.initializeApp(FIREBASE_CONFIG);
+    if (!firebase.apps || !firebase.apps.length) {
+      firebaseApp = firebase.initializeApp(FIREBASE_CONFIG);
+    } else {
+      firebaseApp = firebase.app();
+    }
+
     firebaseAuth = firebase.auth();
     firebaseDb = firebase.firestore();
 
     firebaseAuth.onAuthStateChanged(async (user) => {
-      currentUser = user;
+      currentUser = user || null;
       updateAuthUI();
 
       if (currentUser) {
-        await loadTierListFromFirebase().catch(err => {
-        });
+        try {
+          await loadTierListFromFirebase();
+        } catch (err) {
+          logDbSyncError("Failed loading tier list after auth state change.", err);
+        }
 
-        if (initializationComplete) {
+        if (typeof initializationComplete !== "undefined" && initializationComplete) {
           startSyncPolling();
         }
       } else {
@@ -386,6 +517,7 @@ async function initializeFirebase() {
     return true;
   } catch (err) {
     firebaseAvailable = false;
+    logDbSyncError("Firebase initialization failed.", err);
     return null;
   }
 }
@@ -396,70 +528,80 @@ function updateAuthUI() {
   const profileAvatar = document.getElementById("profile-avatar");
   const userName = document.getElementById("user-name");
 
+  if (!loginBtn || !profileDropdown || !profileAvatar || !userName) return;
+
   if (currentUser) {
     loginBtn.style.display = "none";
     profileDropdown.classList.remove("hidden");
-
-    const userMeta = currentUser.user_metadata || {};
-    const rawMeta = currentUser.raw_user_meta_data || {};
-    const customAvatarUrl = "assets/aerith.jpg";
-    profileAvatar.src = customAvatarUrl;
-
-    userName.textContent = userMeta.full_name || userMeta.name || rawMeta.full_name || rawMeta.name || currentUser.email || "Signed in";
+    profileAvatar.src = "assets/aerith.jpg";
+    userName.textContent = currentUser.displayName || currentUser.email || "Signed in";
     userName.style.display = "block";
   } else {
     loginBtn.style.display = "block";
     profileDropdown.classList.add("hidden");
+    userName.textContent = "";
     userName.style.display = "none";
   }
 }
 
 function toggleProfileDropdown() {
   const profileMenu = document.getElementById("profile-menu");
-  profileMenu.classList.toggle("hidden");
+  const profileDropdown = document.getElementById("profile-dropdown");
+  if (!profileMenu || !profileDropdown) return;
 
-  document.addEventListener("click", function closeMenu(e) {
-    const profileDropdown = document.getElementById("profile-dropdown");
-    if (!profileDropdown.contains(e.target)) {
+  const isOpening = profileMenu.classList.contains("hidden");
+  profileMenu.classList.toggle("hidden");
+  if (!isOpening) return;
+
+  const closeMenu = (event) => {
+    if (!profileDropdown.contains(event.target)) {
       profileMenu.classList.add("hidden");
       document.removeEventListener("click", closeMenu);
     }
-  });
+  };
+
+  setTimeout(() => {
+    document.addEventListener("click", closeMenu);
+  }, 0);
 }
 
 function openProfileScreen() {
-  try {
-    window.location.href = 'my-tierlists.html';
-  } catch (e) {
-  }
+  window.location.href = "my-tierlists.html";
 }
 
 function closeProfileScreen() {
-  const screen = document.getElementById('profile-screen');
-  if (screen) screen.classList.add('hidden');
+  const screen = document.getElementById("profile-screen");
+  if (screen) screen.classList.add("hidden");
 }
 
 async function signInWithGoogle() {
-  try {
-    if (!firebaseAuth) {
-      throw new Error("Firebase auth is not initialized.");
-    }
+  if (!firebaseAuth) {
+    alert("Firebase auth is not initialized.");
+    return;
+  }
 
+  try {
     const provider = new firebase.auth.GoogleAuthProvider();
     await firebaseAuth.signInWithPopup(provider);
   } catch (err) {
+    logDbSyncError("Google sign-in failed.", err);
     alert("Failed to sign in. Make sure Firebase is configured and Google auth is enabled.");
   }
 }
 
 async function signOut() {
+  stopSyncPolling();
+
+  if (!firebaseAuth) {
+    alert("Firebase auth is not initialized.");
+    return;
+  }
+
   try {
-    stopSyncPolling();
-    if (!firebaseAuth) {
-      throw new Error("Firebase auth is not initialized.");
-    }
     await firebaseAuth.signOut();
   } catch (err) {
+    logDbSyncError("Sign out failed.", err);
+    alert("Failed to sign out.");
   }
 }
 
@@ -467,131 +609,74 @@ async function saveTierListToFirebase() {
   if (!currentUser || !firebaseDb || !firebaseAvailable) return;
 
   try {
-    const tierListData = {
-      header: document.getElementById("main-title").textContent,
-      tiers: [],
-      imagePositions: [],
-      gameMetadata: {},
-      lastUpdated: new Date().toISOString()
-    };
+    const tierListData = await buildTierListDataForSync();
 
-    const allImages = await getImagesFromIndexedDB();
-    const metadataMap = {};
-
-    for (const image of allImages) {
-      try {
-        const metadata = await getImageMetadataFromIndexedDB(image.id);
-        if (metadata) {
-          metadataMap[image.id] = metadata;
-        }
-      } catch (err) {
-      }
-    }
-
-    const rows = document.querySelectorAll(".row");
-    rows.forEach((row, tierIndex) => {
-      const tierLabel = row.querySelector(".tier-label");
-      const tierImages = row.children[1].querySelectorAll(".image");
-
-      tierListData.tiers.push({
-        index: tierIndex,
-        name: tierLabel.querySelector("p").textContent,
-        color: tierLabel.style.backgroundColor,
-      });
-
-      Array.from(tierImages).forEach((img, order) => {
-        const imageId = img.dataset.imageId;
-        const imageSrc = img.dataset.imageSrc;
-
-        tierListData.imagePositions.push({
-          imageId: imageId,
-          imageSrc: imageSrc,
-          tier: tierIndex,
-          order,
-          details: metadataMap[imageId] || null,
-        });
-
-        if (metadataMap[imageId]) {
-          tierListData.gameMetadata[imageId] = metadataMap[imageId];
-        }
-      });
-    });
-
-    const imagesBar = document.querySelector("#images-bar");
-    const barImages = imagesBar.querySelectorAll(".image");
-    Array.from(barImages).forEach((img, order) => {
-      const imageId = img.dataset.imageId;
-      const imageSrc = img.dataset.imageSrc;
-
-      tierListData.imagePositions.push({
-        imageId: imageId,
-        imageSrc: imageSrc,
-        tier: -1,
-        order,
-        details: metadataMap[imageId] || null,
-      });
-
-      if (metadataMap[imageId]) {
-        tierListData.gameMetadata[imageId] = metadataMap[imageId];
-      }
-    });
-
-    await firebaseDb.collection("tierLists").doc(currentUser.uid).set({
+    await firebaseDb.collection(FIREBASE_COLLECTION).doc(currentUser.uid).set({
       userId: currentUser.uid,
       userEmail: currentUser.email || null,
       tier_data: tierListData,
-      updated_at: new Date().toISOString()
+      updated_at: new Date().toISOString(),
     }, { merge: true });
 
+    lastRemoteSyncTime = Date.now();
   } catch (err) {
-    if (err && err.code === 'permission-denied') {
+    if (err && err.code === "permission-denied") {
       firebaseAvailable = false;
       stopSyncPolling();
-      alert('Firebase save failed because Firestore permissions are insufficient. Saving locally instead.');
+      alert("Firebase save failed because Firestore permissions are insufficient. Saving locally instead.");
     }
+    logDbSyncError("Saving tier list to Firebase failed.", err);
     throw err;
   }
 }
 
-async function validateImageUrl(url, timeoutMs = 5000) {
-  try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+function validateImageUrl(url, timeoutMs = IMAGE_VALIDATE_TIMEOUT_MS) {
+  return new Promise((resolve) => {
+    if (!url) {
+      resolve(false);
+      return;
+    }
 
-    const response = await fetch(url, {
-      method: 'HEAD',
-      mode: 'no-cors',
-      signal: controller.signal
-    });
+    const img = new Image();
+    let settled = false;
 
-    clearTimeout(timeoutId);
-    return response.status < 500;
-  } catch (err) {
-    return false;
-  }
+    const finish = (value) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      resolve(value);
+    };
+
+    const timer = setTimeout(() => finish(false), timeoutMs);
+
+    img.onload = () => finish(true);
+    img.onerror = () => finish(false);
+    img.src = url;
+  });
 }
 
 async function cleanupBrokenImages() {
   const brokenImageIds = [];
-  const allImageElements = document.querySelectorAll('.image');
+  const allImageElements = Array.from(document.querySelectorAll(".image"));
 
   for (const img of allImageElements) {
     const imageId = img.dataset.imageId;
-    const url = img.dataset.imageSrc || img.src;
+    const url = img.dataset.imageSrc || img.dataset.cloudinaryUrl || img.src;
 
-    if (url && url.startsWith('http')) {
-      const isValid = await validateImageUrl(url);
-      if (!isValid) {
-        img.remove();
-        brokenImageIds.push(imageId);
-      }
+    if (!url || !url.startsWith("http")) continue;
+
+    const isValid = await validateImageUrl(url);
+    if (!isValid) {
+      img.remove();
+      if (imageId) brokenImageIds.push(imageId);
     }
   }
 
-  for (const imageId of brokenImageIds) {
-    await deleteImageFromIndexedDB(imageId).catch(err => {
+  await Promise.all(brokenImageIds.map((imageId) => {
+    return deleteImageFromIndexedDB(imageId).catch((err) => {
+      logDbSyncError(`Failed deleting broken image ${imageId} from IndexedDB.`, err);
     });
-  }
+  }));
 
   return brokenImageIds;
 }
@@ -600,27 +685,28 @@ async function loadTierListFromFirebase() {
   if (!currentUser || !firebaseDb || !firebaseAvailable) return;
 
   try {
-    const doc = await firebaseDb.collection("tierLists").doc(currentUser.uid).get();
+    const doc = await firebaseDb.collection(FIREBASE_COLLECTION).doc(currentUser.uid).get();
     if (!doc.exists) {
-      loadTierListFromLocalStorage();
+      await loadTierListFromLocalStorage();
       return;
     }
 
     const data = doc.data();
     if (!data || !data.tier_data) {
-      loadTierListFromLocalStorage();
+      await loadTierListFromLocalStorage();
       return;
     }
 
     await loadTierListFromObject(data.tier_data);
-    lastRemoteSyncTime = new Date(data.updated_at || new Date()).getTime();
+    lastRemoteSyncTime = new Date(data.updated_at || Date.now()).getTime();
   } catch (err) {
-    if (err && err.code === 'permission-denied') {
+    if (err && err.code === "permission-denied") {
       firebaseAvailable = false;
       stopSyncPolling();
-      alert('Firebase access denied. Your tierlist will load locally until Firestore permissions are fixed.');
+      alert("Firebase access denied. Your tierlist will load locally until Firestore permissions are fixed.");
     }
-    loadTierListFromLocalStorage();
+    logDbSyncError("Failed loading tier list from Firebase.", err);
+    await loadTierListFromLocalStorage();
   }
 }
 
@@ -628,150 +714,101 @@ async function pollFirebaseForUpdates() {
   if (!currentUser || !firebaseDb || !firebaseAvailable) return;
 
   try {
-    const doc = await firebaseDb.collection("tierLists").doc(currentUser.uid).get();
+    const doc = await firebaseDb.collection(FIREBASE_COLLECTION).doc(currentUser.uid).get();
     if (!doc.exists) return;
 
     const data = doc.data();
     if (!data || !data.tier_data) return;
 
-    const remoteUpdatedAt = new Date(data.updated_at).getTime();
+    const remoteUpdatedAt = new Date(data.updated_at || 0).getTime();
+    if (Number.isNaN(remoteUpdatedAt)) return;
+
     if (lastRemoteSyncTime === null || remoteUpdatedAt > lastRemoteSyncTime) {
       await loadTierListFromObject(data.tier_data);
       lastRemoteSyncTime = remoteUpdatedAt;
     }
   } catch (err) {
-    if (err && err.code === 'permission-denied') {
+    if (err && err.code === "permission-denied") {
       firebaseAvailable = false;
       stopSyncPolling();
-      alert('Firebase sync disabled because Firestore permissions are insufficient.');
+      alert("Firebase sync disabled because Firestore permissions are insufficient.");
     }
+    logDbSyncError("Polling Firebase for updates failed.", err);
   }
 }
 
 function startSyncPolling() {
   if (syncPollInterval) return;
   if (!currentUser || !firebaseDb || !firebaseAvailable) return;
-
-  syncPollInterval = setInterval(pollFirebaseForUpdates, 10000);
+  syncPollInterval = setInterval(pollFirebaseForUpdates, SYNC_POLL_MS);
 }
 
 function stopSyncPolling() {
-  if (syncPollInterval) {
-    clearInterval(syncPollInterval);
-    syncPollInterval = null;
-  }
+  if (!syncPollInterval) return;
+  clearInterval(syncPollInterval);
+  syncPollInterval = null;
 }
 
 function getCloudinaryFolder() {
-  return CLOUDINARY_CONFIG.folder || null;
+  return CLOUDINARY_CONFIG && CLOUDINARY_CONFIG.folder ? CLOUDINARY_CONFIG.folder : null;
 }
 
 async function uploadToCloudinary(file) {
-  if (!CLOUDINARY_CONFIG.cloudName || CLOUDINARY_CONFIG.cloudName === "YOUR_CLOUD_NAME") {
-    throw new Error("Cloudinary is not configured. Please set your Cloud Name and Upload Preset in the script.");
+  console.log("Uploading to folder:", CLOUDINARY_CONFIG.folder);
+
+  if (!CLOUDINARY_CONFIG || !CLOUDINARY_CONFIG.cloudName || !CLOUDINARY_CONFIG.uploadPreset) {
+    throw new Error("Cloudinary is not configured correctly.");
   }
 
   const formData = new FormData();
   formData.append("file", file);
   formData.append("upload_preset", CLOUDINARY_CONFIG.uploadPreset);
-  const cloudinaryFolder = getCloudinaryFolder();
-  if (cloudinaryFolder) {
-    formData.append("folder", cloudinaryFolder);
+
+  if (CLOUDINARY_CONFIG.folder) {
+    formData.append("folder", CLOUDINARY_CONFIG.folder);
   }
 
-  try {
-    const response = await fetch(
-      `https://api.cloudinary.com/v1_1/${CLOUDINARY_CONFIG.cloudName}/image/upload`,
-      {
-        method: "POST",
-        body: formData,
-      }
-    );
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error?.message || "Failed to upload image to Cloudinary");
+  const response = await fetch(
+    `https://api.cloudinary.com/v1_1/${CLOUDINARY_CONFIG.cloudName}/image/upload`,
+    {
+      method: "POST",
+      body: formData,
     }
+  );
 
-    const data = await response.json();
-    return data.secure_url;
-  } catch (err) {
-    throw err;
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data?.error?.message || "Cloudinary upload failed");
   }
+
+  return data.secure_url;
 }
 
 async function deleteFromCloudinary(cloudinaryUrl) {
-  if (!CLOUDINARY_CONFIG.cloudName || CLOUDINARY_CONFIG.cloudName === "YOUR_CLOUD_NAME") {
-    return;
-  }
+  if (!cloudinaryUrl) return;
 
-  const publicId = extractCloudinaryPublicId(cloudinaryUrl);
-  if (!publicId) {
-    return;
-  }
-
-  if (CLOUDINARY_CONFIG.apiKey && CLOUDINARY_CONFIG.apiSecret && CLOUDINARY_CONFIG.apiKey !== "YOUR_API_KEY" && CLOUDINARY_CONFIG.apiSecret !== "YOUR_API_SECRET") {
-    try {
-      const timestamp = Math.floor(Date.now() / 1000);
-      const signature = await sha1(`public_id=${publicId}&timestamp=${timestamp}${CLOUDINARY_CONFIG.apiSecret}`);
-      const body = new URLSearchParams();
-      body.append("api_key", CLOUDINARY_CONFIG.apiKey);
-      body.append("timestamp", timestamp.toString());
-      body.append("public_id", publicId);
-      body.append("signature", signature);
-
-      const response = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CONFIG.cloudName}/image/destroy`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
-        },
-        body: body.toString(),
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        return;
-      }
-
-      const result = await response.json();
-      if (result.result !== "ok" && result.result !== "not found") {
-        return;
-      }
-
-      return;
-    } catch (err) {
-    }
-  }
-
-  const endpoint = CLOUDINARY_CONFIG.deleteEndpoint;
+  const endpoint = CLOUDINARY_CONFIG && CLOUDINARY_CONFIG.deleteEndpoint;
   if (!endpoint) {
+    console.warn("[DatabaseSyncing] Remote Cloudinary deletion is disabled because deleteEndpoint is not configured.");
     return;
   }
 
-  try {
-    const response = await fetch(endpoint, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ cloudinaryUrl }),
-    });
+  const response = await fetch(endpoint, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    credentials: "include",
+    body: JSON.stringify({ cloudinaryUrl }),
+  });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      return;
-    }
-
-  } catch (err) {
+  if (!response.ok) {
+    const text = await response.text().catch(() => "");
+    throw new Error(text || "Failed to delete image from Cloudinary via backend endpoint.");
   }
-}
 
-async function sha1(message) {
-  const encoder = new TextEncoder();
-  const data = encoder.encode(message);
-  const hashBuffer = await crypto.subtle.digest("SHA-1", data);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  return hashArray.map(b => b.toString(16).padStart(2, "0")).join("");
+  return response.json().catch(() => ({}));
 }
 
 function extractCloudinaryPublicId(cloudinaryUrl) {
@@ -781,6 +818,7 @@ function extractCloudinaryPublicId(cloudinaryUrl) {
     if (!match || !match[1]) return null;
     return decodeURIComponent(match[1].replace(/\.[^/.]+$/, ""));
   } catch (err) {
+    logDbSyncError("Failed to extract Cloudinary public ID.", err);
     return null;
   }
 }
