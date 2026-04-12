@@ -754,35 +754,47 @@ function getCloudinaryFolder() {
 }
 
 async function uploadToCloudinary(file) {
-  console.log("Uploading to folder:", CLOUDINARY_CONFIG.folder);
-
-  if (!CLOUDINARY_CONFIG || !CLOUDINARY_CONFIG.cloudName || !CLOUDINARY_CONFIG.uploadPreset) {
-    throw new Error("Cloudinary is not configured correctly.");
+  if (!file) {
+    throw new Error("No file provided for upload.");
   }
+
+  if (!CLOUDINARY_CONFIG || !CLOUDINARY_CONFIG.cloudName) {
+    throw new Error("Cloudinary config is missing.");
+  }
+
+  const url = `https://api.cloudinary.com/v1_1/${CLOUDINARY_CONFIG.cloudName}/image/upload`;
 
   const formData = new FormData();
   formData.append("file", file);
   formData.append("upload_preset", CLOUDINARY_CONFIG.uploadPreset);
 
+  // 🔥 THIS is what makes localhost go to LocalHost folder
   if (CLOUDINARY_CONFIG.folder) {
     formData.append("folder", CLOUDINARY_CONFIG.folder);
   }
 
-  const response = await fetch(
-    `https://api.cloudinary.com/v1_1/${CLOUDINARY_CONFIG.cloudName}/image/upload`,
-    {
+  try {
+    const response = await fetch(url, {
       method: "POST",
       body: formData,
+    });
+
+    if (!response.ok) {
+      const text = await response.text().catch(() => "");
+      throw new Error(`Cloudinary upload failed: ${response.status} ${text}`);
     }
-  );
 
-  const data = await response.json();
+    const data = await response.json();
 
-  if (!response.ok) {
-    throw new Error(data?.error?.message || "Cloudinary upload failed");
+    if (!data || !data.secure_url) {
+      throw new Error("Cloudinary response missing secure_url.");
+    }
+
+    return data.secure_url;
+  } catch (err) {
+    console.error("[uploadToCloudinary] Upload failed:", err);
+    throw err;
   }
-
-  return data.secure_url;
 }
 
 async function deleteFromCloudinary(cloudinaryUrl) {
