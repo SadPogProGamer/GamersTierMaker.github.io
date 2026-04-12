@@ -245,6 +245,12 @@ async function saveTierListLocally() {
   try {
     const data = await buildTierListData();
     await saveSetting("localTierList", data);
+
+    try {
+      localStorage.setItem("savedTierList", JSON.stringify(data));
+    } catch (err) {
+      scriptLogError("Failed updating legacy localStorage fallback.", err);
+    }
   } catch (err) {
     scriptLogError("Best-effort local save failed.", err);
   }

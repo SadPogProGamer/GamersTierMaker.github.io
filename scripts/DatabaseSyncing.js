@@ -404,18 +404,7 @@ async function loadTierListFromLocalStorage() {
   } catch (err) {
     logDbSyncError("Failed loading local tier list from IndexedDB settings.", err);
   }
-
-  try {
-    const savedData = localStorage.getItem("savedTierList");
-    if (savedData) {
-      const tierListData = JSON.parse(savedData);
-      await loadTierListFromObject(tierListData);
-    }
-  } catch (err) {
-    logDbSyncError("Failed loading legacy localStorage tier list.", err);
-  }
 }
-
 
 function loadImagesFromStorage() {
   const imagesBar = getImagesBarElement();
