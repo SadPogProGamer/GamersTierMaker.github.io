@@ -203,35 +203,49 @@ function openRowMenu(element, event) {
   menu.style.boxShadow = "0 10px 24px rgba(0,0,0,0.35)";
 
   menu.appendChild(
-    createCheckboxRow("Order by platform", !!tierOrderingStates[tierIndex], async (checked) => {
-      try {
-        await toggleTierOrdering(tierIndex, checked);
-      } finally {
-        menu.remove();
-      }
-    })
-  );
-
-  menu.appendChild(
-    createCheckboxRow("Limit to 10 items", !!tierLimitStates[tierIndex], async (checked) => {
-      try {
-        await toggleTierLimit(tierIndex, checked);
-      } finally {
-        menu.remove();
-      }
-    })
-  );
-
-  menu.appendChild(
-    createActionRow("Delete tier", () => {
-      if (typeof promptDeleteTier === "function") {
-        promptDeleteTier(() => deleteRow(row));
-      } else {
-        deleteRow(row);
-      }
+  createCheckboxRow("Order by platform", !!tierOrderingStates[tierIndex], async (checked) => {
+    try {
+      await toggleTierOrdering(tierIndex, checked);
+    } finally {
       menu.remove();
-    }, true)
-  );
+    }
+  })
+);
+
+menu.appendChild(
+  createCheckboxRow("Limit to 10 items", !!tierLimitStates[tierIndex], async (checked) => {
+    try {
+      await toggleTierLimit(tierIndex, checked);
+    } finally {
+      menu.remove();
+    }
+  })
+);
+
+menu.appendChild(
+  createActionRow("Add tier above", () => {
+    addRowAbove(row);
+    menu.remove();
+  })
+);
+
+menu.appendChild(
+  createActionRow("Add tier below", () => {
+    addRowBelow(row);
+    menu.remove();
+  })
+);
+
+menu.appendChild(
+  createActionRow("Delete tier", () => {
+    if (typeof promptDeleteTier === "function") {
+      promptDeleteTier(() => deleteRow(row));
+    } else {
+      deleteRow(row);
+    }
+    menu.remove();
+  }, true)
+);
 
   document.body.appendChild(menu);
 
@@ -329,68 +343,42 @@ function createColorPicker(colorPicker, onPreview, onSave, defaultColor) {
   return pickr;
 }
 
-function createNewRow(name = "New tier", color = "lightslategray") {
-  const newRow = document.createElement("div");
-  newRow.className = "row";
+function moveRow(button, direction) {
+  const row = button?.closest?.(".row");
+  if (!row) return;
 
-  const tierLabelDiv = document.createElement("div");
-  tierLabelDiv.className = "tier-label";
-  tierLabelDiv.style.backgroundColor = color;
-  tierLabelDiv.setAttribute("contenteditable", true);
+  const main = row.parentNode;
+  const rows = Array.from(main.querySelectorAll(".row"));
+  const currentIndex = rows.indexOf(row);
+  if (currentIndex < 0) return;
 
-  const paragraph = document.createElement("p");
-  paragraph.textContent = name;
-  paragraph.setAttribute("spellcheck", false);
+  const unassignedContainer = main.querySelector(".unassigned-container");
 
-  const tooltip = document.createElement("div");
-  tooltip.className = "tooltip";
-  tooltip.setAttribute("contenteditable", false);
+  if (direction === -1) {
+    const prev = row.previousElementSibling;
+    if (prev) {
+      main.insertBefore(row, prev);
+    }
+  } else if (direction === 1) {
+    const next = row.nextElementSibling;
+    if (!next) return;
 
-  const colorPicker = document.createElement("div");
-  colorPicker.className = "color-picker";
-  tooltip.appendChild(colorPicker);
+    if (next.classList.contains("unassigned-container")) {
+      main.insertBefore(row, next.nextSibling);
+    } else {
+      main.insertBefore(next, row);
+    }
+  }
 
-  createColorPicker(
-    colorPicker,
-    (hexColor) => {
-      tierLabelDiv.style.backgroundColor = hexColor;
-    },
-    (hexColor) => {
-      tierLabelDiv.style.backgroundColor = hexColor;
-      saveTierColors();
-    },
-    color
-  );
+  try {
+    initializeDragula?.();
+  } catch (err) {
+    console.error("Failed reinitializing dragula after moving row.", err);
+  }
 
-  tierLabelDiv.appendChild(paragraph);
-  tierLabelDiv.appendChild(tooltip);
-
-  const tierDiv = document.createElement("div");
-  tierDiv.className = "tier sort";
-
-  const optionsDiv = document.createElement("div");
-  optionsDiv.className = "tier-options";
-
-  const optionsContainer = document.createElement("div");
-  optionsContainer.className = "options-container";
-
-  const menuButton = createMenuButton("assets/Cog.png", "Menu", (event) => openRowMenu(menuButton, event));
-  const upButton = createMenuButton("assets/chevron-up.svg", "Up", () => moveRow(upButton, -1));
-  const downButton = createMenuButton("assets/chevron-down.svg", "Down", () => moveRow(downButton, 1));
-
-  optionsContainer.appendChild(menuButton);
-  optionsContainer.appendChild(upButton);
-  optionsContainer.appendChild(downButton);
-  optionsDiv.appendChild(optionsContainer);
-
-  newRow.appendChild(tierLabelDiv);
-  newRow.appendChild(tierDiv);
-  newRow.appendChild(optionsDiv);
-
-  attachTierLabelKeydownListener(tierLabelDiv);
-
-  return newRow;
+  saveTierColors();
 }
+
 
 function addRow(name = "New tier", color = "lightslategray") {
   const main = getMainElement();
@@ -414,6 +402,49 @@ function addRow(name = "New tier", color = "lightslategray") {
   saveTierColors();
   return newRow;
 }
+
+function addRowAbove(referenceRow, name = "New tier", color = "lightslategray") {
+  const row = referenceRow?.classList?.contains("row")
+    ? referenceRow
+    : referenceRow?.closest?.(".row");
+
+  if (!row) return null;
+
+  const newRow = createNewRow(name, color);
+  row.parentNode.insertBefore(newRow, row);
+
+  try {
+    initializeDragula?.();
+  } catch (err) {
+    tierSettingsLogError("Failed reinitializing dragula after adding row above.", err);
+  }
+
+  rebuildTierStateIndexes();
+  scheduleTierStateSave();
+  return newRow;
+}
+
+function addRowBelow(referenceRow, name = "New tier", color = "lightslategray") {
+  const row = referenceRow?.classList?.contains("row")
+    ? referenceRow
+    : referenceRow?.closest?.(".row");
+
+  if (!row) return null;
+
+  const newRow = createNewRow(name, color);
+  row.parentNode.insertBefore(newRow, row.nextSibling);
+
+  try {
+    initializeDragula?.();
+  } catch (err) {
+    tierSettingsLogError("Failed reinitializing dragula after adding row below.", err);
+  }
+
+  rebuildTierStateIndexes();
+  scheduleTierStateSave();
+  return newRow;
+}
+
 
 function destroyRowPickers(row) {
   const tooltips = row.querySelectorAll(".tooltip");
@@ -766,3 +797,37 @@ function bindTierSettingsBootEvents() {
 document.addEventListener("DOMContentLoaded", () => {
   bindTierSettingsBootEvents();
 });
+
+function insertRowAbove(referenceElement, name = "New tier", color = "lightslategray") {
+  const referenceRow = referenceElement?.closest?.(".row");
+  if (!referenceRow) return null;
+
+  const newRow = createNewRow(name, color);
+  referenceRow.parentNode.insertBefore(newRow, referenceRow);
+
+  try {
+    initializeDragula?.();
+  } catch (err) {
+    console.error("Failed reinitializing dragula after inserting row above.", err);
+  }
+
+  saveTierColors();
+  return newRow;
+}
+
+function insertRowBelow(referenceElement, name = "New tier", color = "lightslategray") {
+  const referenceRow = referenceElement?.closest?.(".row");
+  if (!referenceRow) return null;
+
+  const newRow = createNewRow(name, color);
+  referenceRow.parentNode.insertBefore(newRow, referenceRow.nextSibling);
+
+  try {
+    initializeDragula?.();
+  } catch (err) {
+    console.error("Failed reinitializing dragula after inserting row below.", err);
+  }
+
+  saveTierColors();
+  return newRow;
+}

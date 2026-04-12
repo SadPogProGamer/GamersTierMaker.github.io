@@ -483,10 +483,13 @@ function finalizeModalClose() {
 
 function closeImageModal() {
   const imageId = getCurrentImageId();
-  if (!imageId) {
-    finalizeModalClose();
-    return;
-  }
+  const imageElement = currentImageElement;
+  const currentQuery = getSearchQueryValue();
+  const metadata = getCurrentMetadataFromForm();
+
+  finalizeModalClose();
+
+  if (!imageId || !imageElement) return;
 
   if (autoSaveTimers[imageId]) {
     clearTimeout(autoSaveTimers[imageId]);
@@ -497,35 +500,23 @@ function closeImageModal() {
     autoSaveTimeout = null;
   }
 
-  const metadata = getCurrentMetadataFromForm();
-  const currentQuery = getSearchQueryValue();
-
   saveImageMetadataToIndexedDB(imageId, metadata)
     .then(async () => {
-      await sortCurrentImageTierIfOrdered(currentImageElement);
-      await saveTierListLocally().catch((err) => {
-        gameDetailsLogError("Failed local save while closing modal.", err);
-      });
-
+      await sortCurrentImageTierIfOrdered(imageElement);
+      await saveTierListLocally().catch(() => {});
       if (currentUser && firebaseDb && firebaseAvailable) {
-        await saveTierListToFirebase();
+        await saveTierListToFirebase().catch(() => {});
       }
-    })
-    .catch((err) => {
-      gameDetailsLogError(`Failed saving metadata while closing modal for ${imageId}.`, err);
     })
     .finally(() => {
       try {
         if (typeof filterImages === "function") {
           filterImages(currentQuery);
         }
-      } catch (err) {
-        gameDetailsLogError("Failed re-running search filter after closing modal.", err);
-      }
-
-      finalizeModalClose();
+      } catch (_) {}
     });
 }
+
 
 function deleteImageFromModal() {
   if (!currentImageElement) return;

@@ -279,6 +279,7 @@ p {
   display: flex;
   width: 80px;
   align-items: center;
+  justify-content: center;
   background-color: var(--black);
   border-top: 1px solid var(--option-borders);
   border-bottom: 1px solid var(--option-borders);
@@ -286,22 +287,35 @@ p {
 
 .options-container {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  height: 80px;
+  grid-template-columns: 40px 40px;
+  grid-template-rows: 1fr 1fr;
   width: 80px;
+  height: 85px;
 }
 
 .option {
-  height: auto;
-  width: 40px;
   display: flex;
   align-items: center;
   justify-content: center;
+  width: 40px;
+  height: 42px;
 }
 
 .option.delete {
-  grid-row: span 2;
-  justify-content: right;
+  grid-row: 1 / span 2;
+  grid-column: 1;
+  transform: translateY(20px); /* 👈 adjust this */
+}
+
+/* arrows on the right */
+.option.up {
+  grid-column: 2;
+  grid-row: 1;
+}
+
+.option.down {
+  grid-column: 2;
+  grid-row: 2;
 }
 
 .option-hover {
