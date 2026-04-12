@@ -235,7 +235,9 @@ function autoSaveMetadata(imageId) {
 
 
   saveImageMetadataToIndexedDB(imageId, imageMetadata)
-    .then(() => {
+    .then(async () => {
+      await sortCurrentImageTierIfOrdered(currentImageElement).catch(() => {});
+      await saveTierListLocally().catch(() => {});
 
       if (currentUser && firebaseDb) {
         showSyncStatus("syncing", "Syncing...");
@@ -379,7 +381,8 @@ function closeImageModal() {
 
   saveImageMetadataToIndexedDB(imageId, imageMetadata)
     .then(async () => {
-      await sortCurrentImageTierIfOrdered(currentImageElement);
+      await sortCurrentImageTierIfOrdered(currentImageElement).catch(() => {});
+      await saveTierListLocally().catch(() => {});
 
       if (currentUser && firebaseDb) {
         return saveTierListToFirebase();
@@ -417,6 +420,7 @@ async function sortCurrentImageTierIfOrdered(imageElement) {
 
   try {
     await sortTierByPlatform(row.children[1]);
+    await saveImagePositions().catch(() => {});
   } catch (err) {
   }
 }
