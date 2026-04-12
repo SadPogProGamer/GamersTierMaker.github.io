@@ -765,6 +765,8 @@ function getCloudinaryFolder() {
 }
 
 async function uploadToCloudinary(file) {
+  console.log("Uploading to folder:", CLOUDINARY_CONFIG.folder);
+
   if (!CLOUDINARY_CONFIG || !CLOUDINARY_CONFIG.cloudName || !CLOUDINARY_CONFIG.uploadPreset) {
     throw new Error("Cloudinary is not configured correctly.");
   }
@@ -773,9 +775,8 @@ async function uploadToCloudinary(file) {
   formData.append("file", file);
   formData.append("upload_preset", CLOUDINARY_CONFIG.uploadPreset);
 
-  const cloudinaryFolder = getCloudinaryFolder();
-  if (cloudinaryFolder) {
-    formData.append("folder", cloudinaryFolder);
+  if (CLOUDINARY_CONFIG.folder) {
+    formData.append("folder", CLOUDINARY_CONFIG.folder);
   }
 
   const response = await fetch(
@@ -786,19 +787,10 @@ async function uploadToCloudinary(file) {
     }
   );
 
-  let data = null;
-  try {
-    data = await response.json();
-  } catch (_) {
-    data = null;
-  }
+  const data = await response.json();
 
   if (!response.ok) {
-    throw new Error(data?.error?.message || "Failed to upload image to Cloudinary.");
-  }
-
-  if (!data?.secure_url) {
-    throw new Error("Cloudinary upload succeeded but did not return a secure_url.");
+    throw new Error(data?.error?.message || "Cloudinary upload failed");
   }
 
   return data.secure_url;

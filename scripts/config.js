@@ -2,15 +2,16 @@
 // Frontend-safe configuration only.
 // Do NOT put Cloudinary API secrets or any other private keys in this file.
 
+const isLocalhost =
+  window.location.hostname === "localhost" ||
+  window.location.hostname === "127.0.0.1";
+
 // Cloudinary configuration
 const CLOUDINARY_CONFIG = {
   cloudName: "dfdibdfcm",
   uploadPreset: "GamersTierMaker",
-  folder: "GamerTierMaker",
-
-  // Optional backend endpoint for secure deletes.
-  // Leave as null if you do not have a backend yet.
-  deleteEndpoint: null,
+  folder: isLocalhost ? "LocalHost" : "GamerTierMaker",
+  deleteEndpoint: null
 };
 
 // Firebase configuration
