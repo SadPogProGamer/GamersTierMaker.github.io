@@ -387,6 +387,14 @@ async function saveImagePositions() {
 }
 
 async function loadTierListFromLocalStorage() {
+  // Header / tier colors / ordering / limits are already loaded separately in bootstrap,
+  // so for refresh we should prefer the image store, which has the freshest tier/order.
+  await loadImagesFromStorage();
+
+  // Optional legacy fallback only if no images were restored.
+  const displayedImages = document.querySelectorAll(".image");
+  if (displayedImages.length > 0) return;
+
   try {
     const data = await getSetting("localTierList");
     if (data) {
@@ -402,14 +410,12 @@ async function loadTierListFromLocalStorage() {
     if (savedData) {
       const tierListData = JSON.parse(savedData);
       await loadTierListFromObject(tierListData);
-      return;
     }
   } catch (err) {
     logDbSyncError("Failed loading legacy localStorage tier list.", err);
   }
-
-  await loadImagesFromStorage();
 }
+
 
 function loadImagesFromStorage() {
   const imagesBar = getImagesBarElement();
