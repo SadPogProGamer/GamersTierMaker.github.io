@@ -640,23 +640,86 @@ async function downloadTierListImage() {
     return;
   }
 
-  const target = document.getElementById("htmlContent");
-  if (!target) {
-    alert("Could not find the tier list content to download.");
+  const rows = Array.from(document.querySelectorAll(".row"));
+  if (!rows.length) {
+    alert("Could not find any tier rows to download.");
     return;
   }
 
   const loadingDiv = createLoadingOverlay("Rendering screenshot...");
 
+  let captureWrapper = null;
+
   try {
-    const canvas = await window.html2canvas(target, {
-      backgroundColor: null,
-      useCORS: true,
-      scale: Math.max(1, window.devicePixelRatio || 1),
-      logging: false,
+    captureWrapper = document.createElement("div");
+    captureWrapper.id = "tierlist-screenshot-capture";
+    captureWrapper.style.position = "fixed";
+    captureWrapper.style.left = "-99999px";
+    captureWrapper.style.top = "0";
+    captureWrapper.style.margin = "0";
+    captureWrapper.style.padding = "0";
+    captureWrapper.style.background = "transparent";
+    captureWrapper.style.display = "block";
+    captureWrapper.style.width = "fit-content";
+    captureWrapper.style.height = "auto";
+
+    rows.forEach((row) => {
+      const clone = row.cloneNode(true);
+
+      // remove the right-side settings/control column
+      const rowChildren = Array.from(clone.children);
+      if (rowChildren.length >= 3) {
+        rowChildren[2].remove();
+      }
+
+      clone.style.margin = "0";
+      clone.style.width = `${row.offsetWidth}px`;
+      clone.style.minWidth = `${row.offsetWidth}px`;
+      clone.style.maxWidth = `${row.offsetWidth}px`;
+      clone.style.height = `${row.offsetHeight}px`;
+      clone.style.minHeight = `${row.offsetHeight}px`;
+      clone.style.maxHeight = `${row.offsetHeight}px`;
+
+      const cloneChildren = Array.from(clone.children);
+
+      // lock the tier label width/height
+      if (cloneChildren[0]) {
+        cloneChildren[0].style.width = `${row.children[0].offsetWidth}px`;
+        cloneChildren[0].style.minWidth = `${row.children[0].offsetWidth}px`;
+        cloneChildren[0].style.maxWidth = `${row.children[0].offsetWidth}px`;
+        cloneChildren[0].style.height = `${row.children[0].offsetHeight}px`;
+      }
+
+      // lock the image area width/height
+      if (cloneChildren[1]) {
+        cloneChildren[1].style.width = `${row.children[1].offsetWidth}px`;
+        cloneChildren[1].style.minWidth = `${row.children[1].offsetWidth}px`;
+        cloneChildren[1].style.maxWidth = `${row.children[1].offsetWidth}px`;
+        cloneChildren[1].style.height = `${row.children[1].offsetHeight}px`;
+        cloneChildren[1].style.minHeight = `${row.children[1].offsetHeight}px`;
+        cloneChildren[1].style.maxHeight = `${row.children[1].offsetHeight}px`;
+      }
+
+      captureWrapper.appendChild(clone);
     });
 
-    const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/png"));
+    document.body.appendChild(captureWrapper);
+
+    const canvas = await window.html2canvas(captureWrapper, {
+      backgroundColor: null,
+      useCORS: true,
+      scale: window.devicePixelRatio > 1 ? 2 : 1,
+      logging: false,
+      width: captureWrapper.scrollWidth,
+      height: captureWrapper.scrollHeight,
+      windowWidth: captureWrapper.scrollWidth,
+      windowHeight: captureWrapper.scrollHeight
+    });
+
+    const blob = await new Promise((resolve) => {
+      canvas.toBlob(resolve, "image/png");
+    });
+
     if (!blob) {
       throw new Error("Failed to create screenshot blob.");
     }
@@ -666,6 +729,9 @@ async function downloadTierListImage() {
     bottomButtonsLogError("Failed downloading tier list screenshot.", err);
     alert("Failed to download the tier list image. See console for details.");
   } finally {
+    if (captureWrapper) {
+      captureWrapper.remove();
+    }
     loadingDiv.remove();
   }
 }
