@@ -483,10 +483,10 @@ function addRow(name = "New tier", color = "lightslategray") {
   if (!main) return null;
 
   const newRow = createNewRow(name, color);
-  const imagesBar = getImagesBar();
+  const unassignedContainer = main.querySelector(".unassigned-container");
 
-  if (imagesBar && imagesBar.parentNode === main) {
-    main.insertBefore(newRow, imagesBar);
+  if (unassignedContainer) {
+    main.insertBefore(newRow, unassignedContainer);
   } else {
     main.appendChild(newRow);
   }
@@ -928,4 +928,26 @@ function insertRowBelow(referenceElement, name = "New tier", color = "lightslate
 
   saveTierColors();
   return newRow;
+}
+
+function attachTierLabelKeydownListener(tierLabel) {
+  tierLabel.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      if (e.shiftKey) {
+        e.preventDefault();
+        document.execCommand("insertLineBreak");
+        setTimeout(() => {
+          saveTierColors();
+        }, 0);
+      } else {
+        e.preventDefault();
+        saveTierColors();
+        tierLabel.blur();
+      }
+    }
+  });
+
+  tierLabel.addEventListener("blur", () => {
+    saveTierColors();
+  });
 }
