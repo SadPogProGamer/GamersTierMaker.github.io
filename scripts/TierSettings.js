@@ -643,14 +643,6 @@ function saveTierColors() {
     tierSettingsLogError("Failed saving tier colors.", err);
   });
 
-  saveSetting("tierOrderingStates", tierOrderingStates).catch((err) => {
-    tierSettingsLogError("Failed saving tier ordering states.", err);
-  });
-
-  saveSetting("tierLimitStates", tierLimitStates).catch((err) => {
-    tierSettingsLogError("Failed saving tier limit states.", err);
-  });
-
   if (currentUser && firebaseDb && firebaseAvailable) {
     saveTierListToFirebase().catch((err) => {
       tierSettingsLogError("Failed syncing tier colors to Firebase.", err);

@@ -794,9 +794,10 @@ async function bootstrapApp() {
 
   try {
     if (typeof loadHeaderFromStorage === "function") loadHeaderFromStorage();
-    if (typeof loadTierColors === "function") loadTierColors();
     if (typeof loadTierOrderingStates === "function") await loadTierOrderingStates();
     if (typeof loadTierLimitStates === "function") await loadTierLimitStates();
+    if (typeof loadTierColors === "function") loadTierColors();
+
   } catch (err) {
     scriptLogError("Failed loading saved tier settings during bootstrap.", err);
   }
