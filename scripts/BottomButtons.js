@@ -198,16 +198,27 @@ async function getGameDetailsForExport() {
       platform: null,
       date100: "",
       has100Replay: false,
+      hash: image.imageId || "",
     };
 
     try {
-      metadata = await getImageMetadataFromIndexedDB(image.imageId);
+      const storedMetadata = await getImageMetadataFromIndexedDB(image.imageId);
+      if (storedMetadata) {
+        metadata = {
+          ...metadata,
+          ...storedMetadata,
+        };
+      }
     } catch (err) {
-      bottomButtonsLogError(`Failed reading metadata for export on image ${image.imageId}.`, err);
+      bottomButtonsLogError(
+        `Failed reading metadata for export on image ${image.imageId}.`,
+        err
+      );
     }
 
     entries.push({
       imageId: image.imageId,
+      hash: metadata.hash || image.imageId || "",
       imageSrc: image.imageSrc,
       tier: image.tier,
       name: metadata.name || "",
@@ -557,20 +568,77 @@ async function applyImportedGameDetails(entries) {
   const imagesBar = getImagesBarForButtons();
 
   const allImages = Array.from(document.querySelectorAll(".image"));
-
   let notFound = 0;
 
+  // Build a metadata cache once so we do not keep re-reading IndexedDB in nested loops
+  const metadataCache = new Map();
+  await Promise.all(
+    allImages.map(async (img) => {
+      const imageId = img.dataset.imageId;
+      if (!imageId) return;
+
+      try {
+        const metadata = await getImageMetadataFromIndexedDB(imageId);
+        metadataCache.set(imageId, metadata || null);
+      } catch (err) {
+        console.error(`Failed reading metadata for image ${imageId} during import matching:`, err);
+        metadataCache.set(imageId, null);
+      }
+    })
+  );
 
   for (const entry of entries) {
-    if (!entry.imageId && !entry.imageSrc) continue;
+    if (!entry) continue;
 
-    // 🔍 Find matching image
-    let img = allImages.find(i => i.dataset.imageId === entry.imageId);
+    let img = null;
 
-    if (!img) {
-      img = allImages.find(i =>
-        (i.dataset.imageSrc || i.src) === entry.imageSrc
-      );
+    // 1) Old direct ID match
+    if (entry.imageId) {
+      img = allImages.find((i) => i.dataset.imageId === entry.imageId) || null;
+    }
+
+    // 2) Best stable match: hash
+    // This works if your exported JSON contains entry.hash
+    if (!img && entry.hash) {
+      img =
+        allImages.find((i) => i.dataset.hash === entry.hash) ||
+        allImages.find((i) => i.dataset.imageId === entry.hash) ||
+        null;
+    }
+
+    // 3) URL/src fallback
+    if (!img && entry.imageSrc) {
+      img =
+        allImages.find((i) => {
+          const currentSrc = i.dataset.imageSrc || i.dataset.cloudinaryUrl || i.src || "";
+          return currentSrc === entry.imageSrc;
+        }) || null;
+    }
+
+    // 4) Metadata fallback: name + developer
+    if (!img && (entry.name || entry.developer)) {
+      img =
+        allImages.find((i) => {
+          const imageId = i.dataset.imageId;
+          const meta = metadataCache.get(imageId);
+          if (!meta) return false;
+
+          const sameName =
+            (meta.name || "").trim().toLowerCase() ===
+            (entry.name || "").trim().toLowerCase();
+
+          const sameDeveloper =
+            (meta.developer || "").trim().toLowerCase() ===
+            (entry.developer || "").trim().toLowerCase();
+
+          if (entry.name && entry.developer) {
+            return sameName && sameDeveloper;
+          }
+
+          if (entry.name) return sameName;
+          if (entry.developer) return sameDeveloper;
+          return false;
+        }) || null;
     }
 
     if (!img) {
@@ -578,43 +646,53 @@ async function applyImportedGameDetails(entries) {
       continue;
     }
 
-    if (notFound > 0) {
-      alert(`${notFound} images from the import were not found in your tierlist.`);
-    }
-
     const imageId = img.dataset.imageId;
 
-    // ✅ Restore metadata
+    // Restore metadata
     await saveImageMetadataToIndexedDB(imageId, {
-      name: entry.name,
-      developer: entry.developer,
-      date: entry.date,
-      date100: entry.date100,
-      description: entry.description,
-      platform: entry.platform,
-      status: entry.status,
-      has100Replay: entry.has100Replay
+      name: entry.name || "",
+      developer: entry.developer || "",
+      date: entry.date || "",
+      date100: entry.date100 || "",
+      description: entry.description || "",
+      platform: entry.platform || null,
+      status: entry.status || "",
+      has100Replay: !!entry.has100Replay,
+      hash: entry.hash || imageId || "",
     });
 
-    // ✅ Move to correct tier
+    // Keep the hash on the DOM too for future imports
+    if (entry.hash) {
+      img.dataset.hash = entry.hash;
+    } else if (!img.dataset.hash && imageId) {
+      img.dataset.hash = imageId;
+    }
+
+    // Restore tier position
     if (typeof entry.tier === "number") {
       if (entry.tier === -1) {
-        imagesBar.appendChild(img);
-      } else if (rows[entry.tier]) {
+        if (imagesBar) {
+          imagesBar.appendChild(img);
+        }
+      } else if (rows[entry.tier] && rows[entry.tier].children[1]) {
         rows[entry.tier].children[1].appendChild(img);
       }
     }
   }
 
-  // ✅ Re-save positions (important)
+  if (notFound > 0) {
+    alert(`${notFound} images from the import were not found in your tierlist.`);
+  }
+
+  // Re-save positions
   await saveImagePositions();
 
-  // ✅ Apply tier rules again
+  // Re-apply tier rules
   if (typeof applyTierSettingsToRows === "function") {
     await applyTierSettingsToRows();
   }
 
-  // ✅ Update UI
+  // Update UI
   if (typeof updateTierCounts === "function") {
     updateTierCounts(typeof countsAreShown === "function" ? countsAreShown() : false);
   }
@@ -623,10 +701,15 @@ async function applyImportedGameDetails(entries) {
     setDropHintVisibility();
   }
 
-  // ✅ Sync
-  await saveTierListLocally().catch(() => { });
+  // Save locally and sync
+  await saveTierListLocally().catch((err) => {
+    console.error("Failed to save tier list locally after import:", err);
+  });
+
   if (currentUser && firebaseDb && firebaseAvailable) {
-    await saveTierListToFirebase().catch(() => { });
+    await saveTierListToFirebase().catch((err) => {
+      console.error("Failed to sync tier list to Firebase after import:", err);
+    });
   }
 }
 
