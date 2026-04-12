@@ -164,17 +164,8 @@ function createActionRow(labelText, onClick, danger = false) {
   const button = document.createElement("button");
   button.type = "button";
   button.className = "row-menu-item action-item";
+  if (danger) button.classList.add("delete-tier");
   button.textContent = labelText;
-  button.style.display = "block";
-  button.style.width = "100%";
-  button.style.textAlign = "left";
-  button.style.padding = "8px 10px";
-  button.style.background = "transparent";
-  button.style.border = "none";
-  button.style.cursor = "pointer";
-  if (danger) {
-    button.style.color = "#ff8a8a";
-  }
   button.addEventListener("click", onClick);
   return button;
 }
@@ -185,6 +176,23 @@ function removeExistingRowMenu() {
 
 function openRowMenu(element, event) {
   event?.stopPropagation?.();
+
+  const existingMenu = document.querySelector(".row-menu-popup");
+  const existingOwner = existingMenu?.dataset?.ownerCogId || null;
+
+  if (!element.dataset.menuCogId) {
+    element.dataset.menuCogId = `cog-${Math.random().toString(36).slice(2)}`;
+  }
+
+  const clickedCogId = element.dataset.menuCogId;
+
+  // Same cog clicked again -> just close
+  if (existingMenu && existingOwner === clickedCogId) {
+    existingMenu.remove();
+    return;
+  }
+
+  // Different cog clicked -> close old one, then continue opening new one
   removeExistingRowMenu();
 
   const row = element.closest(".row");
@@ -193,99 +201,107 @@ function openRowMenu(element, event) {
 
   const menu = document.createElement("div");
   menu.className = "row-menu-popup";
-  menu.style.position = "absolute";
-  menu.style.zIndex = "9999";
-  menu.style.background = "#1d1d1d";
-  menu.style.border = "1px solid rgba(255,255,255,0.12)";
-  menu.style.borderRadius = "8px";
-  menu.style.padding = "6px 0";
-  menu.style.minWidth = "220px";
-  menu.style.boxShadow = "0 10px 24px rgba(0,0,0,0.35)";
+  menu.dataset.ownerCogId = clickedCogId;
 
   menu.appendChild(
-  createCheckboxRow("Order by platform", !!tierOrderingStates[tierIndex], async (checked) => {
+  createActionRow("Add Tier Above", () => {
+    const newRow = createNewRow("New tier", "lightslategray");
+    row.parentNode.insertBefore(newRow, row);
+
+    rebuildTierStateIndexes();
     try {
-      await toggleTierOrdering(tierIndex, checked);
-    } finally {
-      menu.remove();
+      initializeDragula?.();
+    } catch (err) {
+      tierSettingsLogError("Failed reinitializing dragula after adding row above.", err);
     }
+
+    scheduleTierStateSave();
+    try { updateTierCounts(countsAreShown()); } catch (e) {}
+    menu.remove();
+
+    if (danger) button.classList.add("delete-tier");
   })
 );
 
 menu.appendChild(
-  createCheckboxRow("Limit to 10 items", !!tierLimitStates[tierIndex], async (checked) => {
+  createActionRow("Add Tier Below", () => {
+    const newRow = createNewRow("New tier", "lightslategray");
+    row.parentNode.insertBefore(newRow, row.nextSibling);
+
+    rebuildTierStateIndexes();
     try {
-      await toggleTierLimit(tierIndex, checked);
-    } finally {
+      initializeDragula?.();
+    } catch (err) {
+      tierSettingsLogError("Failed reinitializing dragula after adding row below.", err);
+    }
+
+    scheduleTierStateSave();
+    try { updateTierCounts(countsAreShown()); } catch (e) {}
+    menu.remove();
+  })
+);
+
+  menu.appendChild(
+    createCheckboxRow("Order on platform", !!tierOrderingStates[tierIndex], async (checked) => {
+      try {
+        await toggleTierOrdering(tierIndex, checked);
+      } finally {
+        menu.remove();
+      }
+    })
+  );
+
+  menu.appendChild(
+    createCheckboxRow("Limit to 10", !!tierLimitStates[tierIndex], async (checked) => {
+      try {
+        await toggleTierLimit(tierIndex, checked);
+      } finally {
+        menu.remove();
+      }
+    })
+  );
+
+  menu.appendChild(
+    createActionRow("Delete Tier", () => {
+      if (typeof promptDeleteTier === "function") {
+        promptDeleteTier(() => deleteRow(row));
+      } else {
+        deleteRow(row);
+      }
       menu.remove();
-    }
-  })
-);
-
-menu.appendChild(
-  createActionRow("Add tier above", () => {
-    addRowAbove(row);
-    menu.remove();
-  })
-);
-
-menu.appendChild(
-  createActionRow("Add tier below", () => {
-    addRowBelow(row);
-    menu.remove();
-  })
-);
-
-menu.appendChild(
-  createActionRow("Delete tier", () => {
-    if (typeof promptDeleteTier === "function") {
-      promptDeleteTier(() => deleteRow(row));
-    } else {
-      deleteRow(row);
-    }
-    menu.remove();
-  }, true)
-);
+    }, true)
+  );
 
   document.body.appendChild(menu);
 
   const rect = element.getBoundingClientRect();
-  menu.style.left = `${window.scrollX + rect.left - 170}px`;
-  menu.style.top = `${window.scrollY + rect.bottom + 6}px`;
+  menu.style.position = "absolute";
+  menu.style.top = `${window.scrollY + rect.top + 20}px`;
+  menu.style.left = `${window.scrollX + rect.right - menu.offsetWidth - 35}px`;
+
+  const closeMenuOnScroll = () => {
+    menu.remove();
+    document.removeEventListener("click", closeMenu);
+    window.removeEventListener("scroll", closeMenuOnScroll, true);
+    window.removeEventListener("resize", closeMenuOnScroll);
+  };
 
   const closeMenu = (e) => {
     if (!menu.contains(e.target) && e.target !== element) {
       menu.remove();
       document.removeEventListener("click", closeMenu);
+      window.removeEventListener("scroll", closeMenuOnScroll, true);
+      window.removeEventListener("resize", closeMenuOnScroll);
     }
   };
 
   setTimeout(() => {
     document.addEventListener("click", closeMenu);
+    window.addEventListener("scroll", closeMenuOnScroll, true);
+    window.addEventListener("resize", closeMenuOnScroll);
   }, 0);
 }
 
-function attachTierLabelKeydownListener(tierLabel) {
-  tierLabel.addEventListener("keydown", (e) => {
-    if (e.key === "Enter") {
-      if (e.shiftKey) {
-        e.preventDefault();
-        document.execCommand("insertLineBreak");
-        setTimeout(() => {
-          saveTierColors();
-        }, 0);
-      } else {
-        e.preventDefault();
-        saveTierColors();
-        tierLabel.blur();
-      }
-    }
-  });
-
-  tierLabel.addEventListener("blur", () => {
-    saveTierColors();
-  });
-}
 
 function createColorPicker(colorPicker, onPreview, onSave, defaultColor) {
   if (typeof Pickr === "undefined") {

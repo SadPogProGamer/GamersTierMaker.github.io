@@ -978,6 +978,57 @@ img {
   overflow: hidden;
 }
 
+.row-menu-popup {
+  position: absolute;
+  z-index: 9999;
+  background: #2d292a;
+  border: 1px solid #7fffff;
+  border-radius: 4px;
+  min-width: 220px;
+  overflow: hidden;
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.45);
+}
+
+.row-menu-item {
+  width: 100%;
+  box-sizing: border-box;
+  background: transparent;
+  border: none;
+  color: var(--button-text);
+  text-align: left;
+  padding: 12px 16px;
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.row-menu-item:hover {
+  background-color: rgba(255, 255, 255, 0.06);
+}
+
+.row-menu-item + .row-menu-item {
+  border-top: 1px solid rgba(255, 255, 255, 0.14);
+}
+
+.row-menu-item.checkbox-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.row-menu-item.checkbox-item input {
+  accent-color: #1e90ff;
+}
+
+.row-menu-item.action-item {
+  display: block;
+}
+
+.row-menu-item.action-item[style*="ff8a8a"],
+.row-menu-item.action-item.delete-tier {
+  color: #ff6b6b;
+}
+
 .row-menu-btn {
   display: block;
   width: 100%;
@@ -1194,4 +1245,52 @@ img {
 
 .profile-menu-btn.logout-btn:hover {
   background-color: rgba(255, 107, 107, 0.2);
+}
+
+.row-menu-popup {
+  position: absolute;
+  z-index: 1002;
+  min-width: 220px;
+  background-color: #2d292a;
+  border: 1px solid #7fffff;
+  border-radius: 4px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.6);
+  overflow: hidden;
+}
+
+.row-menu-item {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 12px 16px;
+  background: transparent;
+  border: none;
+  color: var(--button-text);
+  text-align: left;
+  cursor: pointer;
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 14px;
+}
+
+.row-menu-item + .row-menu-item {
+  border-top: 1px solid #555;
+}
+
+.row-menu-item:hover {
+  background-color: rgba(127, 255, 255, 0.12);
+}
+
+.row-menu-item.checkbox-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.row-menu-item.checkbox-item input {
+  width: auto;
+  margin: 0;
+}
+
+.row-menu-item.action-item.delete-tier {
+  color: #ff6b6b;
 }
