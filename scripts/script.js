@@ -420,18 +420,27 @@ function initializeDragula() {
       }
       updateDragMirror();
     })
+
     .on("drop", async (el, target, source, sibling) => {
       scrollable = true;
 
-      if (!target) {
-        clearImageSelection();
-        return;
-      }
+      try {
+        if (!target) {
+          clearImageSelection();
+          return;
+        }
 
-      moveSelectedImagesToTarget(el, target, sibling);
-      await handlePostDrop(target);
-      clearImageSelection();
+        moveSelectedImagesToTarget(el, target, sibling);
+
+        // Remove the blue highlight immediately
+        clearImageSelection();
+
+        await handlePostDrop(target);
+      } finally {
+        clearImageSelection();
+      }
     })
+
     .on("cancel", () => {
       scrollable = true;
       clearImageSelection();
