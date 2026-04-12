@@ -515,6 +515,113 @@ async function deleteTierList() {
   }
 }
 
+function importGameDetails() {
+  const input = document.createElement("input");
+  input.type = "file";
+  input.accept = "application/json";
+
+  input.addEventListener("change", async () => {
+    const file = input.files[0];
+    if (!file) return;
+
+    try {
+      const text = await file.text();
+      const data = JSON.parse(text);
+
+      if (!data.entries || !Array.isArray(data.entries)) {
+        alert("Invalid file format.");
+        return;
+      }
+
+      await applyImportedGameDetails(data.entries);
+      alert("Game details imported successfully!");
+    } catch (err) {
+      console.error(err);
+      alert("Failed to import game details.");
+    }
+  });
+
+  input.click();
+}
+
+async function applyImportedGameDetails(entries) {
+  const rows = getTierRowsForButtons();
+  const imagesBar = getImagesBarForButtons();
+
+  const allImages = Array.from(document.querySelectorAll(".image"));
+
+  let notFound = 0;
+
+
+  for (const entry of entries) {
+    if (!entry.imageId && !entry.imageSrc) continue;
+
+    // 🔍 Find matching image
+    let img = allImages.find(i => i.dataset.imageId === entry.imageId);
+
+    if (!img) {
+      img = allImages.find(i =>
+        (i.dataset.imageSrc || i.src) === entry.imageSrc
+      );
+    }
+
+    if (!img) {
+      notFound++;
+      continue;
+    }
+
+    if (notFound > 0) {
+      alert(`${notFound} images from the import were not found in your tierlist.`);
+    }
+
+    const imageId = img.dataset.imageId;
+
+    // ✅ Restore metadata
+    await saveImageMetadataToIndexedDB(imageId, {
+      name: entry.name,
+      developer: entry.developer,
+      date: entry.date,
+      date100: entry.date100,
+      description: entry.description,
+      platform: entry.platform,
+      status: entry.status,
+      has100Replay: entry.has100Replay
+    });
+
+    // ✅ Move to correct tier
+    if (typeof entry.tier === "number") {
+      if (entry.tier === -1) {
+        imagesBar.appendChild(img);
+      } else if (rows[entry.tier]) {
+        rows[entry.tier].children[1].appendChild(img);
+      }
+    }
+  }
+
+  // ✅ Re-save positions (important)
+  await saveImagePositions();
+
+  // ✅ Apply tier rules again
+  if (typeof applyTierSettingsToRows === "function") {
+    await applyTierSettingsToRows();
+  }
+
+  // ✅ Update UI
+  if (typeof updateTierCounts === "function") {
+    updateTierCounts(typeof countsAreShown === "function" ? countsAreShown() : false);
+  }
+
+  if (typeof setDropHintVisibility === "function") {
+    setDropHintVisibility();
+  }
+
+  // ✅ Sync
+  await saveTierListLocally().catch(() => { });
+  if (currentUser && firebaseDb && firebaseAvailable) {
+    await saveTierListToFirebase().catch(() => { });
+  }
+}
+
 (function bindBottomButtons() {
   document.addEventListener("DOMContentLoaded", () => {
     const screenshotButton = document.getElementById("btn");
