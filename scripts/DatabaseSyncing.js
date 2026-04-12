@@ -203,7 +203,7 @@ async function buildTierListDataForSync() {
   return tierListData;
 }
 
-function queueRemoteSave(delay = 400) {
+function queueRemoteSave(delay = 1000) {
   if (!currentUser || !firebaseDb || !firebaseAvailable) return;
   clearTimeout(autoSaveTimeout);
   autoSaveTimeout = setTimeout(() => {
@@ -236,7 +236,7 @@ function createImageElementFromStoredData(imageObj) {
     deleteImageFromIndexedDB(imageObj.id).catch((err) => {
       logDbSyncError(`Failed to remove broken image ${imageObj.id} from IndexedDB.`, err);
     });
-    queueRemoteSave(400);
+    queueRemoteSave(1000);
   }, { once: true });
 
   return image;
@@ -382,7 +382,7 @@ async function saveImagePositions() {
   }));
 
   if (currentUser && firebaseDb && firebaseAvailable) {
-    queueRemoteSave(400);
+    await saveTierListToFirebase();
   }
 }
 
@@ -605,31 +605,18 @@ async function signOut() {
   }
 }
 
-let remoteSaveInFlight = false;
-let remoteSaveQueued = false;
-
 async function saveTierListToFirebase() {
   if (!currentUser || !firebaseDb || !firebaseAvailable) return;
-
-  if (remoteSaveInFlight) {
-    remoteSaveQueued = true;
-    return;
-  }
-
-  remoteSaveInFlight = true;
 
   try {
     const tierListData = await buildTierListDataForSync();
 
-    await firebaseDb.collection(FIREBASE_COLLECTION).doc(currentUser.uid).set(
-      {
-        userId: currentUser.uid,
-        userEmail: currentUser.email || null,
-        tier_data: tierListData,
-        updated_at: new Date().toISOString(),
-      },
-      { merge: true }
-    );
+    await firebaseDb.collection(FIREBASE_COLLECTION).doc(currentUser.uid).set({
+      userId: currentUser.uid,
+      userEmail: currentUser.email || null,
+      tier_data: tierListData,
+      updated_at: new Date().toISOString(),
+    }, { merge: true });
 
     lastRemoteSyncTime = Date.now();
   } catch (err) {
@@ -638,33 +625,9 @@ async function saveTierListToFirebase() {
       stopSyncPolling();
       alert("Firebase save failed because Firestore permissions are insufficient. Saving locally instead.");
     }
-
     logDbSyncError("Saving tier list to Firebase failed.", err);
     throw err;
-  } finally {
-    remoteSaveInFlight = false;
-
-    if (remoteSaveQueued) {
-      remoteSaveQueued = false;
-      clearTimeout(autoSaveTimeout);
-      autoSaveTimeout = setTimeout(() => {
-        saveTierListToFirebase().catch((err) => {
-          logDbSyncError("Queued Firebase save failed.", err);
-        });
-      }, 400);
-    }
   }
-}
-
-function queueRemoteSave(delay = 400) {
-  if (!currentUser || !firebaseDb || !firebaseAvailable) return;
-
-  clearTimeout(autoSaveTimeout);
-  autoSaveTimeout = setTimeout(() => {
-    saveTierListToFirebase().catch((err) => {
-      logDbSyncError("Queued Firebase save failed.", err);
-    });
-  }, delay);
 }
 
 function validateImageUrl(url, timeoutMs = IMAGE_VALIDATE_TIMEOUT_MS) {
