@@ -552,7 +552,7 @@ function deleteImageFromModal() {
       imageElement.src;
     const currentQuery = getSearchQueryValue();
 
-    // ✅ Close modal immediately
+    // Close modal immediately
     finalizeModalClose();
 
     (async () => {
