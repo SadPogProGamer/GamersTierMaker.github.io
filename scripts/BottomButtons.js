@@ -85,15 +85,22 @@ function removeManualImportOverlay() {
 }
 
 function buildImportedEntryMetadata(entry) {
+  const normalizedStatus = normalizeImportedStatus(entry.status);
+
+  // 👇 ADD IT HERE
+  if (!normalizedStatus && entry.status) {
+    console.warn("Invalid imported status:", entry.status);
+  }
+
   return {
     name: entry.name || "",
     developer: entry.developer || "",
     date: entry.date || "",
-    date100: entry.date100 || "",
+    date100: normalizedStatus === "100% complete" ? (entry.date100 || "") : "",
     description: entry.description || "",
     platform: entry.platform || null,
-    status: entry.status || "",
-    has100Replay: !!entry.has100Replay,
+    status: normalizedStatus,
+    has100Replay: normalizedStatus === "100% complete" ? !!entry.has100Replay : false,
     gameKey: entry.gameKey || makeGameKey(entry.name, entry.developer),
   };
 }
@@ -1030,6 +1037,26 @@ async function applyImportedGameDetails(entries) {
   if (manualResult.assignedCount > 0) {
     alert(`Import finished. ${manualResult.assignedCount} entries were assigned manually.`);
   }
+}
+
+function normalizeImportedStatus(rawStatus) {
+  const value = String(rawStatus || "").trim().toLowerCase();
+
+  if (!value) return "";
+
+  // --- EXACT ALLOWED VALUES (case-insensitive) ---
+
+  if (value === "completed") return "Completed";
+  if (value === "100% complete") return "100% complete";
+  if (value === "played") return "Played";
+  if (value === "dropped") return "Dropped";
+
+  // --- VERY LIMITED SAFE ALIASES ---
+
+  if (value === "finished" || value === "beaten") return "Completed";
+
+  // ❌ EVERYTHING ELSE IS INVALID
+  return "";
 }
 
 (function bindBottomButtons() {

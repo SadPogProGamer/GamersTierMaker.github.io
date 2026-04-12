@@ -211,7 +211,7 @@ function toggleReplayStatus() {
 function updatePlatformButton() {
   const btn = getField("platform-btn");
   if (!btn) return;
-  btn.textContent = currentSelectedPlatform || "Select Platform";
+  btn.textContent = currentSelectedPlatform || "-- Select Platform --";
 }
 
 function togglePlatformDropdown() {

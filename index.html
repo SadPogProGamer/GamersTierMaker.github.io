@@ -286,7 +286,7 @@
     <button id="btn" type="button">Download Tierlist</button>
     <button id="download-all-btn" type="button" onclick="downloadAllImagesZip()">Download All Images</button>
     <button type="button" onclick="importGameDetails()">Import Game Details</button>
-<button type="button" onclick="downloadGameDetailsJSON()">Export Game Details</button>
+    <button type="button" onclick="downloadGameDetailsJSON()">Export Game Details</button>
     <button type="button" onclick="deleteTierList()" style="background: #dc3545; color: white;">Delete Tier
       List</button>
 
@@ -331,7 +331,7 @@
 
         <div class="form-group hidden" id="date-100-group">
           <label for="image-date-100">Date 100% Completed:</label>
-          <input type="text" id="image-date-100" placeholder="Optional" />
+          <input type="text" id="image-date-100" placeholder="Enter Date 100% Beaten" />
         </div>
 
         <div class="form-group">
@@ -342,9 +342,8 @@
         <div class="form-group">
           <label>Platform:</label>
           <div class="platform-dropdown">
-            <button type="button" id="platform-btn" class="platform-dropdown-btn" onclick="togglePlatformDropdown()">
-              Select Platform
-            </button>
+            <button type="button" id="platform-btn" class="platform-dropdown-btn"
+              onclick="togglePlatformDropdown()">-- Select Platform --</button>
             <div id="platform-dropdown-menu" class="platform-dropdown-menu hidden">
               <input type="text" id="platform-search" class="platform-search" placeholder="Search platform..." />
               <div id="platform-options" class="platform-options"></div>
@@ -356,8 +355,8 @@
           <label for="image-status">Completion:</label>
           <select id="image-status">
             <option value="">-- Select status --</option>
-            <option value="Completed">Story complete</option>
-            <option value="100% complete">100% complete</option>
+            <option value="Completed">Story finished</option>
+            <option value="100% complete">100% finished</option>
             <option value="Played">Played</option>
             <option value="Dropped">Dropped</option>
           </select>
