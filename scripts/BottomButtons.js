@@ -472,11 +472,19 @@ async function deleteTierList() {
     localStorage.removeItem("savedTierList");
 
     if (currentUser && firebaseDb && firebaseAvailable) {
-      updateLoadingOverlay("Clearing synced tier list...");
-      await saveTierListToFirebase().catch((err) => {
+      updateLoadingOverlay("Finishing delete...");
+
+      const firebaseClearPromise = saveTierListToFirebase().catch((err) => {
         bottomButtonsLogError("Failed syncing empty tier list after delete.", err);
       });
+
+      const timeoutPromise = new Promise((resolve) => {
+        setTimeout(resolve, 5000);
+      });
+
+      await Promise.race([firebaseClearPromise, timeoutPromise]);
     }
+
 
     if (cloudinaryUrls.length) {
       updateLoadingOverlay("Requesting remote image deletes...");
