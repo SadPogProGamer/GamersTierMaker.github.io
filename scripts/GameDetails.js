@@ -135,6 +135,19 @@ function getCurrentMetadataFromForm() {
   };
 }
 
+function lockBackgroundScroll() {
+  const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
+  document.body.style.overflow = "hidden";
+  if (scrollbarWidth > 0) {
+    document.body.style.paddingRight = `${scrollbarWidth}px`;
+  }
+}
+
+function unlockBackgroundScroll() {
+  document.body.style.overflow = "";
+  document.body.style.paddingRight = "";
+}
+
 function setFormFromMetadata(metadata) {
   getField("image-name").value = metadata.name || "";
   getField("image-developer").value = metadata.developer || "";
@@ -459,12 +472,15 @@ function openImageModal(imgElement) {
     .then((imageMetadata) => {
       setFormFromMetadata(imageMetadata || {});
       setModalEscapeHandler();
+      lockBackgroundScroll();
       modal.classList.remove("hidden");
+
     })
     .catch((err) => {
       gameDetailsLogError(`Failed loading metadata for ${imageId}.`, err);
       setFormFromMetadata({});
       setModalEscapeHandler();
+      lockBackgroundScroll();
       modal.classList.remove("hidden");
     });
 }
@@ -475,6 +491,7 @@ function finalizeModalClose() {
     modal.classList.add("hidden");
   }
 
+  unlockBackgroundScroll();
   removeModalEscapeHandler();
   currentImageElement = null;
   currentSelectedPlatform = null;
@@ -503,9 +520,9 @@ function closeImageModal() {
   saveImageMetadataToIndexedDB(imageId, metadata)
     .then(async () => {
       await sortCurrentImageTierIfOrdered(imageElement);
-      await saveTierListLocally().catch(() => {});
+      await saveTierListLocally().catch(() => { });
       if (currentUser && firebaseDb && firebaseAvailable) {
-        await saveTierListToFirebase().catch(() => {});
+        await saveTierListToFirebase().catch(() => { });
       }
     })
     .finally(() => {
@@ -513,7 +530,7 @@ function closeImageModal() {
         if (typeof filterImages === "function") {
           filterImages(currentQuery);
         }
-      } catch (_) {}
+      } catch (_) { }
     });
 }
 
