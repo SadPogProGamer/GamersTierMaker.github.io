@@ -25,6 +25,13 @@ const FIREBASE_CONFIG = {
   appId: "1:515771009142:web:c485f6b63235449ff43757",
 };
 
+if (isLocalhost) {
+  const title = document.getElementById("main-title");
+  if (title) {
+    title.textContent = "DEBUGMAKER";
+  }
+}
+
 // Basic runtime validation so config mistakes fail loudly
 (function validateFrontendConfig() {
   const cloudinaryMissing = [];

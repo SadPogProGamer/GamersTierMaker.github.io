@@ -22,7 +22,7 @@ const DB_VERSION = 2;
 const STORE_IMAGES = "images";
 const STORE_SETTINGS = "settings";
 const STORE_IMAGE_METADATA = "imageMetadata";
-const FIREBASE_COLLECTION = "tierLists";
+const FIREBASE_COLLECTION = isLocalhost ? "DebugRoom" : "tierLists";
 const SYNC_POLL_MS = 10000;
 const IMAGE_VALIDATE_TIMEOUT_MS = 8000;
 
