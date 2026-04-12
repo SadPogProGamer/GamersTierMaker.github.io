@@ -35,6 +35,215 @@ function normalizeGameKeyPart(value) {
     .replace(/^-+|-+$/g, "");
 }
 
+let manualImportState = null;
+
+function ensureManualImportOverlay() {
+  let overlay = document.getElementById("manual-import-overlay");
+  if (overlay) return overlay;
+
+  overlay = document.createElement("div");
+  overlay.id = "manual-import-overlay";
+  overlay.style.cssText = [
+    "position: fixed",
+    "right: 20px",
+    "bottom: 20px",
+    "width: 360px",
+    "max-width: calc(100vw - 40px)",
+    "background: rgba(20,20,20,0.96)",
+    "color: white",
+    "padding: 16px",
+    "border-radius: 12px",
+    "box-shadow: 0 10px 30px rgba(0,0,0,0.4)",
+    "z-index: 20000",
+    "font-family: sans-serif",
+    "line-height: 1.4",
+  ].join(";");
+
+  overlay.innerHTML = `
+    <div id="manual-import-title" style="font-size:16px;font-weight:700;margin-bottom:8px;">
+      Manual import matching
+    </div>
+    <div id="manual-import-progress" style="font-size:13px;opacity:0.8;margin-bottom:10px;"></div>
+    <div id="manual-import-entry" style="font-size:14px;margin-bottom:12px;"></div>
+    <div id="manual-import-meta" style="font-size:12px;opacity:0.85;margin-bottom:12px;"></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+      <button id="manual-import-skip" type="button">Skip</button>
+      <button id="manual-import-cancel" type="button">Cancel</button>
+    </div>
+    <div style="font-size:12px;opacity:0.75;margin-top:10px;">
+      Click the correct image in your tier list to assign this entry.
+    </div>
+  `;
+
+  document.body.appendChild(overlay);
+  return overlay;
+}
+
+function removeManualImportOverlay() {
+  const overlay = document.getElementById("manual-import-overlay");
+  if (overlay) overlay.remove();
+}
+
+function buildImportedEntryMetadata(entry) {
+  return {
+    name: entry.name || "",
+    developer: entry.developer || "",
+    date: entry.date || "",
+    date100: entry.date100 || "",
+    description: entry.description || "",
+    platform: entry.platform || null,
+    status: entry.status || "",
+    has100Replay: !!entry.has100Replay,
+    gameKey: entry.gameKey || makeGameKey(entry.name, entry.developer),
+  };
+}
+
+async function applyImportedEntryToImage(entry, img, rows, imagesBar, metadataCache) {
+  if (!img) return;
+
+  const imageId = img.dataset.imageId;
+  if (!imageId) return;
+
+  const existingMeta = metadataCache.get(imageId) || {};
+  const newMetadata = {
+    ...existingMeta,
+    ...buildImportedEntryMetadata(entry),
+  };
+
+  await saveImageMetadataToIndexedDB(imageId, newMetadata);
+  metadataCache.set(imageId, newMetadata);
+
+  if (typeof entry.tier === "number") {
+    if (entry.tier === -1) {
+      if (imagesBar) imagesBar.appendChild(img);
+    } else if (rows[entry.tier] && rows[entry.tier].children[1]) {
+      rows[entry.tier].children[1].appendChild(img);
+    }
+  }
+}
+
+function finishManualImportAssignment(cancelled = false) {
+  if (!manualImportState) return;
+
+  document.removeEventListener("click", manualImportState.handleImageClick, true);
+  removeManualImportOverlay();
+
+  const { resolve, unmatchedEntries, assignedCount, skippedCount } = manualImportState;
+  manualImportState = null;
+
+  resolve({
+    cancelled,
+    unmatchedEntries,
+    assignedCount,
+    skippedCount,
+  });
+}
+
+function updateManualImportOverlay() {
+  if (!manualImportState) return;
+
+  const overlay = ensureManualImportOverlay();
+  const progressEl = overlay.querySelector("#manual-import-progress");
+  const entryEl = overlay.querySelector("#manual-import-entry");
+  const metaEl = overlay.querySelector("#manual-import-meta");
+  const skipBtn = overlay.querySelector("#manual-import-skip");
+  const cancelBtn = overlay.querySelector("#manual-import-cancel");
+
+  const { queue, index } = manualImportState;
+  const current = queue[index];
+
+  if (!current) {
+    finishManualImportAssignment(false);
+    return;
+  }
+
+  progressEl.textContent = `Entry ${index + 1} of ${queue.length}`;
+
+  entryEl.innerHTML = `
+    <div><strong>${current.name || "(Unnamed entry)"}</strong></div>
+    <div>${current.developer || "Unknown developer"}</div>
+  `;
+
+  metaEl.innerHTML = `
+    <div>Platform: ${current.platform || "Unknown"}</div>
+    <div>Status: ${current.status || "Unknown"}</div>
+    <div>Date: ${current.date || "Unknown"}</div>
+    <div>Tier: ${typeof current.tier === "number" ? current.tier : "Unknown"}</div>
+  `;
+
+  skipBtn.onclick = () => {
+    manualImportState.skippedCount += 1;
+    manualImportState.unmatchedEntries.push(current);
+    manualImportState.index += 1;
+    updateManualImportOverlay();
+  };
+
+  cancelBtn.onclick = () => {
+    finishManualImportAssignment(true);
+  };
+}
+
+function startManualImportAssignment(queue, rows, imagesBar, metadataCache) {
+  return new Promise((resolve) => {
+    if (!Array.isArray(queue) || !queue.length) {
+      resolve({
+        cancelled: false,
+        unmatchedEntries: [],
+        assignedCount: 0,
+        skippedCount: 0,
+      });
+      return;
+    }
+
+    manualImportState = {
+      queue,
+      index: 0,
+      rows,
+      imagesBar,
+      metadataCache,
+      assignedCount: 0,
+      skippedCount: 0,
+      unmatchedEntries: [],
+      resolve,
+      handleImageClick: async (event) => {
+        if (!manualImportState) return;
+
+        const img = event.target.closest(".image");
+        if (!img) return;
+
+        event.preventDefault();
+        event.stopPropagation();
+
+        const entry = manualImportState.queue[manualImportState.index];
+        if (!entry) {
+          finishManualImportAssignment(false);
+          return;
+        }
+
+        try {
+          await applyImportedEntryToImage(
+            entry,
+            img,
+            manualImportState.rows,
+            manualImportState.imagesBar,
+            manualImportState.metadataCache
+          );
+
+          manualImportState.assignedCount += 1;
+          manualImportState.index += 1;
+          updateManualImportOverlay();
+        } catch (err) {
+          console.error("Failed applying manual import assignment:", err);
+          alert("Failed to apply that entry to the selected image.");
+        }
+      },
+    };
+
+    document.addEventListener("click", manualImportState.handleImageClick, true);
+    updateManualImportOverlay();
+  });
+}
+
 function makeGameKey(name, developer) {
   const normalizedName = normalizeGameKeyPart(name);
   const normalizedDeveloper = normalizeGameKeyPart(developer);
@@ -597,8 +806,6 @@ async function applyImportedGameDetails(entries) {
   const imagesBar = getImagesBarForButtons();
   const allImages = Array.from(document.querySelectorAll(".image"));
 
-  let notFound = 0;
-
   const metadataCache = new Map();
 
   await Promise.all(
@@ -623,26 +830,22 @@ async function applyImportedGameDetails(entries) {
   }
 
   function findMatch(entry) {
-    // 1. Old exact ID match
     if (entry.imageId) {
       const byId = allImages.find((i) => i.dataset.imageId === entry.imageId);
       if (byId) return byId;
     }
 
-    // 2. Best match: gameKey
     if (entry.gameKey) {
       const byGameKey = allImages.find((i) => getImageGameKey(i) === entry.gameKey);
       if (byGameKey) return byGameKey;
     }
 
-    // 3. Rebuild gameKey from current import data if missing
     const derivedKey = makeGameKey(entry.name, entry.developer);
     if (derivedKey) {
       const byDerivedKey = allImages.find((i) => getImageGameKey(i) === derivedKey);
       if (byDerivedKey) return byDerivedKey;
     }
 
-    // 4. Fallback: strong metadata match
     const byMetadata = allImages.find((i) => {
       const meta = metadataCache.get(i.dataset.imageId) || {};
 
@@ -658,24 +861,15 @@ async function applyImportedGameDetails(entries) {
         String(meta.platform || "").trim().toLowerCase() ===
         String(entry.platform || "").trim().toLowerCase();
 
-      if (entry.name && entry.developer) {
-        return sameName && sameDeveloper;
-      }
-
-      if (entry.name && entry.platform) {
-        return sameName && samePlatform;
-      }
-
-      if (entry.name) {
-        return sameName;
-      }
+      if (entry.name && entry.developer) return sameName && sameDeveloper;
+      if (entry.name && entry.platform) return sameName && samePlatform;
+      if (entry.name) return sameName;
 
       return false;
     });
 
     if (byMetadata) return byMetadata;
 
-    // 5. Last fallback: src
     if (entry.imageSrc) {
       const bySrc = allImages.find((i) => {
         const currentSrc = i.dataset.imageSrc || i.dataset.cloudinaryUrl || i.src || "";
@@ -687,50 +881,45 @@ async function applyImportedGameDetails(entries) {
     return null;
   }
 
+  const unmatchedQueue = [];
+
   for (const entry of entries) {
     if (!entry) continue;
 
     const img = findMatch(entry);
 
     if (!img) {
-      notFound++;
+      unmatchedQueue.push(entry);
       continue;
     }
 
-    const imageId = img.dataset.imageId;
-    const gameKey = entry.gameKey || makeGameKey(entry.name, entry.developer);
-
-    const existingMeta = metadataCache.get(imageId) || {};
-
-    const newMetadata = {
-      ...existingMeta,
-      name: entry.name || "",
-      developer: entry.developer || "",
-      date: entry.date || "",
-      date100: entry.date100 || "",
-      description: entry.description || "",
-      platform: entry.platform || null,
-      status: entry.status || "",
-      has100Replay: !!entry.has100Replay,
-      gameKey,
-    };
-
-    await saveImageMetadataToIndexedDB(imageId, newMetadata);
-    metadataCache.set(imageId, newMetadata);
-
-    if (typeof entry.tier === "number") {
-      if (entry.tier === -1) {
-        if (imagesBar) {
-          imagesBar.appendChild(img);
-        }
-      } else if (rows[entry.tier] && rows[entry.tier].children[1]) {
-        rows[entry.tier].children[1].appendChild(img);
-      }
+    try {
+      await applyImportedEntryToImage(entry, img, rows, imagesBar, metadataCache);
+    } catch (err) {
+      console.error("Failed applying imported entry automatically:", err);
+      unmatchedQueue.push(entry);
     }
   }
 
-  if (notFound > 0) {
-    alert(`${notFound} images from the import were not found in your tierlist.`);
+  let manualResult = {
+    cancelled: false,
+    unmatchedEntries: unmatchedQueue,
+    assignedCount: 0,
+    skippedCount: 0,
+  };
+
+  if (unmatchedQueue.length) {
+    alert(
+      `${unmatchedQueue.length} entries could not be matched automatically. ` +
+      `You can now click the correct image for each one.`
+    );
+
+    manualResult = await startManualImportAssignment(
+      unmatchedQueue,
+      rows,
+      imagesBar,
+      metadataCache
+    );
   }
 
   await saveImagePositions();
@@ -755,6 +944,25 @@ async function applyImportedGameDetails(entries) {
     await saveTierListToFirebase().catch((err) => {
       console.error("Failed to sync tier list to Firebase after import:", err);
     });
+  }
+
+  if (manualResult.cancelled) {
+    alert(
+      `Manual import stopped. Assigned ${manualResult.assignedCount} entries, skipped ${manualResult.skippedCount}.`
+    );
+    return;
+  }
+
+  if (manualResult.unmatchedEntries.length) {
+    alert(
+      `Import finished. Assigned ${manualResult.assignedCount} manually, ` +
+      `${manualResult.unmatchedEntries.length} still unmatched.`
+    );
+    return;
+  }
+
+  if (manualResult.assignedCount > 0) {
+    alert(`Import finished. ${manualResult.assignedCount} entries were assigned manually.`);
   }
 }
 
