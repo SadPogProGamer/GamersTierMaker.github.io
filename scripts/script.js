@@ -552,6 +552,8 @@ function clearUploadStatus(delay = 1500) {
   }, delay);
 }
 
+const activeUploadIds = new Set();
+
 async function uploadImages(fileList) {
   const files = Array.from(fileList || []);
   const imagesBar = getImagesBar();
@@ -580,78 +582,89 @@ async function uploadImages(fileList) {
       validateUploadFile(file);
 
       const imageId = await computeFileHash(file);
-      if (existingIds.has(imageId)) {
+
+      if (existingIds.has(imageId) || activeUploadIds.has(imageId)) {
         skippedCount += 1;
         continue;
       }
 
-      const uploadedUrl = await uploadToCloudinary(file);
-      const image = createImageElement({
-        src: uploadedUrl,
-        id: imageId,
-        cloudinaryUrl: uploadedUrl,
-      });
+      activeUploadIds.add(imageId);
 
-      imagesBar.appendChild(image);
+      try {
+        const uploadedUrl = await uploadToCloudinary(file);
+        const image = createImageElement({
+          src: uploadedUrl,
+          id: imageId,
+          cloudinaryUrl: uploadedUrl,
+        });
 
-      await saveImageToIndexedDB({
-        id: imageId,
-        src: uploadedUrl,
-        cloudinaryUrl: uploadedUrl,
-        tier: -1,
-        order: imagesBar.querySelectorAll(".image").length - 1,
-      });
+        imagesBar.appendChild(image);
 
-      existingIds.add(imageId);
-      uploadedCount += 1;
+        await saveImageToIndexedDB({
+          id: imageId,
+          src: uploadedUrl,
+          cloudinaryUrl: uploadedUrl,
+          tier: -1,
+          order: imagesBar.querySelectorAll(".image").length - 1,
+        });
+
+        existingIds.add(imageId);
+        uploadedCount += 1;
+      } finally {
+        activeUploadIds.delete(imageId);
+      }
     } catch (err) {
       failedCount += 1;
-      scriptLogError(`Upload failed for ${file?.name || "unknown file"}.`, err);
+      scriptLogError(`Failed uploading file ${file?.name || "unknown"}.`, err);
     }
   }
 
-  initializeDragula();
   setDropHintVisibility();
 
-  try {
-    await saveImagePositions();
-    await saveTierListLocally();
-  } catch (err) {
-    scriptLogError("Failed saving after upload.", err);
+  saveTierListLocally().catch((err) => {
+    scriptLogError("Failed saving tier list locally after upload.", err);
+  });
+
+  if (currentUser && firebaseDb && firebaseAvailable) {
+    clearTimeout(autoSaveTimeout);
+    autoSaveTimeout = setTimeout(() => {
+      saveTierListToFirebase().catch((err) => {
+        scriptLogError("Failed syncing uploaded images to Firebase.", err);
+      });
+    }, 1000);
   }
 
-  updateTierCounts(countsAreShown());
-
-  if (uploadedCount > 0 && currentUser && firebaseDb && firebaseAvailable) {
-    saveTierListToFirebase().catch((err) => {
-      scriptLogError("Failed syncing uploads to Firebase.", err);
-    });
-  }
-
-  if (uploadedCount > 0) {
+  if (failedCount > 0) {
     setUploadStatus(
-      `Import successful: ${uploadedCount} added${skippedCount ? `, ${skippedCount} skipped` : ""}${failedCount ? `, ${failedCount} failed` : ""}`,
+      `Uploaded ${uploadedCount}, skipped ${skippedCount}, failed ${failedCount}`,
+      "error"
+    );
+  } else {
+    setUploadStatus(
+      `Uploaded ${uploadedCount}, skipped ${skippedCount}`,
       "success"
     );
-  } else if (failedCount > 0) {
-    setUploadStatus("Import failed.", "error");
-  } else {
-    setUploadStatus("No new images imported.", "error");
   }
 
   clearUploadStatus();
 }
 
 function handleDragOver(event) {
+  if (!hasDraggedFiles(event)) return;
   event.preventDefault();
-  if (hasDraggedFiles(event)) {
-    setGlobalDropActive(true);
-  }
+  event.stopPropagation();
+  setGlobalDropActive(true);
 }
 
 function handleDragLeave(event) {
+  if (!hasDraggedFiles(event)) return;
+  event.stopPropagation();
+
   const imagesBar = getImagesBar();
-  if (!imagesBar) return;
+  if (!imagesBar) {
+    setGlobalDropActive(false);
+    return;
+  }
 
   if (!imagesBar.contains(event.relatedTarget)) {
     setGlobalDropActive(false);
@@ -659,7 +672,10 @@ function handleDragLeave(event) {
 }
 
 function handleImageDrop(event) {
+  if (!hasDraggedFiles(event)) return;
+
   event.preventDefault();
+  event.stopPropagation();
   setGlobalDropActive(false);
 
   const files = event.dataTransfer?.files;
@@ -933,6 +949,12 @@ document.addEventListener("dragleave", (event) => {
 
 document.addEventListener("drop", (event) => {
   if (!hasDraggedFiles(event)) return;
+
+  const imagesBar = getImagesBar();
+
+  if (imagesBar && event.target instanceof Node && imagesBar.contains(event.target)) {
+    return;
+  }
 
   event.preventDefault();
   setGlobalDropActive(false);
