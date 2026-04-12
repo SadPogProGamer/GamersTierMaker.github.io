@@ -467,6 +467,7 @@ function finalizeModalClose() {
 
   unlockBackgroundScroll();
   removeModalEscapeHandler();
+  setModalHeaderImage(null);
   currentImageElement = null;
   currentSelectedPlatform = null;
   currentHas100Replay = false;
@@ -476,6 +477,7 @@ function openImageModal(imgElement) {
   if (!imgElement) return;
 
   currentImageElement = imgElement;
+  setModalHeaderImage(imgElement);
   const modal = getModalElement();
   const imageId = imgElement.dataset.imageId;
   if (!modal || !imageId) return;
@@ -507,6 +509,7 @@ function closeImageModal() {
 
   finalizeModalClose();
 
+
   if (!imageId || !imageElement) return;
 
   if (autoSaveTimers[imageId]) {
@@ -522,10 +525,10 @@ function closeImageModal() {
   saveImageMetadataToIndexedDB(imageId, metadata)
     .then(async () => {
       await sortCurrentImageTierIfOrdered(imageElement);
-      await saveTierListLocally().catch(() => {});
+      await saveTierListLocally().catch(() => { });
 
       if (currentUser && firebaseDb && firebaseAvailable) {
-        await saveTierListToFirebase().catch(() => {});
+        await saveTierListToFirebase().catch(() => { });
       }
     })
     .finally(() => {
@@ -533,8 +536,21 @@ function closeImageModal() {
         if (typeof filterImages === "function") {
           filterImages(currentQuery);
         }
-      } catch (_) {}
+      } catch (_) { }
     });
+}
+
+function setModalHeaderImage(imgElement) {
+  const headerImage = document.getElementById("modal-header-image");
+  if (!headerImage) return;
+
+  if (imgElement?.src) {
+    headerImage.src = imgElement.dataset.imageSrc || imgElement.dataset.cloudinaryUrl || imgElement.src;
+    headerImage.classList.remove("hidden");
+  } else {
+    headerImage.src = "";
+    headerImage.classList.add("hidden");
+  }
 }
 
 function deleteImageFromModal() {

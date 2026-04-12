@@ -305,11 +305,16 @@
       </div>
 
       <div class="modal-header">
-        <h2>Game Details</h2>
+        <div class="modal-header-left">
+          <h2>Game Details</h2>
+          <img id="modal-header-image" class="modal-header-image hidden" alt="Selected game cover" />
+        </div>
+
         <div id="sync-status" class="sync-status"
           style="display: none; font-size: 12px; color: #666; margin-right: auto; margin-left: 10px;">
           <span id="sync-status-text">Syncing...</span>
         </div>
+
         <button class="modal-close" type="button" onclick="closeImageModal()">✕</button>
       </div>
 
@@ -342,8 +347,8 @@
         <div class="form-group">
           <label>Platform:</label>
           <div class="platform-dropdown">
-            <button type="button" id="platform-btn" class="platform-dropdown-btn"
-              onclick="togglePlatformDropdown()">-- Select Platform --</button>
+            <button type="button" id="platform-btn" class="platform-dropdown-btn" onclick="togglePlatformDropdown()">--
+              Select Platform --</button>
             <div id="platform-dropdown-menu" class="platform-dropdown-menu hidden">
               <input type="text" id="platform-search" class="platform-search" placeholder="Search platform..." />
               <div id="platform-options" class="platform-options"></div>
