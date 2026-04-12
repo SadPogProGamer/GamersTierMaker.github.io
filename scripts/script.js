@@ -555,7 +555,7 @@ async function uploadImages(fileList) {
   let uploadedCount = 0;
   let failedCount = 0;
 
-  setUploadStatus(`Uploading 0 / ${files.length}`);
+  setUploadStatus(`Uploading 0 / ${files.length}`, "loading");
 
   const existingImages = indexedDb
     ? await getImagesFromIndexedDB().catch((err) => {
@@ -574,14 +574,12 @@ async function uploadImages(fileList) {
       validateUploadFile(file);
 
       const imageId = await computeFileHash(file);
-    if (existingIds.has(imageId)) {
-      skippedCount++;
-      processed++;
-      setUploadStatus(`Uploading ${processed} / ${files.length}...`);
-      continue;
-    }
+      if (existingIds.has(imageId)) {
+        skippedCount += 1;
+        continue;
+      }
 
-    const uploadedUrl = await uploadToCloudinary(file);
+      const uploadedUrl = await uploadToCloudinary(file);
       const image = createImageElement({
         src: uploadedUrl,
         id: imageId,
