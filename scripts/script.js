@@ -93,6 +93,19 @@ function createImageElement({ src, id, cloudinaryUrl }) {
   return image;
 }
 
+function hasDraggedFiles(event) {
+  const types = event?.dataTransfer?.types;
+  return !!types && Array.from(types).includes("Files");
+}
+
+function setGlobalDropActive(isActive) {
+  const imagesBar = getImagesBar();
+  if (imagesBar) {
+    imagesBar.classList.toggle("drag-over", isActive);
+  }
+  document.body.classList.toggle("global-file-drag", isActive);
+}
+
 async function buildTierListData() {
   const tierListData = {
     header: document.getElementById("main-title")?.textContent || "Untitled Tierlist",
@@ -573,9 +586,8 @@ async function uploadImages(fileList) {
 
 function handleDragOver(event) {
   event.preventDefault();
-  const imagesBar = getImagesBar();
-  if (imagesBar) {
-    imagesBar.classList.add("drag-over");
+  if (hasDraggedFiles(event)) {
+    setGlobalDropActive(true);
   }
 }
 
@@ -584,16 +596,13 @@ function handleDragLeave(event) {
   if (!imagesBar) return;
 
   if (!imagesBar.contains(event.relatedTarget)) {
-    imagesBar.classList.remove("drag-over");
+    setGlobalDropActive(false);
   }
 }
 
 function handleImageDrop(event) {
   event.preventDefault();
-  const imagesBar = getImagesBar();
-  if (imagesBar) {
-    imagesBar.classList.remove("drag-over");
-  }
+  setGlobalDropActive(false);
 
   const files = event.dataTransfer?.files;
   if (files && files.length) {
@@ -840,4 +849,40 @@ document.addEventListener("DOMContentLoaded", () => {
   bootstrapApp().catch((err) => {
     scriptLogError("Unhandled bootstrap failure.", err);
   });
+});
+
+document.addEventListener("dragenter", (event) => {
+  if (!hasDraggedFiles(event)) return;
+  event.preventDefault();
+  setGlobalDropActive(true);
+});
+
+document.addEventListener("dragover", (event) => {
+  if (!hasDraggedFiles(event)) return;
+  event.preventDefault();
+  setGlobalDropActive(true);
+});
+
+document.addEventListener("dragleave", (event) => {
+  if (!hasDraggedFiles(event)) return;
+
+  // Only clear when leaving the window/document, not when moving between elements
+  const related = event.relatedTarget;
+  if (!related || related === document.documentElement || related === document.body) {
+    setGlobalDropActive(false);
+  }
+});
+
+document.addEventListener("drop", (event) => {
+  if (!hasDraggedFiles(event)) return;
+
+  event.preventDefault();
+  setGlobalDropActive(false);
+
+  const files = event.dataTransfer?.files;
+  if (files && files.length) {
+    uploadImages(files).catch((err) => {
+      scriptLogError("Global drop upload failed.", err);
+    });
+  }
 });
