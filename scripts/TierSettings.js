@@ -204,42 +204,40 @@ function openRowMenu(element, event) {
   menu.dataset.ownerCogId = clickedCogId;
 
   menu.appendChild(
-  createActionRow("Add Tier Above", () => {
-    const newRow = createNewRow("New tier", "lightslategray");
-    row.parentNode.insertBefore(newRow, row);
+    createActionRow("Add Tier Above", () => {
+      const newRow = createNewRow("New tier", "lightslategray");
+      row.parentNode.insertBefore(newRow, row);
 
-    rebuildTierStateIndexes();
-    try {
-      initializeDragula?.();
-    } catch (err) {
-      tierSettingsLogError("Failed reinitializing dragula after adding row above.", err);
-    }
+      rebuildTierStateIndexes();
+      try {
+        initializeDragula?.();
+      } catch (err) {
+        tierSettingsLogError("Failed reinitializing dragula after adding row above.", err);
+      }
 
-    scheduleTierStateSave();
-    try { updateTierCounts(countsAreShown()); } catch (e) {}
-    menu.remove();
+      scheduleTierStateSave();
+      try { updateTierCounts(countsAreShown()); } catch (e) { }
+      menu.remove();
+    })
+  );
 
-    if (danger) button.classList.add("delete-tier");
-  })
-);
+  menu.appendChild(
+    createActionRow("Add Tier Below", () => {
+      const newRow = createNewRow("New tier", "lightslategray");
+      row.parentNode.insertBefore(newRow, row.nextSibling);
 
-menu.appendChild(
-  createActionRow("Add Tier Below", () => {
-    const newRow = createNewRow("New tier", "lightslategray");
-    row.parentNode.insertBefore(newRow, row.nextSibling);
+      rebuildTierStateIndexes();
+      try {
+        initializeDragula?.();
+      } catch (err) {
+        tierSettingsLogError("Failed reinitializing dragula after adding row below.", err);
+      }
 
-    rebuildTierStateIndexes();
-    try {
-      initializeDragula?.();
-    } catch (err) {
-      tierSettingsLogError("Failed reinitializing dragula after adding row below.", err);
-    }
-
-    scheduleTierStateSave();
-    try { updateTierCounts(countsAreShown()); } catch (e) {}
-    menu.remove();
-  })
-);
+      scheduleTierStateSave();
+      try { updateTierCounts(countsAreShown()); } catch (e) { }
+      menu.remove();
+    })
+  );
 
   menu.appendChild(
     createCheckboxRow("Order on platform", !!tierOrderingStates[tierIndex], async (checked) => {
@@ -393,6 +391,90 @@ function moveRow(button, direction) {
   }
 
   saveTierColors();
+}
+
+function createNewRow(name = "New tier", color = "lightslategray") {
+  const newRow = document.createElement("div");
+  newRow.className = "row";
+
+  const tierLabelDiv = document.createElement("div");
+  tierLabelDiv.className = "tier-label";
+  tierLabelDiv.style.backgroundColor = color;
+  tierLabelDiv.setAttribute("contenteditable", true);
+
+  const paragraph = document.createElement("p");
+  paragraph.textContent = name;
+  paragraph.setAttribute("spellcheck", false);
+
+  const tooltip = document.createElement("div");
+  tooltip.className = "tooltip";
+  tooltip.setAttribute("contenteditable", false);
+
+  const colorPicker = document.createElement("div");
+  colorPicker.className = "color-picker";
+  tooltip.appendChild(colorPicker);
+
+  createColorPicker(
+    colorPicker,
+    (hexColor) => {
+      tierLabelDiv.style.backgroundColor = hexColor;
+    },
+    (hexColor) => {
+      tierLabelDiv.style.backgroundColor = hexColor;
+      saveTierColors();
+    },
+    color
+  );
+
+  tierLabelDiv.appendChild(paragraph);
+  tierLabelDiv.appendChild(tooltip);
+
+  const tierDiv = document.createElement("div");
+  tierDiv.className = "tier sort";
+
+  const optionsDiv = document.createElement("div");
+  optionsDiv.className = "tier-options";
+
+  const optionsContainer = document.createElement("div");
+  optionsContainer.className = "options-container";
+
+  const cog = document.createElement("div");
+  cog.className = "option delete";
+  const cogImg = document.createElement("img");
+  cogImg.className = "option-hover";
+  cogImg.src = "assets/Cog.png";
+  cogImg.alt = "Menu";
+  cogImg.onclick = (event) => openRowMenu(cogImg, event);
+  cog.appendChild(cogImg);
+
+  const up = document.createElement("div");
+  up.className = "option up";
+  const upImg = document.createElement("img");
+  upImg.className = "option-hover";
+  upImg.src = "assets/chevron-up.svg";
+  upImg.alt = "Up";
+  upImg.onclick = () => moveRow(upImg, -1);
+  up.appendChild(upImg);
+
+  const down = document.createElement("div");
+  down.className = "option down";
+  const downImg = document.createElement("img");
+  downImg.className = "option-hover";
+  downImg.src = "assets/chevron-down.svg";
+  downImg.alt = "Down";
+  downImg.onclick = () => moveRow(downImg, 1);
+  down.appendChild(downImg);
+
+  optionsContainer.appendChild(cog);
+  optionsContainer.appendChild(up);
+  optionsContainer.appendChild(down);
+  optionsDiv.appendChild(optionsContainer);
+
+  newRow.appendChild(tierLabelDiv);
+  newRow.appendChild(tierDiv);
+  newRow.appendChild(optionsDiv);
+
+  return newRow;
 }
 
 
