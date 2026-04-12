@@ -410,7 +410,6 @@ function bindModalFieldEvents() {
   if (platformSearch) {
     platformSearch.addEventListener("input", renderPlatformOptions);
     platformSearch.addEventListener("keyup", renderPlatformOptions);
-    // ❌ Remove any calls like triggerMetadataAutosaveDebounced() here
   }
 
   const modal = getModalElement();
@@ -614,25 +613,6 @@ function deleteImageFromModal() {
       }
     })();
   });
-}
-
-function onModalSave() {
-  if (!currentImageElement) return;
-
-  // 1️⃣ Save metadata to IndexedDB
-  const metadata = getCurrentMetadataFromForm();
-  saveImageMetadataToIndexedDB(getCurrentImageId(), metadata).catch(err => {
-    gameDetailsLogError("Failed saving metadata on modal save.", err);
-  });
-
-  // 2️⃣ Close modal
-  closeImageModal();
-
-  // 3️⃣ Re-apply current command filter (e.g., /NoName)
-  const currentQuery = getSearchQueryValue();
-  if (typeof filterImages === "function") {
-    filterImages(currentQuery);
-  }
 }
 
 document.addEventListener("DOMContentLoaded", () => {
