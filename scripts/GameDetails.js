@@ -164,7 +164,6 @@ function setFormFromMetadata(metadata) {
   if (platformSearch) platformSearch.value = "";
   if (dropdown) dropdown.classList.add("hidden");
 
-  updateDateLabel();
   updateReplayVisibility();
   updatePlatformButton();
   renderPlatformOptions();
@@ -173,18 +172,15 @@ function setFormFromMetadata(metadata) {
 
 function updateDateLabel() {
   const status = getField("image-status")?.value || "";
-
   const dateLabel = document.querySelector('label[for="image-date"]');
 
   if (!dateLabel) return;
 
   if (status === "Played") {
     dateLabel.textContent = "Date Last Played:";
-  }
-  else if (status === "Dropped") {
+  } else if (status === "Dropped") {
     dateLabel.textContent = "Date Dropped:";
-  }
-  else {
+  } else {
     dateLabel.textContent = "Date Finished:";
   }
 }
@@ -239,16 +235,18 @@ function selectPlatform(platform) {
   currentSelectedPlatform = platform || null;
   updatePlatformButton();
   renderPlatformOptions();
+
   const dropdown = getField("platform-dropdown-menu");
   if (dropdown) dropdown.classList.add("hidden");
-  triggerMetadataAutosaveDebounced();
 }
 
 function clearSelectedPlatform() {
   currentSelectedPlatform = null;
   updatePlatformButton();
   renderPlatformOptions();
-  triggerMetadataAutosaveDebounced();
+
+  const dropdown = getField("platform-dropdown-menu");
+  if (dropdown) dropdown.classList.add("hidden");
 }
 
 function getPlatformSearchTerms(rawQuery) {
@@ -314,9 +312,11 @@ function renderPlatformOptions() {
       const option = document.createElement("div");
       option.className = "platform-option";
       option.dataset.platform = platform;
+
       if (currentSelectedPlatform === platform) {
         option.classList.add("selected");
       }
+
       option.textContent = platform;
       option.addEventListener("click", () => selectPlatform(platform));
       optionsContainer.appendChild(option);
@@ -365,6 +365,7 @@ async function autoSaveMetadata(imageId) {
   try {
     await saveImageMetadataToIndexedDB(imageId, metadata);
     await sortCurrentImageTierIfOrdered(currentImageElement);
+
     await saveTierListLocally().catch((err) => {
       gameDetailsLogError("Best-effort local save after metadata autosave failed.", err);
     });
@@ -421,11 +422,6 @@ function bindModalFieldEvents() {
     platformSearch.addEventListener("input", renderPlatformOptions);
     platformSearch.addEventListener("keyup", renderPlatformOptions);
   }
-
-  modal.addEventListener("click", (event) => {
-    // Prevent closing when clicking outside modal content
-    event.stopPropagation();
-  });
 }
 
 function setupMetadataAutoSave() {
@@ -463,6 +459,19 @@ function updateSyncNotification() {
   }
 }
 
+function finalizeModalClose() {
+  const modal = getModalElement();
+  if (modal) {
+    modal.classList.add("hidden");
+  }
+
+  unlockBackgroundScroll();
+  removeModalEscapeHandler();
+  currentImageElement = null;
+  currentSelectedPlatform = null;
+  currentHas100Replay = false;
+}
+
 function openImageModal(imgElement) {
   if (!imgElement) return;
 
@@ -480,7 +489,6 @@ function openImageModal(imgElement) {
       setModalEscapeHandler();
       lockBackgroundScroll();
       modal.classList.remove("hidden");
-
     })
     .catch((err) => {
       gameDetailsLogError(`Failed loading metadata for ${imageId}.`, err);
@@ -489,19 +497,6 @@ function openImageModal(imgElement) {
       lockBackgroundScroll();
       modal.classList.remove("hidden");
     });
-}
-
-function finalizeModalClose() {
-  const modal = getModalElement();
-  if (modal) {
-    modal.classList.add("hidden");
-  }
-
-  unlockBackgroundScroll();
-  removeModalEscapeHandler();
-  currentImageElement = null;
-  currentSelectedPlatform = null;
-  currentHas100Replay = false;
 }
 
 function closeImageModal() {
@@ -518,6 +513,7 @@ function closeImageModal() {
     clearTimeout(autoSaveTimers[imageId]);
     delete autoSaveTimers[imageId];
   }
+
   if (autoSaveTimeout) {
     clearTimeout(autoSaveTimeout);
     autoSaveTimeout = null;
@@ -526,9 +522,10 @@ function closeImageModal() {
   saveImageMetadataToIndexedDB(imageId, metadata)
     .then(async () => {
       await sortCurrentImageTierIfOrdered(imageElement);
-      await saveTierListLocally().catch(() => { });
+      await saveTierListLocally().catch(() => {});
+
       if (currentUser && firebaseDb && firebaseAvailable) {
-        await saveTierListToFirebase().catch(() => { });
+        await saveTierListToFirebase().catch(() => {});
       }
     })
     .finally(() => {
@@ -536,10 +533,9 @@ function closeImageModal() {
         if (typeof filterImages === "function") {
           filterImages(currentQuery);
         }
-      } catch (_) { }
+      } catch (_) {}
     });
 }
-
 
 function deleteImageFromModal() {
   if (!currentImageElement) return;
@@ -558,7 +554,6 @@ function deleteImageFromModal() {
       imageElement.src;
     const currentQuery = getSearchQueryValue();
 
-    // Close modal immediately
     finalizeModalClose();
 
     (async () => {
@@ -626,4 +621,5 @@ document.addEventListener("DOMContentLoaded", () => {
   renderPlatformOptions();
   updatePlatformButton();
   updateReplayVisibility();
+  updateDateLabel();
 });
