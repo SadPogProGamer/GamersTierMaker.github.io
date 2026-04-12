@@ -110,6 +110,16 @@ async function saveTierList() {
   }
 }
 
+async function saveTierListLocally() {
+  if (!initializationComplete || !indexedDb) return;
+  try {
+    const data = await buildTierListData();
+    await saveSetting('localTierList', data);
+  } catch (err) {
+    // Best effort only; do not interrupt user actions
+  }
+}
+
 // Initialize Firebase first, then IndexedDB
 initializeFirebase().then(() => {
   return initializeIndexedDB().catch(err => {
@@ -695,8 +705,12 @@ function initializeDragula() {
       try {
         const p = saveImagePositions();
         if (p && typeof p.then === 'function') {
-          p.then(() => updateTierCounts(countsAreShown())).catch(() => updateTierCounts(countsAreShown()));
+          p.then(() => {
+            saveTierListLocally().catch(() => {});
+            updateTierCounts(countsAreShown());
+          }).catch(() => updateTierCounts(countsAreShown()));
         } else {
+          saveTierListLocally().catch(() => {});
           updateTierCounts(countsAreShown());
         }
       } catch (e) {

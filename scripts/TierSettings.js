@@ -170,6 +170,7 @@ async function toggleTierOrdering(tierIndex, enabled) {
   
   // Save state to IndexedDB
   await saveSetting("tierOrderingStates", tierOrderingStates);
+  await saveTierListLocally().catch(() => {});
   
   // Also save to Firebase if user is logged in
   if (currentUser && firebaseDb) {
@@ -183,6 +184,7 @@ async function toggleTierLimit(tierIndex, enabled) {
   
   // Save state to IndexedDB
   await saveSetting("tierLimitStates", tierLimitStates);
+  await saveTierListLocally().catch(() => {});
   
   // Also save to Firebase if user is logged in
   if (currentUser && firebaseDb) {
