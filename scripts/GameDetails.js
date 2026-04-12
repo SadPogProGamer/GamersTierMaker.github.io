@@ -163,7 +163,7 @@ function updateDateLabel() {
   if (!statusSelect || !dateLabel) return;
 
   const status = statusSelect.value;
-  dateLabel.textContent = status === "In Progress" ? "Date Started" : "Date Beaten";
+  dateLabel.textContent = status === "In Progress" ? "Date Started:" : "Date Beaten:";
 }
 
 function updateReplayVisibility() {
