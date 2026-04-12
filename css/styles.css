@@ -1309,3 +1309,25 @@ img {
 .row-menu-item.action-item.delete-tier {
   color: #ff6b6b;
 }
+
+.upload-status {
+  margin-top: 10px;
+  font-size: 14px;
+  color: #fff;
+  text-align: center;
+  padding: 6px 10px;
+  border-radius: 6px;
+}
+
+.upload-status.loading {
+  background: #444;
+}
+
+.upload-status.success {
+  background: #2ecc71;
+  color: #000;
+}
+
+.upload-status.error {
+  background: #e74c3c;
+}

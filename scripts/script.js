@@ -11,7 +11,6 @@ let scrollable = true;
 let suppressNextLeftClick = false;
 let selectedImages = new Set();
 
-const MAX_UPLOAD_FILES = 100;
 const MAX_FILE_SIZE_MB = 10;
 const ALLOWED_IMAGE_TYPES = new Set([
   "image/png",
@@ -91,6 +90,22 @@ function createImageElement({ src, id, cloudinaryUrl }) {
   );
 
   return image;
+}
+
+function setUploadStatus(message, type = "loading") {
+  const el = document.getElementById("upload-status");
+  if (!el) return;
+
+  el.textContent = message;
+  el.className = `upload-status ${type}`;
+  el.classList.remove("hidden");
+}
+
+function clearUploadStatus(delay = 3000) {
+  setTimeout(() => {
+    const el = document.getElementById("upload-status");
+    if (el) el.classList.add("hidden");
+  }, delay);
 }
 
 function hasDraggedFiles(event) {
@@ -512,21 +527,46 @@ function validateUploadFile(file) {
   }
 }
 
+function setUploadStatus(message, type = "loading") {
+  const el = document.getElementById("upload-status");
+  if (!el) return;
+
+  el.textContent = message;
+  el.className = `upload-status ${type}`;
+  el.classList.remove("hidden");
+}
+
+function clearUploadStatus(delay = 3000) {
+  setTimeout(() => {
+    const el = document.getElementById("upload-status");
+    if (el) el.classList.add("hidden");
+  }, delay);
+}
+
 async function uploadImages(fileList) {
-  const files = Array.from(fileList || []).slice(0, MAX_UPLOAD_FILES);
+  const files = Array.from(fileList || []);
   const imagesBar = getImagesBar();
   if (!imagesBar || !files.length) return;
 
   let skippedCount = 0;
   let uploadedCount = 0;
+  let failedCount = 0;
 
-  const existingImages = indexedDb ? await getImagesFromIndexedDB().catch((err) => {
-    scriptLogError("Failed loading existing images before upload.", err);
-    return [];
-  }) : [];
+  setUploadStatus(`Uploading 0 / ${files.length}...`, "loading");
+
+  const existingImages = indexedDb
+    ? await getImagesFromIndexedDB().catch((err) => {
+        scriptLogError("Failed loading existing images before upload.", err);
+        return [];
+      })
+    : [];
+
   const existingIds = new Set(existingImages.map((img) => img.id));
 
-  for (const file of files) {
+  for (let i = 0; i < files.length; i += 1) {
+    const file = files[i];
+    setUploadStatus(`Uploading ${i + 1} / ${files.length}...`, "loading");
+
     try {
       validateUploadFile(file);
 
@@ -556,7 +596,7 @@ async function uploadImages(fileList) {
       existingIds.add(imageId);
       uploadedCount += 1;
     } catch (err) {
-      skippedCount += 1;
+      failedCount += 1;
       scriptLogError(`Upload failed for ${file?.name || "unknown file"}.`, err);
     }
   }
@@ -579,9 +619,18 @@ async function uploadImages(fileList) {
     });
   }
 
-  if (skippedCount > 0 && uploadedCount === 0) {
-    alert("No new valid images were uploaded.");
+  if (uploadedCount > 0) {
+    setUploadStatus(
+      `Import successful: ${uploadedCount} added${skippedCount ? `, ${skippedCount} skipped` : ""}${failedCount ? `, ${failedCount} failed` : ""}`,
+      "success"
+    );
+  } else if (failedCount > 0) {
+    setUploadStatus("Import failed.", "error");
+  } else {
+    setUploadStatus("No new images imported.", "error");
   }
+
+  clearUploadStatus();
 }
 
 function handleDragOver(event) {

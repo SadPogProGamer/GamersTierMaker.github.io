@@ -801,7 +801,7 @@ async function deleteFromCloudinary(cloudinaryUrl) {
 
   const endpoint = CLOUDINARY_CONFIG && CLOUDINARY_CONFIG.deleteEndpoint;
   if (!endpoint) {
-    console.warn("[DatabaseSyncing] No Cloudinary delete endpoint configured. Skipping remote delete.");
+    console.warn("[DatabaseSyncing] Remote Cloudinary deletion is disabled because deleteEndpoint is not configured.");
     return;
   }
 
