@@ -168,15 +168,25 @@ function setFormFromMetadata(metadata) {
   updateReplayVisibility();
   updatePlatformButton();
   renderPlatformOptions();
+  updateDateLabel();
 }
 
 function updateDateLabel() {
-  const statusSelect = getField("image-status");
-  const dateLabel = document.querySelector('label[for="image-date"]');
-  if (!statusSelect || !dateLabel) return;
+  const status = getField("image-status")?.value || "";
 
-  const status = statusSelect.value;
-  dateLabel.textContent = status === "In Progress" ? "Date Started:" : "Date Beaten:";
+  const dateLabel = document.querySelector('label[for="image-date"]');
+
+  if (!dateLabel) return;
+
+  if (status === "Played") {
+    dateLabel.textContent = "Date Last Played:";
+  } 
+  else if (status === "Dropped") {
+    dateLabel.textContent = "Date Dropped:";
+  }
+  else {
+    dateLabel.textContent = "Date Finished:";
+  }
 }
 
 function updateReplayVisibility() {
