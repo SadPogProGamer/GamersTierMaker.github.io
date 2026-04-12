@@ -1,7 +1,7 @@
 // Commands.js
-// Handles slash-command suggestions and command filter processing.
+// Handles slash-command suggestions, command filtering, and count badge helpers.
+// Designed to stay compatible with index.html and SearchFunction.js.
 
-// Search commands (ordered to match game details modal: Name, Date, Description, Platform, Status)
 const SEARCH_COMMANDS = {
   "/Platform": "Show games with specific platform",
   "/DateBeaten": "Show games with specific date beaten",
@@ -12,18 +12,45 @@ const SEARCH_COMMANDS = {
   "/NoPlatform": "Show games with no platform",
   "/NoDeveloper": "Show games with no developer",
   "/NoStatus": "Show games with no status",
-  "/Developer": "Search by developer name (e.g., /Developer Rockstar)",
-  "/ShowAmount": "Show number of images in each tier (can combine with other commands or search)"
+  "/Developer": "Search by developer name (e.g. /Developer Rockstar)",
+  "/ShowAmount": "Show number of images in each tier (can combine with other commands or search)",
 };
 
 let searchCommandHighlightedIndex = -1;
 
+function commandsLogError(context, err) {
+  console.error(`[Commands] ${context}`, err);
+}
+
+function getSearchCommandsDropdown() {
+  return document.getElementById("search-commands-dropdown");
+}
+
+function getSearchInputForCommands() {
+  return document.getElementById("search-input");
+}
+
+function normalizeCommandText(value) {
+  return String(value || "").trim().toLowerCase();
+}
+
+function getFilteredSearchCommands(query) {
+  const normalized = normalizeCommandText(query);
+  return Object.keys(SEARCH_COMMANDS).filter((cmd) => {
+    if (normalized === "/") return true;
+    return cmd.toLowerCase().includes(normalized);
+  });
+}
+
 function highlightSearchCommand(dropdown, index) {
-  const items = dropdown.querySelectorAll('.search-command-item');
-  items.forEach(it => it.classList.remove('selected'));
+  if (!dropdown) return;
+
+  const items = dropdown.querySelectorAll(".search-command-item");
+  items.forEach((item) => item.classList.remove("selected"));
+
   if (index >= 0 && index < items.length) {
-    items[index].classList.add('selected');
-    items[index].scrollIntoView({ block: 'nearest' });
+    items[index].classList.add("selected");
+    items[index].scrollIntoView({ block: "nearest" });
     searchCommandHighlightedIndex = index;
   } else {
     searchCommandHighlightedIndex = -1;
@@ -31,179 +58,284 @@ function highlightSearchCommand(dropdown, index) {
 }
 
 function selectHighlightedSearchCommand() {
-  const dropdown = document.getElementById('search-commands-dropdown');
+  const dropdown = getSearchCommandsDropdown();
   if (!dropdown) return;
-  const items = dropdown.querySelectorAll('.search-command-item');
+
+  const items = dropdown.querySelectorAll(".search-command-item");
   if (searchCommandHighlightedIndex >= 0 && searchCommandHighlightedIndex < items.length) {
     items[searchCommandHighlightedIndex].click();
   }
 }
 
-function handleSearchInput(searchQuery) {
-  const dropdown = document.getElementById("search-commands-dropdown");
-  const trimmedQuery = searchQuery.trim();
-
-  const lastSlashIndex = trimmedQuery.lastIndexOf("/");
-  if (lastSlashIndex >= 0) {
-    const partialCommand = trimmedQuery.substring(lastSlashIndex);
-    showSearchCommandsDropdown(partialCommand, dropdown);
-  } else {
-    dropdown.classList.add("hidden");
-  }
+function hideSearchCommandsDropdown() {
+  const dropdown = getSearchCommandsDropdown();
+  if (!dropdown) return;
+  dropdown.classList.add("hidden");
+  searchCommandHighlightedIndex = -1;
 }
 
-function showSearchCommandsDropdown(searchQuery, dropdown) {
-  const query = searchQuery.toLowerCase().trim();
-  const filteredCommands = Object.keys(SEARCH_COMMANDS).filter(cmd =>
-    cmd.toLowerCase().includes(query) || query === "/"
-  );
+function applySearchCommand(command) {
+  const input = getSearchInputForCommands();
+  const dropdown = getSearchCommandsDropdown();
+  if (!input || !dropdown) return;
 
-  dropdown.innerHTML = "";
+  const currentValue = input.value || "";
+  const lastSlashIndex = currentValue.lastIndexOf("/");
 
-  if (filteredCommands.length === 0) {
+  if (lastSlashIndex >= 0) {
+    const beforePartial = currentValue.substring(0, lastSlashIndex);
+    input.value = `${beforePartial}${command}`;
+  } else {
+    input.value = command;
+  }
+
+  if (typeof filterImages === "function") {
+    filterImages(input.value);
+  }
+
+  dropdown.classList.add("hidden");
+  searchCommandHighlightedIndex = -1;
+}
+
+function createSearchCommandItem(command, index, dropdown) {
+  const item = document.createElement("div");
+  item.className = "search-command-item";
+  item.dataset.index = String(index);
+
+  const nameDiv = document.createElement("div");
+  nameDiv.className = "search-command-name";
+  nameDiv.textContent = command;
+
+  const descDiv = document.createElement("div");
+  descDiv.className = "search-command-desc";
+  descDiv.textContent = SEARCH_COMMANDS[command];
+
+  item.appendChild(nameDiv);
+  item.appendChild(descDiv);
+
+  item.addEventListener("click", () => applySearchCommand(command));
+  item.addEventListener("mouseover", () => {
+    highlightSearchCommand(dropdown, index);
+  });
+
+  return item;
+}
+
+function showSearchCommandsDropdown(searchQuery, dropdown = getSearchCommandsDropdown()) {
+  if (!dropdown) return;
+
+  const filteredCommands = getFilteredSearchCommands(searchQuery);
+  dropdown.replaceChildren();
+
+  if (!filteredCommands.length) {
     dropdown.classList.add("hidden");
+    searchCommandHighlightedIndex = -1;
     return;
   }
 
-  filteredCommands.forEach(command => {
-    const item = document.createElement("div");
-    item.className = "search-command-item";
-    item.dataset.index = filteredCommands.indexOf(command);
-    item.innerHTML = `<div class="search-command-name">${command}</div><div class="search-command-desc">${SEARCH_COMMANDS[command]}</div>`;
-    item.onclick = () => {
-      const input = document.getElementById("search-input");
-      const currentValue = input.value;
-      const lastSlashIndex = currentValue.lastIndexOf("/");
-      if (lastSlashIndex >= 0) {
-        const beforePartial = currentValue.substring(0, lastSlashIndex);
-        input.value = beforePartial + command;
-      } else {
-        input.value = command;
-      }
-      filterImages(input.value);
-      dropdown.classList.add("hidden");
-    };
-    item.addEventListener('mouseover', () => {
-      highlightSearchCommand(dropdown, parseInt(item.dataset.index, 10));
-    });
-    dropdown.appendChild(item);
+  filteredCommands.forEach((command, index) => {
+    dropdown.appendChild(createSearchCommandItem(command, index, dropdown));
   });
 
   dropdown.classList.remove("hidden");
   highlightSearchCommand(dropdown, 0);
 }
 
-function processCommandFilter(filteredQuery, imageName, imagePlatform, imageDescription, imageDate, imageStatus, imageDeveloper) {
-  let shouldShow = false;
+function handleSearchInput(searchQuery) {
+  const dropdown = getSearchCommandsDropdown();
+  if (!dropdown) return;
 
-  if (filteredQuery.startsWith("/platform")) {
-    if (filteredQuery === "/platform") {
-      shouldShow = imagePlatform && imagePlatform.toLowerCase().includes("console");
-    } else if (filteredQuery.startsWith("/platform ")) {
-      let platformQuery = filteredQuery.substring("/platform ".length).trim().toLowerCase();
-      if (platformAbbreviationsMap[platformQuery]) {
-        platformQuery = platformAbbreviationsMap[platformQuery].toLowerCase();
-      }
-      shouldShow = imagePlatform.toLowerCase().includes(platformQuery);
-    }
-  } else if (filteredQuery === "/datebeaten") {
-    shouldShow = imageDate && imageDate.trim() !== "";
-  } else if (filteredQuery === "/completion") {
-    shouldShow = imageStatus && imageStatus.trim() !== "";
-  } else if (filteredQuery === "/noname") {
-    shouldShow = !imageName || imageName.trim() === "";
-  } else if (filteredQuery === "/nodate") {
-    shouldShow = !imageDate || imageDate.trim() === "";
-  } else if (filteredQuery === "/nostatus") {
-    shouldShow = !imageStatus || imageStatus.trim() === "";
-  } else if (filteredQuery === "/noplatform") {
-    shouldShow = !imagePlatform || imagePlatform.trim() === "";
-  } else if (filteredQuery === "/nodescription") {
-    shouldShow = !imageDescription || imageDescription.trim() === "";
-  } else if (filteredQuery === "/nodeveloper") {
-    shouldShow = !imageDeveloper || imageDeveloper.trim() === "";
-  } else if (filteredQuery.startsWith("/developer ")) {
-    let developerQuery = filteredQuery.substring("/developer ".length).trim().toLowerCase();
-    if (developerAbbreviationsMap[developerQuery]) {
-      developerQuery = developerAbbreviationsMap[developerQuery].toLowerCase();
-    }
-    shouldShow = imageDeveloper.toLowerCase().includes(developerQuery);
+  const trimmedQuery = String(searchQuery || "").trim();
+  const lastSlashIndex = trimmedQuery.lastIndexOf("/");
+
+  if (lastSlashIndex >= 0) {
+    const partialCommand = trimmedQuery.substring(lastSlashIndex);
+    showSearchCommandsDropdown(partialCommand, dropdown);
   } else {
-    shouldShow = true;
+    dropdown.classList.add("hidden");
+    searchCommandHighlightedIndex = -1;
   }
-
-  return shouldShow;
 }
 
-// Global helper: Update or create a small count badge left of each tier label
+function mapPlatformCommandAlias(value) {
+  let platformQuery = normalizeCommandText(value);
+
+  if (typeof platformAbbreviationsMap !== "undefined" && platformAbbreviationsMap[platformQuery]) {
+    platformQuery = normalizeCommandText(platformAbbreviationsMap[platformQuery]);
+  }
+
+  if (typeof platformAliases !== "undefined" && platformAliases[platformQuery]) {
+    const aliasValue = platformAliases[platformQuery];
+    const aliasArray = Array.isArray(aliasValue) ? aliasValue : [aliasValue];
+    return aliasArray.map((entry) => normalizeCommandText(entry));
+  }
+
+  return [platformQuery];
+}
+
+function mapDeveloperCommandAlias(value) {
+  let developerQuery = normalizeCommandText(value);
+
+  if (typeof developerAbbreviationsMap !== "undefined" && developerAbbreviationsMap[developerQuery]) {
+    developerQuery = normalizeCommandText(developerAbbreviationsMap[developerQuery]);
+  }
+
+  return developerQuery;
+}
+
+function processCommandFilter(filteredQuery, imageName, imagePlatform, imageDescription, imageDate, imageStatus, imageDeveloper) {
+  const command = normalizeCommandText(filteredQuery);
+  const normalizedName = String(imageName || "").trim();
+  const normalizedPlatform = normalizeCommandText(imagePlatform);
+  const normalizedDescription = String(imageDescription || "").trim();
+  const normalizedDate = String(imageDate || "").trim();
+  const normalizedStatus = String(imageStatus || "").trim();
+  const normalizedDeveloper = normalizeCommandText(imageDeveloper);
+
+  if (!command) return true;
+
+  if (command.startsWith("/platform")) {
+    if (command === "/platform") {
+      return normalizedPlatform !== "";
+    }
+
+    if (command.startsWith("/platform ")) {
+      const rawPlatformQuery = command.substring("/platform ".length).trim();
+      const candidateQueries = mapPlatformCommandAlias(rawPlatformQuery);
+      return candidateQueries.some((candidate) => candidate && normalizedPlatform.includes(candidate));
+    }
+  }
+
+  if (command === "/datebeaten") {
+    return normalizedDate !== "";
+  }
+
+  if (command === "/completion") {
+    return normalizedStatus !== "";
+  }
+
+  if (command === "/noname") {
+    return normalizedName === "";
+  }
+
+  if (command === "/nodate") {
+    return normalizedDate === "";
+  }
+
+  if (command === "/nodescription") {
+    return normalizedDescription === "";
+  }
+
+  if (command === "/noplatform") {
+    return normalizedPlatform === "";
+  }
+
+  if (command === "/nodeveloper") {
+    return normalizedDeveloper === "";
+  }
+
+  if (command === "/nostatus") {
+    return normalizedStatus === "";
+  }
+
+  if (command.startsWith("/developer ")) {
+    const rawDeveloperQuery = command.substring("/developer ".length).trim();
+    const developerQuery = mapDeveloperCommandAlias(rawDeveloperQuery);
+    return developerQuery ? normalizedDeveloper.includes(developerQuery) : true;
+  }
+
+  return true;
+}
+
 function updateTierCounts(show) {
-  const rows = document.querySelectorAll('.row');
+  const rows = document.querySelectorAll(".row");
+
   rows.forEach((row) => {
-    const label = row.querySelector('.tier-label');
-    if (!label) return;
-    let badge = label.querySelector('.tier-count');
+    const label = row.querySelector(".tier-label");
+    const tierContainer = row.children?.[1];
+    if (!label || !tierContainer) return;
+
+    let badge = label.querySelector(".tier-count");
     if (!badge) {
-      badge = document.createElement('div');
-      badge.className = 'tier-count';
-      // insert before the first child (so it appears left)
+      badge = document.createElement("div");
+      badge.className = "tier-count";
       label.insertBefore(badge, label.firstChild);
     }
-    const count = Array.from(row.children[1].querySelectorAll('.image')).filter(img => img.style.display !== 'none').length;
-    badge.textContent = count;
-    badge.style.display = show ? 'block' : 'none';
+
+    const count = Array.from(tierContainer.querySelectorAll(".image")).filter(
+      (img) => img.style.display !== "none"
+    ).length;
+
+    badge.textContent = String(count);
+    badge.style.display = show ? "block" : "none";
   });
-  // Also update total-count element if present
+
   try {
-    const totalEl = document.getElementById('total-count');
+    const totalEl = document.getElementById("total-count");
     if (totalEl) {
-      // Only count images in tier rows, exclude images in the lower bar
-      const total = Array.from(document.querySelectorAll('.row .image')).filter(img => img.style.display !== 'none').length;
+      const total = Array.from(document.querySelectorAll(".row .image")).filter(
+        (img) => img.style.display !== "none"
+      ).length;
       totalEl.textContent = `Total: ${total}`;
-      totalEl.style.display = show ? '' : 'none';
+      totalEl.style.display = show ? "" : "none";
     }
-  } catch (e) {
-    // ignore
+  } catch (err) {
+    commandsLogError("Failed updating total search count.", err);
   }
 }
 
-// Returns true if tier counts or total-count are currently visible
 function countsAreShown() {
   try {
-    const totalEl = document.getElementById('total-count');
-    if (totalEl && window.getComputedStyle(totalEl).display !== 'none') return true;
-    const badge = document.querySelector('.tier-count');
-    if (badge && window.getComputedStyle(badge).display !== 'none') return true;
-  } catch (e) {
-    // ignore
+    const totalEl = document.getElementById("total-count");
+    if (totalEl && window.getComputedStyle(totalEl).display !== "none") return true;
+
+    const badge = document.querySelector(".tier-count");
+    if (badge && window.getComputedStyle(badge).display !== "none") return true;
+  } catch (err) {
+    commandsLogError("Failed checking count visibility.", err);
   }
+
   return false;
 }
 
-// Keyboard navigation for command dropdown
-document.addEventListener("DOMContentLoaded", function() {
-  const searchInputElement = document.getElementById('search-input');
-  if (searchInputElement) {
-    searchInputElement.addEventListener('keydown', (e) => {
-      const dropdown = document.getElementById('search-commands-dropdown');
-      if (!dropdown || dropdown.classList.contains('hidden')) return;
+function bindSearchCommandKeyboardNavigation() {
+  const searchInputElement = getSearchInputForCommands();
+  if (!searchInputElement) return;
 
-      const items = dropdown.querySelectorAll('.search-command-item');
-      if (!items || items.length === 0) return;
+  searchInputElement.addEventListener("keydown", (event) => {
+    const dropdown = getSearchCommandsDropdown();
+    if (!dropdown || dropdown.classList.contains("hidden")) return;
 
-      if (e.key === 'ArrowDown') {
-        e.preventDefault();
-        const next = Math.min(searchCommandHighlightedIndex + 1, items.length - 1);
-        highlightSearchCommand(dropdown, next);
-      } else if (e.key === 'ArrowUp') {
-        e.preventDefault();
-        const prev = Math.max(searchCommandHighlightedIndex - 1, 0);
-        highlightSearchCommand(dropdown, prev);
-      } else if (e.key === 'Enter') {
-        e.preventDefault();
-        selectHighlightedSearchCommand();
-      } else if (e.key === 'Escape') {
-        dropdown.classList.add('hidden');
-      }
-    });
-  }
+    const items = dropdown.querySelectorAll(".search-command-item");
+    if (!items.length) return;
+
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      const next = Math.min(searchCommandHighlightedIndex + 1, items.length - 1);
+      highlightSearchCommand(dropdown, next);
+      return;
+    }
+
+    if (event.key === "ArrowUp") {
+      event.preventDefault();
+      const prev = Math.max(searchCommandHighlightedIndex - 1, 0);
+      highlightSearchCommand(dropdown, prev);
+      return;
+    }
+
+    if (event.key === "Enter") {
+      event.preventDefault();
+      selectHighlightedSearchCommand();
+      return;
+    }
+
+    if (event.key === "Escape") {
+      dropdown.classList.add("hidden");
+      searchCommandHighlightedIndex = -1;
+    }
+  });
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  bindSearchCommandKeyboardNavigation();
 });
