@@ -180,7 +180,7 @@ function updateDateLabel() {
 
   if (status === "Played") {
     dateLabel.textContent = "Date Last Played:";
-  } 
+  }
   else if (status === "Dropped") {
     dateLabel.textContent = "Date Dropped:";
   }
@@ -422,14 +422,10 @@ function bindModalFieldEvents() {
     platformSearch.addEventListener("keyup", renderPlatformOptions);
   }
 
-  const modal = getModalElement();
-  if (modal) {
-    modal.addEventListener("click", (event) => {
-      if (event.target === modal) {
-        closeImageModal();
-      }
-    });
-  }
+  modal.addEventListener("click", (event) => {
+    // Prevent closing when clicking outside modal content
+    event.stopPropagation();
+  });
 }
 
 function setupMetadataAutoSave() {
