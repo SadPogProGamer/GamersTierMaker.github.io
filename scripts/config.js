@@ -9,7 +9,7 @@ const isLocalhost =
 // Cloudinary configuration
 const CLOUDINARY_CONFIG = {
   cloudName: "dfdibdfcm",
-  uploadPreset: "GamersTierMaker",
+  uploadPreset: isLocalhost ? "DebugRoom" : "GamersTierMaker",
   folder: isLocalhost ? "LocalHost" : "GamerTierMaker",
   deleteEndpoint: null
 };
@@ -24,6 +24,9 @@ const FIREBASE_CONFIG = {
   messagingSenderId: "515771009142",
   appId: "1:515771009142:web:c485f6b63235449ff43757",
 };
+
+console.log("Uploading to folder:", CLOUDINARY_CONFIG.folder);
+console.log("Using preset:", CLOUDINARY_CONFIG.uploadPreset);
 
 // Basic runtime validation so config mistakes fail loudly
 (function validateFrontendConfig() {
