@@ -538,7 +538,7 @@ function closeImageModal() {
 function deleteImageFromModal() {
   if (!currentImageElement) return;
 
-  promptDeleteImage(async () => {
+  promptDeleteImage(() => {
     const imageId = getCurrentImageId();
     if (!imageId) {
       finalizeModalClose();
@@ -546,64 +546,72 @@ function deleteImageFromModal() {
     }
 
     const imageElement = currentImageElement;
-    const cloudinaryUrl = imageElement.dataset.cloudinaryUrl || imageElement.dataset.imageSrc || imageElement.src;
+    const cloudinaryUrl =
+      imageElement.dataset.cloudinaryUrl ||
+      imageElement.dataset.imageSrc ||
+      imageElement.src;
     const currentQuery = getSearchQueryValue();
 
-    try {
-      await deleteImageMetadataFromIndexedDB(imageId).catch((err) => {
-        gameDetailsLogError(`Failed deleting metadata for ${imageId}.`, err);
-      });
+    // ✅ Close modal immediately
+    finalizeModalClose();
 
-      await deleteImageFromIndexedDB(imageId).catch((err) => {
-        gameDetailsLogError(`Failed deleting IndexedDB image for ${imageId}.`, err);
-      });
-
-      await deleteFromCloudinary(cloudinaryUrl).catch((err) => {
-        gameDetailsLogError(`Remote delete failed for ${imageId}.`, err);
-      });
-
-      imageElement.remove();
-
-      await saveImagePositions().catch((err) => {
-        gameDetailsLogError("Failed saving image positions after deleting image.", err);
-      });
-
-      await saveTierListLocally().catch((err) => {
-        gameDetailsLogError("Failed local save after deleting image.", err);
-      });
-
-      if (typeof updateTierCounts === "function") {
-        try {
-          updateTierCounts(typeof countsAreShown === "function" ? countsAreShown() : false);
-        } catch (err) {
-          gameDetailsLogError("Failed updating tier counts after deleting image.", err);
-        }
-      }
-
-      if (typeof setDropHintVisibility === "function") {
-        try {
-          setDropHintVisibility();
-        } catch (err) {
-          gameDetailsLogError("Failed updating drop hint visibility after deleting image.", err);
-        }
-      }
-
-      if (currentUser && firebaseDb && firebaseAvailable) {
-        await saveTierListToFirebase().catch((err) => {
-          gameDetailsLogError("Failed syncing deletion to Firebase.", err);
-        });
-      }
-
+    (async () => {
       try {
-        if (typeof filterImages === "function") {
-          filterImages(currentQuery);
+        await deleteImageMetadataFromIndexedDB(imageId).catch((err) => {
+          gameDetailsLogError(`Failed deleting metadata for ${imageId}.`, err);
+        });
+
+        await deleteImageFromIndexedDB(imageId).catch((err) => {
+          gameDetailsLogError(`Failed deleting IndexedDB image for ${imageId}.`, err);
+        });
+
+        await deleteFromCloudinary(cloudinaryUrl).catch((err) => {
+          gameDetailsLogError(`Remote delete failed for ${imageId}.`, err);
+        });
+
+        imageElement.remove();
+
+        await saveImagePositions().catch((err) => {
+          gameDetailsLogError("Failed saving image positions after deleting image.", err);
+        });
+
+        await saveTierListLocally().catch((err) => {
+          gameDetailsLogError("Failed local save after deleting image.", err);
+        });
+
+        if (typeof updateTierCounts === "function") {
+          try {
+            updateTierCounts(typeof countsAreShown === "function" ? countsAreShown() : false);
+          } catch (err) {
+            gameDetailsLogError("Failed updating tier counts after deleting image.", err);
+          }
+        }
+
+        if (typeof setDropHintVisibility === "function") {
+          try {
+            setDropHintVisibility();
+          } catch (err) {
+            gameDetailsLogError("Failed updating drop hint visibility after deleting image.", err);
+          }
+        }
+
+        if (currentUser && firebaseDb && firebaseAvailable) {
+          await saveTierListToFirebase().catch((err) => {
+            gameDetailsLogError("Failed syncing deletion to Firebase.", err);
+          });
+        }
+
+        try {
+          if (typeof filterImages === "function") {
+            filterImages(currentQuery);
+          }
+        } catch (err) {
+          gameDetailsLogError("Failed re-running search after deleting image.", err);
         }
       } catch (err) {
-        gameDetailsLogError("Failed re-running search after deleting image.", err);
+        gameDetailsLogError("Unexpected error while deleting image.", err);
       }
-    } finally {
-      finalizeModalClose();
-    }
+    })();
   });
 }
 

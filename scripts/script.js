@@ -536,10 +536,13 @@ function setUploadStatus(message, type = "loading") {
   el.classList.remove("hidden");
 }
 
-function clearUploadStatus(delay = 3000) {
+function clearUploadStatus(delay = 1500) {
+  const el = document.getElementById("upload-status");
+  if (!el) return;
+
   setTimeout(() => {
-    const el = document.getElementById("upload-status");
-    if (el) el.classList.add("hidden");
+    el.classList.add("hidden");
+    el.textContent = "";
   }, delay);
 }
 
@@ -552,7 +555,7 @@ async function uploadImages(fileList) {
   let uploadedCount = 0;
   let failedCount = 0;
 
-  setUploadStatus(`Uploading 0 / ${files.length}...`, "loading");
+  setUploadStatus(`Uploading 0 / ${files.length}`);
 
   const existingImages = indexedDb
     ? await getImagesFromIndexedDB().catch((err) => {
@@ -571,12 +574,14 @@ async function uploadImages(fileList) {
       validateUploadFile(file);
 
       const imageId = await computeFileHash(file);
-      if (existingIds.has(imageId)) {
-        skippedCount += 1;
-        continue;
-      }
+    if (existingIds.has(imageId)) {
+      skippedCount++;
+      processed++;
+      setUploadStatus(`Uploading ${processed} / ${files.length}...`);
+      continue;
+    }
 
-      const uploadedUrl = await uploadToCloudinary(file);
+    const uploadedUrl = await uploadToCloudinary(file);
       const image = createImageElement({
         src: uploadedUrl,
         id: imageId,
