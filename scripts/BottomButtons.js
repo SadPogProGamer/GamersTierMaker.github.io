@@ -198,7 +198,7 @@ async function getGameDetailsForExport() {
       platform: null,
       date100: "",
       has100Replay: false,
-      hash: image.imageId || "",
+      gameKey: "",
     };
 
     try {
@@ -216,10 +216,14 @@ async function getGameDetailsForExport() {
       );
     }
 
+    const gameKey =
+      metadata.gameKey ||
+      makeGameKey(metadata.name, metadata.developer);
+
     entries.push({
       imageId: image.imageId,
-      hash: metadata.hash || image.imageId || "",
       imageSrc: image.imageSrc,
+      gameKey,
       tier: image.tier,
       name: metadata.name || "",
       developer: metadata.developer || "",
@@ -566,12 +570,12 @@ function importGameDetails() {
 async function applyImportedGameDetails(entries) {
   const rows = getTierRowsForButtons();
   const imagesBar = getImagesBarForButtons();
-
   const allImages = Array.from(document.querySelectorAll(".image"));
+
   let notFound = 0;
 
-  // Build a metadata cache once so we do not keep re-reading IndexedDB in nested loops
   const metadataCache = new Map();
+
   await Promise.all(
     allImages.map(async (img) => {
       const imageId = img.dataset.imageId;
@@ -579,67 +583,89 @@ async function applyImportedGameDetails(entries) {
 
       try {
         const metadata = await getImageMetadataFromIndexedDB(imageId);
-        metadataCache.set(imageId, metadata || null);
+        metadataCache.set(imageId, metadata || {});
       } catch (err) {
-        console.error(`Failed reading metadata for image ${imageId} during import matching:`, err);
-        metadataCache.set(imageId, null);
+        console.error(`Failed reading metadata for ${imageId}:`, err);
+        metadataCache.set(imageId, {});
       }
     })
   );
 
+  function getImageGameKey(img) {
+    const imageId = img.dataset.imageId;
+    const meta = metadataCache.get(imageId) || {};
+    return meta.gameKey || makeGameKey(meta.name, meta.developer);
+  }
+
+  function findMatch(entry) {
+    // 1. Old exact ID match
+    if (entry.imageId) {
+      const byId = allImages.find((i) => i.dataset.imageId === entry.imageId);
+      if (byId) return byId;
+    }
+
+    // 2. Best match: gameKey
+    if (entry.gameKey) {
+      const byGameKey = allImages.find((i) => getImageGameKey(i) === entry.gameKey);
+      if (byGameKey) return byGameKey;
+    }
+
+    // 3. Rebuild gameKey from current import data if missing
+    const derivedKey = makeGameKey(entry.name, entry.developer);
+    if (derivedKey) {
+      const byDerivedKey = allImages.find((i) => getImageGameKey(i) === derivedKey);
+      if (byDerivedKey) return byDerivedKey;
+    }
+
+    // 4. Fallback: strong metadata match
+    const byMetadata = allImages.find((i) => {
+      const meta = metadataCache.get(i.dataset.imageId) || {};
+
+      const sameName =
+        String(meta.name || "").trim().toLowerCase() ===
+        String(entry.name || "").trim().toLowerCase();
+
+      const sameDeveloper =
+        String(meta.developer || "").trim().toLowerCase() ===
+        String(entry.developer || "").trim().toLowerCase();
+
+      const samePlatform =
+        String(meta.platform || "").trim().toLowerCase() ===
+        String(entry.platform || "").trim().toLowerCase();
+
+      if (entry.name && entry.developer) {
+        return sameName && sameDeveloper;
+      }
+
+      if (entry.name && entry.platform) {
+        return sameName && samePlatform;
+      }
+
+      if (entry.name) {
+        return sameName;
+      }
+
+      return false;
+    });
+
+    if (byMetadata) return byMetadata;
+
+    // 5. Last fallback: src
+    if (entry.imageSrc) {
+      const bySrc = allImages.find((i) => {
+        const currentSrc = i.dataset.imageSrc || i.dataset.cloudinaryUrl || i.src || "";
+        return currentSrc === entry.imageSrc;
+      });
+      if (bySrc) return bySrc;
+    }
+
+    return null;
+  }
+
   for (const entry of entries) {
     if (!entry) continue;
 
-    let img = null;
-
-    // 1) Old direct ID match
-    if (entry.imageId) {
-      img = allImages.find((i) => i.dataset.imageId === entry.imageId) || null;
-    }
-
-    // 2) Best stable match: hash
-    // This works if your exported JSON contains entry.hash
-    if (!img && entry.hash) {
-      img =
-        allImages.find((i) => i.dataset.hash === entry.hash) ||
-        allImages.find((i) => i.dataset.imageId === entry.hash) ||
-        null;
-    }
-
-    // 3) URL/src fallback
-    if (!img && entry.imageSrc) {
-      img =
-        allImages.find((i) => {
-          const currentSrc = i.dataset.imageSrc || i.dataset.cloudinaryUrl || i.src || "";
-          return currentSrc === entry.imageSrc;
-        }) || null;
-    }
-
-    // 4) Metadata fallback: name + developer
-    if (!img && (entry.name || entry.developer)) {
-      img =
-        allImages.find((i) => {
-          const imageId = i.dataset.imageId;
-          const meta = metadataCache.get(imageId);
-          if (!meta) return false;
-
-          const sameName =
-            (meta.name || "").trim().toLowerCase() ===
-            (entry.name || "").trim().toLowerCase();
-
-          const sameDeveloper =
-            (meta.developer || "").trim().toLowerCase() ===
-            (entry.developer || "").trim().toLowerCase();
-
-          if (entry.name && entry.developer) {
-            return sameName && sameDeveloper;
-          }
-
-          if (entry.name) return sameName;
-          if (entry.developer) return sameDeveloper;
-          return false;
-        }) || null;
-    }
+    const img = findMatch(entry);
 
     if (!img) {
       notFound++;
@@ -647,9 +673,12 @@ async function applyImportedGameDetails(entries) {
     }
 
     const imageId = img.dataset.imageId;
+    const gameKey = entry.gameKey || makeGameKey(entry.name, entry.developer);
 
-    // Restore metadata
-    await saveImageMetadataToIndexedDB(imageId, {
+    const existingMeta = metadataCache.get(imageId) || {};
+
+    const newMetadata = {
+      ...existingMeta,
       name: entry.name || "",
       developer: entry.developer || "",
       date: entry.date || "",
@@ -658,17 +687,12 @@ async function applyImportedGameDetails(entries) {
       platform: entry.platform || null,
       status: entry.status || "",
       has100Replay: !!entry.has100Replay,
-      hash: entry.hash || imageId || "",
-    });
+      gameKey,
+    };
 
-    // Keep the hash on the DOM too for future imports
-    if (entry.hash) {
-      img.dataset.hash = entry.hash;
-    } else if (!img.dataset.hash && imageId) {
-      img.dataset.hash = imageId;
-    }
+    await saveImageMetadataToIndexedDB(imageId, newMetadata);
+    metadataCache.set(imageId, newMetadata);
 
-    // Restore tier position
     if (typeof entry.tier === "number") {
       if (entry.tier === -1) {
         if (imagesBar) {
@@ -684,15 +708,12 @@ async function applyImportedGameDetails(entries) {
     alert(`${notFound} images from the import were not found in your tierlist.`);
   }
 
-  // Re-save positions
   await saveImagePositions();
 
-  // Re-apply tier rules
   if (typeof applyTierSettingsToRows === "function") {
     await applyTierSettingsToRows();
   }
 
-  // Update UI
   if (typeof updateTierCounts === "function") {
     updateTierCounts(typeof countsAreShown === "function" ? countsAreShown() : false);
   }
@@ -701,7 +722,6 @@ async function applyImportedGameDetails(entries) {
     setDropHintVisibility();
   }
 
-  // Save locally and sync
   await saveTierListLocally().catch((err) => {
     console.error("Failed to save tier list locally after import:", err);
   });
