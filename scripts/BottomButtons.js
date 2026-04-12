@@ -1,101 +1,183 @@
 // BottomButtons.js
-// Handles export, download, and delete functionality for the tier maker.
+// Handles export, download, sharing, screenshot download, and full tier list deletion.
+// Designed to stay compatible with the existing HTML and the rewritten DatabaseSyncing.js / script.js.
+
+const BUTTONS_LOADING_OVERLAY_ID = "buttons-loading-overlay";
+const SHARE_UPLOAD_ENDPOINT = "https://hastebin.skyra.pw/documents";
+const MAX_SHARE_CHUNK_SIZE = 10000;
+const SCREENSHOT_FILENAME = "GamersTierMaker_tierlist.png";
+const ZIP_FILENAME = "GamersTierMaker_images.zip";
+const DETAILS_FILENAME = "GamersTierMaker_game_details.json";
+
+function bottomButtonsLogError(context, err) {
+  console.error(`[BottomButtons] ${context}`, err);
+}
+
+function getAllImagesOnPage() {
+  return Array.from(document.querySelectorAll(".image"));
+}
+
+function getTierRowsForButtons() {
+  return Array.from(document.querySelectorAll(".row"));
+}
+
+function getImagesBarForButtons() {
+  return document.getElementById("images-bar");
+}
+
+function createLoadingOverlay(message = "Working...") {
+  removeLoadingOverlay();
+
+  const loadingDiv = document.createElement("div");
+  loadingDiv.id = BUTTONS_LOADING_OVERLAY_ID;
+  loadingDiv.style.cssText = [
+    "position: fixed",
+    "top: 50%",
+    "left: 50%",
+    "transform: translate(-50%, -50%)",
+    "background: rgba(0,0,0,0.88)",
+    "color: white",
+    "padding: 16px 24px",
+    "border-radius: 8px",
+    "z-index: 10000",
+    "font-size: 14px",
+    "min-width: 220px",
+    "text-align: center",
+    "box-shadow: 0 8px 20px rgba(0,0,0,0.35)",
+  ].join(";");
+  loadingDiv.textContent = message;
+
+  document.body.appendChild(loadingDiv);
+  return loadingDiv;
+}
+
+function updateLoadingOverlay(message) {
+  const loadingDiv = document.getElementById(BUTTONS_LOADING_OVERLAY_ID);
+  if (loadingDiv) {
+    loadingDiv.textContent = message;
+  }
+}
+
+function removeLoadingOverlay() {
+  const existing = document.getElementById(BUTTONS_LOADING_OVERLAY_ID);
+  if (existing) existing.remove();
+}
+
+function sanitizeFileName(name, fallback = "image") {
+  const cleaned = String(name || "")
+    .replace(/[\\/:*?"<>|]+/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  return cleaned || fallback;
+}
+
+function triggerBlobDownload(blob, filename) {
+  if (window.saveAs) {
+    window.saveAs(blob, filename);
+    return;
+  }
+
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = filename;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  URL.revokeObjectURL(url);
+}
+
+async function blobFromImageUrl(url) {
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`Image fetch failed with status ${response.status}`);
+  }
+  return response.blob();
+}
+
+function inferFileExtension(blob, src) {
+  if (blob && blob.type) {
+    const parts = blob.type.split("/");
+    let ext = parts[1] ? parts[1].split(";")[0] : "";
+    if (ext === "jpeg") ext = "jpg";
+    if (ext) return ext;
+  }
+
+  const match = (src || "").split("?")[0].match(/\.([a-zA-Z0-9]+)$/);
+  return match ? match[1] : "png";
+}
 
 async function downloadAllImagesZip() {
   if (!window.JSZip) {
-    alert('Zip library not loaded.');
+    alert("Zip library not loaded.");
     return;
   }
 
-  const images = Array.from(document.querySelectorAll('.image'));
+  const images = getAllImagesOnPage();
   if (!images.length) {
-    alert('No images to download.');
+    alert("No images to download.");
     return;
   }
 
-  const loadingDiv = document.createElement('div');
-  loadingDiv.id = 'zip-loading';
-  loadingDiv.style.cssText = 'position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.85); color: white; padding: 16px 24px; border-radius: 8px; z-index: 10000; font-size: 14px;';
-  loadingDiv.textContent = 'Preparing zip...';
-  document.body.appendChild(loadingDiv);
-
+  const loadingDiv = createLoadingOverlay("Preparing zip...");
   const zip = new JSZip();
-  const nameCounts = {};
+  const nameCounts = Object.create(null);
+  let addedCount = 0;
 
   try {
-    for (let i = 0; i < images.length; i++) {
+    for (let i = 0; i < images.length; i += 1) {
       const img = images[i];
-      const src = img.dataset.cloudinaryUrl || img.src;
+      const src = img.dataset.cloudinaryUrl || img.dataset.imageSrc || img.src;
+      updateLoadingOverlay(`Adding ${i + 1} of ${images.length}...`);
 
-      loadingDiv.textContent = `Adding ${i + 1} of ${images.length}...`;
-
-      let resp;
       try {
-        resp = await fetch(src);
+        const blob = await blobFromImageUrl(src);
+        let metadata = null;
+
+        try {
+          metadata = await getImageMetadataFromIndexedDB(img.dataset.imageId);
+        } catch (err) {
+          bottomButtonsLogError(`Failed reading metadata while zipping image ${img.dataset.imageId}.`, err);
+        }
+
+        let baseName = sanitizeFileName(metadata?.name, img.dataset.imageId || `image_${i + 1}`);
+        const ext = inferFileExtension(blob, src);
+        let filename = `${baseName}.${ext}`;
+
+        if (nameCounts[filename]) {
+          nameCounts[filename] += 1;
+          filename = `${baseName}_${nameCounts[filename]}.${ext}`;
+        } else {
+          nameCounts[filename] = 1;
+        }
+
+        zip.file(filename, blob);
+        addedCount += 1;
       } catch (err) {
-        continue;
+        bottomButtonsLogError(`Failed adding image ${src} to zip.`, err);
       }
-
-      const blob = await resp.blob();
-
-      let meta = null;
-      try {
-        meta = await getImageMetadataFromIndexedDB(img.dataset.imageId);
-      } catch (e) {
-        meta = null;
-      }
-
-      let baseName = (meta && meta.name) ? meta.name.trim() : '';
-      if (!baseName) baseName = img.dataset.imageId || `image_${i+1}`;
-      baseName = baseName.replace(/[\\/:*?"<>|]+/g, '').trim() || `image_${i+1}`;
-
-      let ext = '';
-      if (blob && blob.type) {
-        const parts = blob.type.split('/');
-        ext = parts[1] ? parts[1].split(';')[0] : '';
-        if (ext === 'jpeg') ext = 'jpg';
-      }
-      if (!ext) {
-        const m = (src || '').split('?')[0].match(/\.([a-zA-Z0-9]+)$/);
-        ext = m ? m[1] : 'png';
-      }
-
-      let filename = `${baseName}.${ext}`;
-      if (nameCounts[filename]) {
-        nameCounts[filename] += 1;
-        filename = `${baseName}_${nameCounts[filename]}.${ext}`;
-      } else {
-        nameCounts[filename] = 1;
-      }
-
-      zip.file(filename, blob);
     }
 
-    loadingDiv.textContent = 'Finalizing zip...';
-    const content = await zip.generateAsync({ type: 'blob' });
-    if (window.saveAs) {
-      saveAs(content, 'GamersTierMaker_images.zip');
-    } else {
-      const url = URL.createObjectURL(content);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'GamersTierMaker_images.zip';
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
+    if (!addedCount) {
+      alert("Failed to prepare any images for download.");
+      return;
     }
+
+    updateLoadingOverlay("Finalizing zip...");
+    const content = await zip.generateAsync({ type: "blob" });
+    triggerBlobDownload(content, ZIP_FILENAME);
   } finally {
     loadingDiv.remove();
   }
 }
 
 function getImageDetailsFromPage() {
-  return Array.from(document.querySelectorAll('.image')).map(img => {
+  const rows = getTierRowsForButtons();
+  return getAllImagesOnPage().map((img) => {
     const imageId = img.dataset.imageId;
-    const imageSrc = img.dataset.imageSrc || img.src || '';
-    const row = img.closest('.row');
-    const tierIndex = row ? Array.from(document.querySelectorAll('.row')).indexOf(row) : -1;
+    const imageSrc = img.dataset.imageSrc || img.dataset.cloudinaryUrl || img.src || "";
+    const row = img.closest(".row");
+    const tierIndex = row ? rows.indexOf(row) : -1;
     return { imageId, imageSrc, tier: tierIndex };
   });
 }
@@ -103,86 +185,97 @@ function getImageDetailsFromPage() {
 async function getGameDetailsForExport() {
   const entries = [];
   const imageDetails = getImageDetailsFromPage();
+
   for (const image of imageDetails) {
     if (!image.imageId) continue;
-    let metadata = { name: '', developer: '', date: '', description: '', status: '', platform: null };
+
+    let metadata = {
+      name: "",
+      developer: "",
+      date: "",
+      description: "",
+      status: "",
+      platform: null,
+      date100: "",
+      has100Replay: false,
+    };
+
     try {
       metadata = await getImageMetadataFromIndexedDB(image.imageId);
     } catch (err) {
+      bottomButtonsLogError(`Failed reading metadata for export on image ${image.imageId}.`, err);
     }
+
     entries.push({
       imageId: image.imageId,
       imageSrc: image.imageSrc,
       tier: image.tier,
-      name: metadata.name || '',
-      developer: metadata.developer || '',
-      date: metadata.date || '',
-      description: metadata.description || '',
+      name: metadata.name || "",
+      developer: metadata.developer || "",
+      date: metadata.date || "",
+      description: metadata.description || "",
       platform: metadata.platform || null,
-      status: metadata.status || '',
-      date100: metadata.date100 || '',
-      has100Replay: !!metadata.has100Replay
+      status: metadata.status || "",
+      date100: metadata.date100 || "",
+      has100Replay: !!metadata.has100Replay,
     });
   }
+
   return entries;
 }
 
 function downloadGameDetailsJSON() {
-  getGameDetailsForExport().then(entries => {
-    if (!entries.length) {
-      alert('No game details found to export.');
-      return;
-    }
-    const payload = {
-      exportedAt: new Date().toISOString(),
-      entries
-    };
-    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'GamersTierMaker_game_details.json';
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
-  }).catch(err => {
-    alert('Failed to export game details. See console for details.');
-  });
+  getGameDetailsForExport()
+    .then((entries) => {
+      if (!entries.length) {
+        alert("No game details found to export.");
+        return;
+      }
+
+      const payload = {
+        exportedAt: new Date().toISOString(),
+        entries,
+      };
+
+      const blob = new Blob([JSON.stringify(payload, null, 2)], {
+        type: "application/json",
+      });
+      triggerBlobDownload(blob, DETAILS_FILENAME);
+    })
+    .catch((err) => {
+      bottomButtonsLogError("Failed exporting game details JSON.", err);
+      alert("Failed to export game details. See console for details.");
+    });
 }
 
 function convertImageToDataURL(imageElement) {
   const MAX_IMG_SIZE = 500;
-  const c = document.createElement("canvas");
-  const ratio = imageElement.naturalHeight / imageElement.naturalWidth;
+  const canvas = document.createElement("canvas");
+  const ratio = imageElement.naturalHeight / imageElement.naturalWidth || 1;
 
   if (ratio > 1) {
-    c.height = Math.min(MAX_IMG_SIZE, imageElement.naturalHeight);
-    c.width = Math.round(MAX_IMG_SIZE / ratio);
+    canvas.height = Math.min(MAX_IMG_SIZE, imageElement.naturalHeight || MAX_IMG_SIZE);
+    canvas.width = Math.round(MAX_IMG_SIZE / ratio);
   } else if (ratio < 1) {
-    c.height = Math.round(MAX_IMG_SIZE * ratio);
-    c.width = Math.min(MAX_IMG_SIZE, imageElement.naturalWidth);
+    canvas.height = Math.round(MAX_IMG_SIZE * ratio);
+    canvas.width = Math.min(MAX_IMG_SIZE, imageElement.naturalWidth || MAX_IMG_SIZE);
   } else {
-    c.width = MAX_IMG_SIZE;
-    c.height = MAX_IMG_SIZE;
+    canvas.width = MAX_IMG_SIZE;
+    canvas.height = MAX_IMG_SIZE;
   }
 
-  const ctx = c.getContext("2d");
-  ctx.drawImage(imageElement, 0, 0, c.width, c.height);
-  const base64String = c.toDataURL();
-  c.remove();
-
+  const ctx = canvas.getContext("2d");
+  ctx.drawImage(imageElement, 0, 0, canvas.width, canvas.height);
+  const base64String = canvas.toDataURL();
+  canvas.remove();
   return base64String;
 }
 
 function encodeUnicode(str) {
   return btoa(
-    encodeURIComponent(str).replace(
-      /%([0-9A-F]{2})/g,
-      function toSolidBytes(match, p1) {
-        return String.fromCharCode(`0x${p1}`);
-      }
-    )
+    encodeURIComponent(str).replace(/%([0-9A-F]{2})/g, function toSolidBytes(match, p1) {
+      return String.fromCharCode(Number(`0x${p1}`));
+    })
   );
 }
 
@@ -190,202 +283,243 @@ function decodeUnicode(str) {
   return decodeURIComponent(
     atob(str)
       .split("")
-      .map((c) => {
-        return `%${c.charCodeAt(0).toString(16).padStart(2, "0")}`;
-      })
+      .map((c) => `%${c.charCodeAt(0).toString(16).padStart(2, "0")}`)
       .join("")
   );
 }
 
+async function postShareChunk(body) {
+  const response = await fetch(SHARE_UPLOAD_ENDPOINT, {
+    method: "POST",
+    body,
+  });
+
+  if (!response.ok) {
+    throw new Error(`Share upload failed with status ${response.status}`);
+  }
+
+  return response.json();
+}
+
 async function share(shareButton, sharePositions) {
-  const tiers = document.querySelectorAll(".row");
-  const imagesBar = document.querySelector("#images-bar");
-  const barImages = Array.from(imagesBar.children);
+  const tiers = getTierRowsForButtons();
+  const imagesBar = getImagesBarForButtons();
+  const barImages = imagesBar ? Array.from(imagesBar.children).filter((node) => node.classList?.contains("image")) : [];
 
   const oldButtonText = shareButton.innerText;
   shareButton.disabled = true;
   shareButton.innerText = "...";
 
-  const shareJSON = {
-    images: [],
-    tiers: [],
-  };
-
-  tiers.forEach((tier, tierIndex) => {
-    const betterTier = {
-      index: tierIndex,
-      name: tier.children[0].children[0].textContent,
-      color: tier.children[0].style.backgroundColor,
-      images: Array.from(tier.children[1].children),
+  try {
+    const shareJSON = {
+      images: [],
+      tiers: [],
     };
 
-    shareJSON.tiers.push({
-      index: betterTier.index,
-      name: betterTier.name,
-      color: betterTier.color,
+    tiers.forEach((tier, tierIndex) => {
+      const tierName = tier.children?.[0]?.children?.[0]?.textContent || `Tier ${tierIndex + 1}`;
+      const tierColor = tier.children?.[0]?.style?.backgroundColor || "lightslategray";
+      const tierImages = tier.children?.[1] ? Array.from(tier.children[1].children).filter((node) => node.classList?.contains("image")) : [];
+
+      shareJSON.tiers.push({
+        index: tierIndex,
+        name: tierName,
+        color: tierColor,
+      });
+
+      tierImages.forEach((img) => {
+        const base64String = convertImageToDataURL(img);
+        shareJSON.images.push({
+          img: base64String,
+          tier: sharePositions ? tierIndex : -1,
+        });
+      });
     });
 
-    betterTier.images.forEach((img, imgIndex) => {
-      const betterImage = {
-        index: imgIndex,
-        element: img,
-        src: img.src,
-      };
-
-      const base64String = convertImageToDataURL(betterImage.element);
-
+    barImages.forEach((img) => {
+      const base64String = convertImageToDataURL(img);
       shareJSON.images.push({
         img: base64String,
-        tier: sharePositions ? betterTier.index : -1,
+        tier: -1,
       });
     });
-  });
 
-  barImages.forEach((img, imgIndex) => {
-    const betterImage = {
-      index: imgIndex,
-      element: img,
-      src: img.src,
+    const c64 = encodeUnicode(JSON.stringify(shareJSON));
+    const chunks = c64.match(new RegExp(`.{1,${MAX_SHARE_CHUNK_SIZE}}`, "g")) || [];
+    if (!chunks.length) {
+      throw new Error("Nothing to share.");
+    }
+
+    const values = await Promise.all(chunks.map((chunk) => postShareChunk(chunk)));
+    const strings = values.map((v) => v.key);
+    const hastebinResponse = await postShareChunk(encodeUnicode(JSON.stringify(strings)));
+
+    const shareUrl = `${location.origin}${location.pathname}#${hastebinResponse.key}`;
+    const shareData = {
+      title: "Share tier list!",
+      text: shareUrl,
+      url: shareUrl,
     };
 
-    const base64String = convertImageToDataURL(betterImage.element);
-
-    shareJSON.images.push({
-      img: base64String,
-      tier: -1,
-    });
-  });
-
-  const c64 = encodeUnicode(JSON.stringify(shareJSON));
-  const chunks = c64.match(/.{1,10000}/g);
-
-  const values = await Promise.all(
-    chunks.map(async (chunk) => {
-      const response = await fetch("https://hastebin.skyra.pw/documents", {
-        method: "POST",
-        body: chunk,
-      });
-      return await response.json();
-    })
-  );
-
-  const strings = values.map((v) => v.key);
-  const res = await fetch("https://hastebin.skyra.pw/documents", {
-    method: "POST",
-    body: encodeUnicode(JSON.stringify(strings)),
-  });
-  const hastebinResponse = await res.json();
-
-  const shareData = {
-    title: "Share tier list!",
-    text: `${location.origin}${location.pathname}#${hastebinResponse.key}`,
-    url: `${location.origin}${location.pathname}#${hastebinResponse.key}`,
-  };
-
-  if (navigator.canShare(shareData)) {
-    try {
-      navigator.share(shareData);
-    } finally {
+    if (navigator.share && (!navigator.canShare || navigator.canShare(shareData))) {
+      await navigator.share(shareData);
       shareButton.innerText = "Shared!";
-      setTimeout(() => {
-        shareButton.innerText = oldButtonText;
-        shareButton.disabled = false;
-      }, 3000);
-    }
-  } else {
-    await navigator.clipboard.writeText(shareData.url);
-
-    shareButton.innerText = "Copied!";
-    setTimeout(() => {
-      shareButton.innerText = oldButtonText;
-      shareButton.disabled = false;
-    }, 5000);
-  }
-}
-
-async function load() {
-  const response = await fetch(`https://hastebin.skyra.pw/raw/${hash}`);
-  const text = await response.text();
-  const chunks = JSON.parse(decodeUnicode(text));
-
-  const chunksData = await Promise.all(
-    chunks.map(async (chunk) => {
-      const chunkResponse = await fetch(`https://hastebin.skyra.pw/raw/${chunk}`);
-      return chunkResponse.text();
-    })
-  );
-
-  const res = chunksData.join("");
-  const data = JSON.parse(decodeUnicode(res));
-
-  for (const row of document.querySelectorAll(".row")) {
-    deleteRow(row);
-  }
-
-  for (const tier of data.tiers) {
-    addRow(tier.name, tier.color || "lightslategray");
-  }
-
-  const imagesBar = document.querySelector("#images-bar");
-  const rows = document.querySelectorAll(".row");
-
-  for (const img of data.images) {
-    const image = document.createElement("img");
-    image.src = img.img;
-    image.className = "image";
-
-    if (img.tier === -1) {
-      imagesBar.appendChild(image);
+    } else if (navigator.clipboard && navigator.clipboard.writeText) {
+      await navigator.clipboard.writeText(shareUrl);
+      shareButton.innerText = "Copied!";
     } else {
-      rows[img.tier].children[1].appendChild(image);
+      prompt("Copy this URL:", shareUrl);
+      shareButton.innerText = "Ready!";
     }
-  }
-}
-
-async function deleteTierList() {
-  if (!confirmDeleteTierList()) {
+  } catch (err) {
+    bottomButtonsLogError("Share failed.", err);
+    alert("Failed to share tier list. See console for details.");
+    shareButton.innerText = oldButtonText;
+    shareButton.disabled = false;
     return;
   }
 
-  const loadingDiv = document.createElement("div");
-  loadingDiv.id = "delete-loading";
-  loadingDiv.style.cssText = "position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.8); color: white; padding: 20px 40px; border-radius: 8px; z-index: 10000; font-size: 16px;";
-  loadingDiv.textContent = "Deleting tier list...";
-  document.body.appendChild(loadingDiv);
+  setTimeout(() => {
+    shareButton.innerText = oldButtonText;
+    shareButton.disabled = false;
+  }, 3000);
+}
+
+async function downloadTierListImage() {
+  if (!window.html2canvas) {
+    alert("Screenshot library not loaded.");
+    return;
+  }
+
+  const target = document.getElementById("htmlContent");
+  if (!target) {
+    alert("Could not find the tier list content to download.");
+    return;
+  }
+
+  const loadingDiv = createLoadingOverlay("Rendering screenshot...");
 
   try {
-    const allImages = await getImagesFromIndexedDB();
-
-    for (const image of allImages) {
-      const cloudinaryUrl = image.cloudinaryUrl || image.src;
-      await deleteFromCloudinary(cloudinaryUrl);
-    }
-
-    await clearImagesFromIndexedDB();
-
-    const transaction = indexedDb.transaction(['imageMetadata'], 'readwrite');
-    const store = transaction.objectStore('imageMetadata');
-    await new Promise((resolve, reject) => {
-      const request = store.clear();
-      request.onerror = () => reject(request.error);
-      request.onsuccess = () => resolve();
+    const canvas = await window.html2canvas(target, {
+      backgroundColor: null,
+      useCORS: true,
+      scale: Math.max(1, window.devicePixelRatio || 1),
+      logging: false,
     });
 
-    document.querySelectorAll(".image").forEach(img => img.remove());
+    const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/png"));
+    if (!blob) {
+      throw new Error("Failed to create screenshot blob.");
+    }
 
-    if (currentUser && firebaseDb) {
-      try {
-        await firebaseDb.collection("tierLists").doc(currentUser.uid).delete();
-      } catch (error) {
+    triggerBlobDownload(blob, SCREENSHOT_FILENAME);
+  } catch (err) {
+    bottomButtonsLogError("Failed downloading tier list screenshot.", err);
+    alert("Failed to download the tier list image. See console for details.");
+  } finally {
+    loadingDiv.remove();
+  }
+}
+
+async function clearAllStoredImagesAndMetadata() {
+  const images = indexedDb ? await getImagesFromIndexedDB().catch((err) => {
+    bottomButtonsLogError("Failed reading stored images during full delete.", err);
+    return [];
+  }) : [];
+
+  await Promise.all(
+    images.map((image) => {
+      return Promise.all([
+        deleteImageFromIndexedDB(image.id).catch((err) => {
+          bottomButtonsLogError(`Failed deleting stored image ${image.id}.`, err);
+        }),
+        deleteImageMetadataFromIndexedDB(image.id).catch((err) => {
+          bottomButtonsLogError(`Failed deleting metadata for image ${image.id}.`, err);
+        }),
+      ]);
+    })
+  );
+}
+
+async function deleteTierList() {
+  if (typeof confirmDeleteTierList === "function" && !confirmDeleteTierList()) {
+    return;
+  }
+
+  const loadingDiv = createLoadingOverlay("Deleting tier list...");
+  const allImages = getAllImagesOnPage();
+  const cloudinaryUrls = allImages
+    .map((img) => img.dataset.cloudinaryUrl || img.dataset.imageSrc || img.src)
+    .filter(Boolean);
+
+  try {
+    updateLoadingOverlay("Removing local data...");
+
+    document.querySelectorAll(".image").forEach((img) => img.remove());
+    const imagesBar = getImagesBarForButtons();
+    const hint = document.getElementById("drop-zone-hint");
+    if (imagesBar && hint && !imagesBar.contains(hint)) {
+      imagesBar.appendChild(hint);
+    }
+
+    await clearAllStoredImagesAndMetadata();
+    await clearImagesFromIndexedDB().catch((err) => {
+      bottomButtonsLogError("Failed clearing images store after delete loop.", err);
+    });
+    await saveSetting("localTierList", null).catch((err) => {
+      bottomButtonsLogError("Failed clearing saved local tier list setting.", err);
+    });
+    localStorage.removeItem("savedTierList");
+
+    if (currentUser && firebaseDb && firebaseAvailable) {
+      updateLoadingOverlay("Clearing synced tier list...");
+      await saveTierListToFirebase().catch((err) => {
+        bottomButtonsLogError("Failed syncing empty tier list after delete.", err);
+      });
+    }
+
+    if (cloudinaryUrls.length) {
+      updateLoadingOverlay("Requesting remote image deletes...");
+      const results = await Promise.allSettled(
+        cloudinaryUrls.map((url) => deleteFromCloudinary(url))
+      );
+
+      const failedDeletes = results.filter((result) => result.status === "rejected");
+      if (failedDeletes.length) {
+        console.warn(`[BottomButtons] ${failedDeletes.length} remote image deletes failed.`);
       }
     }
 
-    loadingDiv.remove();
-    alert("Tier list deleted successfully. All images have been removed from Cloudinary and your tier list.");
+    if (typeof updateTierCounts === "function") {
+      try {
+        updateTierCounts(false);
+      } catch (err) {
+        bottomButtonsLogError("Failed updating tier counts after delete.", err);
+      }
+    }
 
-    location.reload();
+    if (typeof setDropHintVisibility === "function") {
+      try {
+        setDropHintVisibility();
+      } catch (err) {
+        bottomButtonsLogError("Failed restoring drop hint visibility after delete.", err);
+      }
+    }
+
+    alert("Tier list deleted.");
   } catch (err) {
+    bottomButtonsLogError("Failed deleting tier list.", err);
+    alert("Failed to delete the tier list completely. See console for details.");
+  } finally {
     loadingDiv.remove();
-    alert("Failed to delete tier list. Please try again.");
   }
 }
+
+(function bindBottomButtons() {
+  document.addEventListener("DOMContentLoaded", () => {
+    const screenshotButton = document.getElementById("btn");
+    if (screenshotButton) {
+      screenshotButton.addEventListener("click", downloadTierListImage);
+    }
+  });
+})();

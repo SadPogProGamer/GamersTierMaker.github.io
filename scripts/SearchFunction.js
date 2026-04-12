@@ -1,138 +1,277 @@
 // SearchFunction.js
-// Handles plain game search filtering logic.
+// Handles plain search filtering, slash-command-aware filtering, and clear-button UI.
+// Designed to stay compatible with the existing HTML and Commands.js.
+
+let latestSearchRequestId = 0;
+
+function searchLogError(context, err) {
+  console.error(`[SearchFunction] ${context}`, err);
+}
+
+function getSearchInputElement() {
+  return document.getElementById("search-input");
+}
+
+function getSearchDropdownElement() {
+  return document.getElementById("search-commands-dropdown");
+}
+
+function getClearSearchButton() {
+  return document.getElementById("clear-search");
+}
+
+function getSearchRows() {
+  return Array.from(document.querySelectorAll(".row"));
+}
+
+function getSearchImagesBar() {
+  return document.querySelector("#images-bar");
+}
+
+function getDefaultSearchMetadata() {
+  return {
+    name: "",
+    developer: "",
+    date: "",
+    description: "",
+    status: "",
+    platform: null,
+    date100: "",
+    has100Replay: false,
+  };
+}
+
+function normalizeSearchText(value) {
+  return String(value || "")
+    .toLowerCase()
+    .replace(/&/g, "and")
+    .trim();
+}
+
+function hideSearchCommandDropdown() {
+  const dropdown = getSearchDropdownElement();
+  if (dropdown) {
+    dropdown.classList.add("hidden");
+  }
+}
 
 function clearSearch() {
-  const searchInput = document.getElementById("search-input");
+  const searchInput = getSearchInputElement();
+  if (!searchInput) return;
+
   searchInput.value = "";
-  document.getElementById("search-commands-dropdown").classList.add("hidden");
+  hideSearchCommandDropdown();
   filterImages("");
+  updateClearButtonVisibility();
   searchInput.focus();
 }
 
 function updateClearButtonVisibility() {
-  const searchInput = document.getElementById("search-input");
-  const clearBtn = document.getElementById("clear-search");
+  const searchInput = getSearchInputElement();
+  const clearBtn = getClearSearchButton();
+  if (!searchInput || !clearBtn) return;
 
-  if (searchInput.value.length > 0) {
-    clearBtn.classList.add("visible");
-  } else {
-    clearBtn.classList.remove("visible");
-  }
+  clearBtn.classList.toggle("visible", searchInput.value.length > 0);
 }
 
-function matchesQuery(gameName, searchQuery) {
-  const gameNameLower = gameName.toLowerCase().replace(/&/g, "and");
+function matchesAliasQuery(searchableName, normalizedQuery) {
+  if (!normalizedQuery) return false;
 
-  if (gameNameLower.includes(searchQuery)) {
-    return true;
-  }
-
-  if (typeof abbreviationsMap !== 'undefined' && abbreviationsMap[searchQuery]) {
-    const fullName = abbreviationsMap[searchQuery].toLowerCase();
-    if (gameNameLower.includes(fullName)) {
+  if (typeof abbreviationsMap !== "undefined" && abbreviationsMap[normalizedQuery]) {
+    const aliasFullName = normalizeSearchText(abbreviationsMap[normalizedQuery]);
+    if (aliasFullName && searchableName.includes(aliasFullName)) {
       return true;
     }
   }
 
-  if ((searchQuery === "smt" || searchQuery === "shin megami tensei") && gameNameLower.includes("persona")) {
+  if (
+    (normalizedQuery === "smt" || normalizedQuery === "shin megami tensei") &&
+    searchableName.includes("persona")
+  ) {
     return true;
   }
 
-  if (searchQuery === "persona" && gameNameLower.includes("shin megami tensei")) {
+  if (normalizedQuery === "persona" && searchableName.includes("shin megami tensei")) {
     return true;
   }
 
   return false;
 }
 
-function filterImages(searchQuery) {
-  const rows = document.querySelectorAll(".row");
-  const imagesBar = document.querySelector("#images-bar");
+function matchesQuery(gameName, searchQuery) {
+  const searchableName = normalizeSearchText(gameName);
+  const normalizedQuery = normalizeSearchText(searchQuery);
 
-  const rawQuery = searchQuery.trim();
-  const query = rawQuery === "/" ? "" : searchQuery.toLowerCase().replace(/&/g, "and");
+  if (!normalizedQuery) {
+    return true;
+  }
 
-  getAllImageMetadataFromIndexedDB().then(allMetadata => {
-    const metadataMap = {};
-    allMetadata.forEach(metadata => {
-      metadataMap[metadata.id] = metadata;
-    });
+  if (searchableName.includes(normalizedQuery)) {
+    return true;
+  }
 
-    let showCounts = false;
-    let filteredQuery = query;
-    if (query.includes("/showamount")) {
-      showCounts = true;
-      filteredQuery = query.replace("/showamount", "").trim();
+  return matchesAliasQuery(searchableName, normalizedQuery);
+}
+
+function extractMetadataForSearch(imageElement, metadataMap) {
+  const imageId = imageElement?.dataset?.imageId;
+  const metadata = (imageId && metadataMap[imageId]) || getDefaultSearchMetadata();
+
+  return {
+    imageId: imageId || null,
+    imageName: metadata.name || "",
+    imagePlatform: metadata.platform || "",
+    imageDescription: metadata.description || "",
+    imageDate: metadata.date || "",
+    imageStatus: metadata.status || "",
+    imageDeveloper: metadata.developer || "",
+  };
+}
+
+function evaluateImageAgainstQuery(metadata, filteredQuery) {
+  if (!filteredQuery) {
+    return true;
+  }
+
+  if (filteredQuery.startsWith("/")) {
+    if (typeof processCommandFilter !== "function") {
+      return true;
+    }
+
+    return processCommandFilter(
+      filteredQuery,
+      metadata.imageName,
+      metadata.imagePlatform,
+      metadata.imageDescription,
+      metadata.imageDate,
+      metadata.imageStatus,
+      metadata.imageDeveloper
+    );
+  }
+
+  return matchesQuery(metadata.imageName, filteredQuery);
+}
+
+function applySearchVisibilityToContainer(container, metadataMap, filteredQuery) {
+  if (!container) return;
+
+  const images = Array.from(container.querySelectorAll(".image"));
+  images.forEach((img) => {
+    const metadata = extractMetadataForSearch(img, metadataMap);
+    const shouldShow = evaluateImageAgainstQuery(metadata, filteredQuery);
+    img.style.display = shouldShow ? "" : "none";
+  });
+}
+
+function updateSearchResultCount(showCounts, filteredQuery) {
+  const totalCountEl = document.getElementById("total-count");
+  if (!totalCountEl) return;
+
+  const visibleTierImages = Array.from(document.querySelectorAll(".row .image")).filter(
+    (img) => img.style.display !== "none"
+  );
+
+  const visibleCount = visibleTierImages.length;
+  const shouldShowTotal = (showCounts || filteredQuery !== "") && visibleCount > 0;
+
+  if (shouldShowTotal) {
+    totalCountEl.textContent = `Total: ${visibleCount}`;
+    totalCountEl.style.display = "";
+  } else {
+    totalCountEl.style.display = "none";
+  }
+}
+
+function parseSearchQuery(searchQuery) {
+  const rawQuery = String(searchQuery || "").trim();
+  const normalizedQuery = rawQuery === "/" ? "" : normalizeSearchText(rawQuery);
+
+  let showCounts = false;
+  let filteredQuery = normalizedQuery;
+
+  if (filteredQuery.includes("/showamount")) {
+    showCounts = true;
+    filteredQuery = filteredQuery.replace("/showamount", "").trim();
+  }
+
+  return {
+    rawQuery,
+    normalizedQuery,
+    filteredQuery,
+    showCounts,
+  };
+}
+
+async function getSearchMetadataMap() {
+  const allMetadata = await getAllImageMetadataFromIndexedDB();
+  const metadataMap = Object.create(null);
+
+  allMetadata.forEach((metadata) => {
+    if (!metadata || !metadata.id) return;
+    metadataMap[metadata.id] = metadata;
+  });
+
+  return metadataMap;
+}
+
+async function filterImages(searchQuery) {
+  const requestId = ++latestSearchRequestId;
+  const rows = getSearchRows();
+  const imagesBar = getSearchImagesBar();
+  const { filteredQuery, showCounts } = parseSearchQuery(searchQuery);
+
+  try {
+    const metadataMap = await getSearchMetadataMap();
+
+    if (requestId !== latestSearchRequestId) {
+      return;
     }
 
     rows.forEach((row) => {
-      const tierImages = row.children[1].querySelectorAll(".image");
+      const tierContainer = row.children?.[1];
+      applySearchVisibilityToContainer(tierContainer, metadataMap, filteredQuery);
+    });
+
+    applySearchVisibilityToContainer(imagesBar, metadataMap, filteredQuery);
+
+    if (typeof updateTierCounts === "function") {
+      updateTierCounts(showCounts);
+    }
+
+    updateSearchResultCount(showCounts, filteredQuery);
+  } catch (err) {
+    if (requestId !== latestSearchRequestId) {
+      return;
+    }
+
+    searchLogError("Failed filtering images.", err);
+
+    rows.forEach((row) => {
+      const tierImages = row.children?.[1]?.querySelectorAll?.(".image") || [];
       tierImages.forEach((img) => {
-        const imageId = img.dataset.imageId;
-        const metadata = metadataMap[imageId] || { name: "", date: "", description: "", status: "", platform: null, developer: "" };
-        const imageName = metadata.name;
-        const imagePlatform = metadata.platform ? metadata.platform : "";
-        const imageDescription = metadata.description || "";
-        const imageDate = metadata.date || "";
-        const imageStatus = metadata.status || "";
-        const imageDeveloper = metadata.developer || "";
-
-        let shouldShow;
-        if (filteredQuery.startsWith("/")) {
-          shouldShow = processCommandFilter(filteredQuery, imageName, imagePlatform, imageDescription, imageDate, imageStatus, imageDeveloper);
-        } else {
-          shouldShow = matchesQuery(imageName, filteredQuery);
-        }
-
-        img.style.display = shouldShow ? "" : "none";
+        img.style.display = "";
       });
     });
 
-    updateTierCounts(showCounts);
+    imagesBar?.querySelectorAll?.(".image")?.forEach?.((img) => {
+      img.style.display = "";
+    });
 
-    try {
-      const totalCountEl = document.getElementById('total-count');
-      if (totalCountEl) {
-        const total = Array.from(document.querySelectorAll('.row .image')).filter(img => img.style.display !== 'none').length;
-        if ((showCounts || filteredQuery !== "") && total > 0) {
-          totalCountEl.textContent = `Total: ${total}`;
-          totalCountEl.style.display = '';
-        } else {
-          totalCountEl.style.display = 'none';
-        }
-      }
-    } catch (e) {
+    if (typeof updateTierCounts === "function") {
+      updateTierCounts(false);
     }
 
-    const barImages = imagesBar.querySelectorAll(".image");
-    barImages.forEach((img) => {
-      const imageId = img.dataset.imageId;
-      const metadata = metadataMap[imageId] || { name: "", date: "", description: "", status: "", platform: null, developer: "" };
-      const imageName = metadata.name;
-      const imagePlatform = metadata.platform ? metadata.platform : "";
-      const imageDescription = metadata.description || "";
-      const imageDate = metadata.date || "";
-      const imageStatus = metadata.status || "";
-      const imageDeveloper = metadata.developer || "";
-
-      let shouldShow;
-      if (filteredQuery.startsWith("/")) {
-        shouldShow = processCommandFilter(filteredQuery, imageName, imagePlatform, imageDescription, imageDate, imageStatus, imageDeveloper);
-      } else {
-        shouldShow = matchesQuery(imageName, filteredQuery);
-      }
-
-      img.style.display = shouldShow ? "" : "none";
-    });
-  }).catch(err => {
-  });
-
-  updateClearButtonVisibility();
+    updateSearchResultCount(false, "");
+  } finally {
+    updateClearButtonVisibility();
+  }
 }
 
-document.addEventListener("DOMContentLoaded", function() {
-  const searchInput = document.getElementById("search-input");
+document.addEventListener("DOMContentLoaded", () => {
+  const searchInput = getSearchInputElement();
   if (searchInput) {
     searchInput.addEventListener("input", updateClearButtonVisibility);
   }
+
+  updateClearButtonVisibility();
 });

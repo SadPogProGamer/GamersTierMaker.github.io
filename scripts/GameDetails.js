@@ -1,3 +1,7 @@
+// GameDetails.js
+// Handles the game details modal, platform picker, metadata autosave, and deleting a single image.
+// Designed to stay compatible with the existing HTML and the rewritten DatabaseSyncing.js / script.js.
+
 const platformOptions = {
   "PC": [
     "PC",
@@ -30,7 +34,7 @@ const platformOptions = {
     "Atari 5200",
     "Atari 7800",
     "Atari Jaguar",
-    "V.Smile",
+    "V.Smile"
   ],
   "Handhelds": [
     "Game Boy",
@@ -42,9 +46,9 @@ const platformOptions = {
     "PlayStation Vita",
     "Sega Game Gear",
     "Atari Lynx",
-    "Steam Deck",
+    "Steam Deck"
   ],
-    "Emulators": [
+  "Emulators": [
     "Snes9x (SNES)",
     "Mesen (NES)",
     "Visual Boy Advance (Game Boy Advance)",
@@ -61,7 +65,7 @@ const platformOptions = {
     "Xemu (Xbox)",
     "Xenia (Xbox 360)",
     "Ryujinx (Switch)",
-    "Yuzu (Switch)",
+    "Yuzu (Switch)"
   ],
   "Nintendo Switch Online": [
     "NES (Nintendo Switch Online)",
@@ -69,9 +73,9 @@ const platformOptions = {
     "Nintendo 64 (Nintendo Switch Online)",
     "Sega Genesis (Nintendo Switch Online)",
     "Game Boy (Nintendo Switch Online)",
-    "Game Boy Advance (Nintendo Switch Online)",
+    "Game Boy Advance (Nintendo Switch Online)"
   ],
-    "VR": [
+  "VR": [
     "Meta Quest 2",
     "Meta Quest 3",
     "Meta Quest Pro",
@@ -82,253 +86,91 @@ const platformOptions = {
     "HTC Vive Cosmos",
     "Valve Index",
     "Oculus Rift",
-    "Oculus Rift S",
+    "Oculus Rift S"
   ],
-    "Arcade": [
+  "Arcade": [
     "Arcade"
   ],
   "Mobile": [
     "Mobile"
-  ],
+  ]
 };
 
 let currentImageElement = null;
 let currentSelectedPlatform = null;
 let currentHas100Replay = false;
+let modalBindingsInitialized = false;
+let currentModalEscapeHandler = null;
 
-function openImageModal(imgElement) {
-  currentImageElement = imgElement;
-  const modal = document.getElementById("image-modal");
-  const imageId = imgElement.dataset.imageId;
-
-  // Show sync notification if not logged in
-  const syncNotification = document.getElementById("sync-notification");
-  if (syncNotification) {
-    if (!currentUser || !firebaseDb) {
-      syncNotification.classList.remove("hidden");
-    } else {
-      syncNotification.classList.add("hidden");
-    }
-  }
-
-  getImageMetadataFromIndexedDB(imageId).then(imageMetadata => {
-    document.getElementById("image-name").value = imageMetadata.name || "";
-    document.getElementById("image-developer").value = imageMetadata.developer || "";
-    document.getElementById("image-date").value = imageMetadata.date || "";
-    document.getElementById("image-date-100").value = imageMetadata.date100 || "";
-    document.getElementById("image-description").value = imageMetadata.description || "";
-    document.getElementById("image-status").value = imageMetadata.status || "";
-    currentHas100Replay = !!imageMetadata.has100Replay;
-
-    // Update the date label based on status and show/hide replay fields
-    updateDateLabel();
-    updateReplayVisibility();
-
-    // Load platform
-    currentSelectedPlatform = imageMetadata.platform || null;
-    document.getElementById("platform-search").value = "";
-    document.getElementById("platform-dropdown-menu").classList.add("hidden");
-    updatePlatformButton();
-    renderPlatformOptions();
-
-    // Set up auto-save listeners for metadata fields
-    setupMetadataAutoSave(imageId);
-
-    // Enable Escape key to close modal (same behavior as tapping the X)
-    if (window.currentModalEscapeHandler) {
-      document.removeEventListener("keydown", window.currentModalEscapeHandler);
-    }
-    window.currentModalEscapeHandler = (e) => {
-      if (e.key === "Escape") {
-        closeImageModal();
-      }
-    };
-    document.addEventListener("keydown", window.currentModalEscapeHandler);
-
-    modal.classList.remove("hidden");
-  }).catch(err => {
-  });
+function gameDetailsLogError(context, err) {
+  console.error(`[GameDetails] ${context}`, err);
 }
 
-function setupMetadataAutoSave(imageId) {
-  try {
-    const descriptionField = document.getElementById("image-description");
-    const dateField = document.getElementById("image-date");
-    const statusField = document.getElementById("image-status");
-    const nameField = document.getElementById("image-name");
-    const developerField = document.getElementById("image-developer");
-
-    if (!descriptionField || !dateField || !statusField || !nameField || !developerField) {
-      return;
-    }
-
-    const currentValues = {
-      description: descriptionField.value,
-      date: dateField.value,
-      status: statusField.value,
-      name: nameField.value,
-      developer: developerField.value,
-    };
-
-    const newDescription = descriptionField.cloneNode(true);
-    const newDate = dateField.cloneNode(true);
-    const newStatus = statusField.cloneNode(true);
-    const newName = nameField.cloneNode(true);
-    const newDeveloper = developerField.cloneNode(true);
-
-    descriptionField.parentNode.replaceChild(newDescription, descriptionField);
-    dateField.parentNode.replaceChild(newDate, dateField);
-    statusField.parentNode.replaceChild(newStatus, statusField);
-    nameField.parentNode.replaceChild(newName, nameField);
-    developerField.parentNode.replaceChild(newDeveloper, developerField);
-
-    document.getElementById("image-description").value = currentValues.description;
-    document.getElementById("image-date").value = currentValues.date;
-    document.getElementById("image-status").value = currentValues.status;
-    document.getElementById("image-name").value = currentValues.name;
-    document.getElementById("image-developer").value = currentValues.developer;
-
-    const createDebouncedHandler = (currentImageId) => (e) => {
-      if (autoSaveTimers[currentImageId]) {
-        clearTimeout(autoSaveTimers[currentImageId]);
-      }
-      autoSaveTimers[currentImageId] = setTimeout(() => {
-        autoSaveMetadata(currentImageId);
-      }, 800);
-    };
-
-    document.getElementById("image-description").addEventListener("input", createDebouncedHandler(imageId));
-    document.getElementById("image-date").addEventListener("input", createDebouncedHandler(imageId));
-    document.getElementById("image-name").addEventListener("input", createDebouncedHandler(imageId));
-    document.getElementById("image-developer").addEventListener("input", createDebouncedHandler(imageId));
-    document.getElementById("image-status").addEventListener("change", createDebouncedHandler(imageId));
-    document.getElementById("image-date-100").addEventListener("input", createDebouncedHandler(imageId));
-  } catch (err) {
-  }
+function getModalElement() {
+  return document.getElementById("image-modal");
 }
 
-function autoSaveMetadataWrapper() {
-  if (currentImageElement) {
-    autoSaveMetadata(currentImageElement.dataset.imageId);
-  }
+function getField(id) {
+  return document.getElementById(id);
 }
 
-function autoSaveMetadata(imageId) {
-  if (!currentImageElement) {
-    return;
-  }
+function getCurrentImageId() {
+  return currentImageElement?.dataset?.imageId || null;
+}
 
-  if (currentImageElement.dataset.imageId !== imageId) {
-    return;
-  }
+function getSearchQueryValue() {
+  return getField("search-input")?.value || "";
+}
 
-  const imageMetadata = {
-    name: document.getElementById("image-name").value || "",
-    developer: document.getElementById("image-developer").value || "",
-    date: document.getElementById("image-date").value || "",
-    date100: document.getElementById("image-date-100").value || "",
-    description: document.getElementById("image-description").value || "",
-    status: document.getElementById("image-status").value || "",
-    platform: currentSelectedPlatform,
-    has100Replay: currentHas100Replay
+function getCurrentMetadataFromForm() {
+  return {
+    name: getField("image-name")?.value || "",
+    developer: getField("image-developer")?.value || "",
+    date: getField("image-date")?.value || "",
+    date100: getField("image-date-100")?.value || "",
+    description: getField("image-description")?.value || "",
+    status: getField("image-status")?.value || "",
+    platform: currentSelectedPlatform || null,
+    has100Replay: !!currentHas100Replay
   };
-
-
-  saveImageMetadataToIndexedDB(imageId, imageMetadata)
-    .then(async () => {
-      await sortCurrentImageTierIfOrdered(currentImageElement).catch(() => {});
-      await saveTierListLocally().catch(() => {});
-
-      if (currentUser && firebaseDb) {
-        showSyncStatus("syncing", "Syncing...");
-
-        const nowMs = Date.now();
-        const lastSyncMs = lastFirebaseSyncTime[imageId] || 0;
-        const timeSinceLastSync = nowMs - lastSyncMs;
-
-        if (autoSaveTimers[imageId]) {
-          clearTimeout(autoSaveTimers[imageId]);
-        }
-
-        if (timeSinceLastSync > 5000) {
-          lastFirebaseSyncTime[imageId] = nowMs;
-          saveTierListToFirebase()
-            .then(() => {
-              showSyncStatus("synced", "Synced");
-              setTimeout(() => hideSyncStatus(), 2000);
-            })
-            .catch(err => {
-              showSyncStatus("error", "Sync failed!");
-              setTimeout(() => hideSyncStatus(), 3000);
-            });
-        } else {
-          autoSaveTimers[imageId] = setTimeout(() => {
-            lastFirebaseSyncTime[imageId] = Date.now();
-            saveTierListToFirebase()
-              .then(() => {
-                showSyncStatus("synced", "Synced");
-                setTimeout(() => hideSyncStatus(), 2000);
-              })
-              .catch(err => {
-                showSyncStatus("error", "Sync failed!");
-                setTimeout(() => hideSyncStatus(), 3000);
-              });
-          }, 1500);
-        }
-      }
-    })
-    .catch(err => {
-    });
 }
 
-function showSyncStatus(status, message) {
-  const syncStatusDiv = document.getElementById("sync-status");
-  const syncStatusText = document.getElementById("sync-status-text");
+function setFormFromMetadata(metadata) {
+  getField("image-name").value = metadata.name || "";
+  getField("image-developer").value = metadata.developer || "";
+  getField("image-date").value = metadata.date || "";
+  getField("image-date-100").value = metadata.date100 || "";
+  getField("image-description").value = metadata.description || "";
+  getField("image-status").value = metadata.status || "";
 
-  if (syncStatusDiv) {
-    syncStatusDiv.style.display = "flex";
-    syncStatusDiv.className = "sync-status " + status;
-    syncStatusText.textContent = message;
-  }
-}
+  currentSelectedPlatform = metadata.platform || null;
+  currentHas100Replay = !!metadata.has100Replay;
 
-function hideSyncStatus() {
-  const syncStatusDiv = document.getElementById("sync-status");
-  if (syncStatusDiv) {
-    syncStatusDiv.style.display = "none";
-    syncStatusDiv.className = "sync-status";
-  }
+  const platformSearch = getField("platform-search");
+  const dropdown = getField("platform-dropdown-menu");
+  if (platformSearch) platformSearch.value = "";
+  if (dropdown) dropdown.classList.add("hidden");
+
+  updateDateLabel();
+  updateReplayVisibility();
+  updatePlatformButton();
+  renderPlatformOptions();
 }
 
 function updateDateLabel() {
-  const statusSelect = document.getElementById("image-status");
-  const dateLabel = document.getElementById("image-date-label");
+  const statusSelect = getField("image-status");
+  const dateLabel = document.querySelector('label[for="image-date"]');
+  if (!statusSelect || !dateLabel) return;
+
   const status = statusSelect.value;
-
-  if (status === "dropped") {
-    dateLabel.textContent = "Date Dropped:";
-  } else if (status === "Played") {
-    dateLabel.textContent = "Date Last Played:";
-  } else if (status === "") {
-    dateLabel.textContent = "Date Beaten:";
-  } else {
-    dateLabel.textContent = "Date Beaten:";
-  }
-
-  updateReplayVisibility();
-}
-
-function toggleReplayFlag() {
-  currentHas100Replay = !currentHas100Replay;
-  updateReplayVisibility();
-  autoSaveMetadataWrapper();
+  dateLabel.textContent = status === "In Progress" ? "Date Started" : "Date Beaten";
 }
 
 function updateReplayVisibility() {
-  const statusSelect = document.getElementById("image-status");
-  const replayGroup = document.getElementById("replay-toggle-group");
-  const replayButton = document.getElementById("replay-toggle-btn");
-  const date100Group = document.getElementById("image-date-100-group");
+  const statusSelect = getField("image-status");
+  const replayGroup = getField("replay-group");
+  const replayButton = getField("replay-button");
+  const date100Group = getField("date-100-group");
 
   if (!statusSelect || !replayGroup || !replayButton || !date100Group) return;
 
@@ -343,29 +185,308 @@ function updateReplayVisibility() {
     replayGroup.classList.add("hidden");
     date100Group.classList.add("hidden");
     currentHas100Replay = false;
+    replayButton.classList.remove("green", "red");
   }
 }
 
-function closeImageModal() {
-  const modal = document.getElementById("image-modal");
+function toggleReplayStatus() {
+  currentHas100Replay = !currentHas100Replay;
+  updateReplayVisibility();
+  triggerMetadataAutosaveDebounced();
+}
 
-  if (!currentImageElement) {
-    modal.classList.add("hidden");
-    return;
+function updatePlatformButton() {
+  const btn = getField("platform-btn");
+  if (!btn) return;
+  btn.textContent = currentSelectedPlatform || "Select Platform";
+}
+
+function togglePlatformDropdown() {
+  const dropdownMenu = getField("platform-dropdown-menu");
+  if (!dropdownMenu) return;
+
+  dropdownMenu.classList.toggle("hidden");
+  if (!dropdownMenu.classList.contains("hidden")) {
+    getField("platform-search")?.focus();
+    renderPlatformOptions();
+  }
+}
+
+function selectPlatform(platform) {
+  currentSelectedPlatform = platform || null;
+  updatePlatformButton();
+  renderPlatformOptions();
+  const dropdown = getField("platform-dropdown-menu");
+  if (dropdown) dropdown.classList.add("hidden");
+  triggerMetadataAutosaveDebounced();
+}
+
+function clearSelectedPlatform() {
+  currentSelectedPlatform = null;
+  updatePlatformButton();
+  renderPlatformOptions();
+  triggerMetadataAutosaveDebounced();
+}
+
+function getPlatformSearchTerms(rawQuery) {
+  const originalSearchQuery = (rawQuery || "").trim().toLowerCase();
+  let searchQuery = originalSearchQuery;
+  let selectedCategory = null;
+
+  if (typeof categoryAliases !== "undefined" && categoryAliases[searchQuery]) {
+    selectedCategory = categoryAliases[searchQuery];
   }
 
-  const imageId = currentImageElement.dataset.imageId;
-  const imageMetadata = {
-    name: document.getElementById("image-name").value || "",
-    developer: document.getElementById("image-developer").value || "",
-    date: document.getElementById("image-date").value || "",
-    date100: document.getElementById("image-date-100").value || "",
-    description: document.getElementById("image-description").value || "",
-    status: document.getElementById("image-status").value || "",
-    platform: currentSelectedPlatform,
-    has100Replay: currentHas100Replay
+  if (typeof platformAliases !== "undefined" && platformAliases[searchQuery]) {
+    const aliasValue = platformAliases[searchQuery];
+    const aliasArray = Array.isArray(aliasValue) ? aliasValue : [aliasValue];
+    searchQuery = aliasArray[0].toLowerCase();
+  }
+
+  return {
+    originalSearchQuery,
+    searchQuery,
+    selectedCategory
+  };
+}
+
+function renderPlatformOptions() {
+  const optionsContainer = getField("platform-options");
+  const searchField = getField("platform-search");
+  if (!optionsContainer) return;
+
+  const searchValue = searchField?.value || "";
+  const { originalSearchQuery, searchQuery, selectedCategory } = getPlatformSearchTerms(searchValue);
+
+  optionsContainer.innerHTML = "";
+
+  const clearOption = document.createElement("div");
+  clearOption.className = "platform-option clear-platform-option";
+  clearOption.textContent = "No Platform";
+  if (!currentSelectedPlatform) {
+    clearOption.classList.add("selected");
+  }
+  clearOption.addEventListener("click", clearSelectedPlatform);
+  optionsContainer.appendChild(clearOption);
+
+  Object.entries(platformOptions).forEach(([category, platforms]) => {
+    if (selectedCategory && category !== selectedCategory) {
+      return;
+    }
+
+    const filteredPlatforms = platforms.filter((platform) => {
+      const lower = platform.toLowerCase();
+      if (!searchQuery && !originalSearchQuery) return true;
+      return lower.includes(searchQuery) || lower.includes(originalSearchQuery);
+    });
+
+    if (!filteredPlatforms.length) return;
+
+    const categoryHeader = document.createElement("div");
+    categoryHeader.className = "platform-category-header";
+    categoryHeader.textContent = category;
+    optionsContainer.appendChild(categoryHeader);
+
+    filteredPlatforms.forEach((platform) => {
+      const option = document.createElement("div");
+      option.className = "platform-option";
+      option.dataset.platform = platform;
+      if (currentSelectedPlatform === platform) {
+        option.classList.add("selected");
+      }
+      option.textContent = platform;
+      option.addEventListener("click", () => selectPlatform(platform));
+      optionsContainer.appendChild(option);
+    });
+  });
+}
+
+function triggerMetadataAutosaveDebounced(imageId) {
+  const resolvedImageId = imageId || getCurrentImageId();
+  if (!resolvedImageId) return;
+
+  if (autoSaveTimers[resolvedImageId]) {
+    clearTimeout(autoSaveTimers[resolvedImageId]);
+  }
+
+  autoSaveTimers[resolvedImageId] = setTimeout(() => {
+    autoSaveMetadata(resolvedImageId);
+  }, 800);
+}
+
+async function sortCurrentImageTierIfOrdered(imageElement) {
+  if (!imageElement) return;
+
+  const row = imageElement.closest(".row");
+  if (!row) return;
+
+  const rows = Array.from(document.querySelectorAll(".row"));
+  const tierIndex = rows.indexOf(row);
+  if (tierIndex < 0) return;
+  if (!tierOrderingStates || !tierOrderingStates[tierIndex]) return;
+
+  try {
+    await sortTierByPlatform(row.children[1]);
+    await saveImagePositions();
+  } catch (err) {
+    gameDetailsLogError(`Failed sorting ordered tier ${tierIndex} after metadata update.`, err);
+  }
+}
+
+async function autoSaveMetadata(imageId) {
+  if (!currentImageElement) return;
+  if (getCurrentImageId() !== imageId) return;
+
+  const metadata = getCurrentMetadataFromForm();
+
+  try {
+    await saveImageMetadataToIndexedDB(imageId, metadata);
+    await sortCurrentImageTierIfOrdered(currentImageElement);
+    await saveTierListLocally().catch((err) => {
+      gameDetailsLogError("Best-effort local save after metadata autosave failed.", err);
+    });
+
+    if (currentUser && firebaseDb && firebaseAvailable) {
+      await saveTierListToFirebase();
+    }
+  } catch (err) {
+    gameDetailsLogError(`Metadata autosave failed for ${imageId}.`, err);
+  } finally {
+    if (autoSaveTimers[imageId]) {
+      clearTimeout(autoSaveTimers[imageId]);
+      delete autoSaveTimers[imageId];
+    }
+  }
+}
+
+function autoSaveMetadataWrapper() {
+  const imageId = getCurrentImageId();
+  if (imageId) {
+    autoSaveMetadata(imageId);
+  }
+}
+
+function bindModalFieldEvents() {
+  if (modalBindingsInitialized) return;
+  modalBindingsInitialized = true;
+
+  const inputIds = [
+    "image-name",
+    "image-developer",
+    "image-date",
+    "image-date-100",
+    "image-description"
+  ];
+
+  inputIds.forEach((id) => {
+    const field = getField(id);
+    if (!field) return;
+    field.addEventListener("input", () => triggerMetadataAutosaveDebounced());
+  });
+
+  const statusField = getField("image-status");
+  if (statusField) {
+    statusField.addEventListener("change", () => {
+      updateDateLabel();
+      updateReplayVisibility();
+      triggerMetadataAutosaveDebounced();
+    });
+  }
+
+  const platformSearch = getField("platform-search");
+  if (platformSearch) {
+    platformSearch.addEventListener("input", renderPlatformOptions);
+    platformSearch.addEventListener("keyup", renderPlatformOptions);
+  }
+
+  const modal = getModalElement();
+  if (modal) {
+    modal.addEventListener("click", (event) => {
+      if (event.target === modal) {
+        closeImageModal();
+      }
+    });
+  }
+}
+
+function setupMetadataAutoSave() {
+  bindModalFieldEvents();
+}
+
+function setModalEscapeHandler() {
+  if (currentModalEscapeHandler) {
+    document.removeEventListener("keydown", currentModalEscapeHandler);
+  }
+
+  currentModalEscapeHandler = (event) => {
+    if (event.key === "Escape") {
+      closeImageModal();
+    }
   };
 
+  document.addEventListener("keydown", currentModalEscapeHandler);
+}
+
+function removeModalEscapeHandler() {
+  if (!currentModalEscapeHandler) return;
+  document.removeEventListener("keydown", currentModalEscapeHandler);
+  currentModalEscapeHandler = null;
+}
+
+function updateSyncNotification() {
+  const syncNotification = getField("sync-notification");
+  if (!syncNotification) return;
+
+  if (!currentUser || !firebaseDb || !firebaseAvailable) {
+    syncNotification.classList.remove("hidden");
+  } else {
+    syncNotification.classList.add("hidden");
+  }
+}
+
+function openImageModal(imgElement) {
+  if (!imgElement) return;
+
+  currentImageElement = imgElement;
+  const modal = getModalElement();
+  const imageId = imgElement.dataset.imageId;
+  if (!modal || !imageId) return;
+
+  setupMetadataAutoSave();
+  updateSyncNotification();
+
+  getImageMetadataFromIndexedDB(imageId)
+    .then((imageMetadata) => {
+      setFormFromMetadata(imageMetadata || {});
+      setModalEscapeHandler();
+      modal.classList.remove("hidden");
+    })
+    .catch((err) => {
+      gameDetailsLogError(`Failed loading metadata for ${imageId}.`, err);
+      setFormFromMetadata({});
+      setModalEscapeHandler();
+      modal.classList.remove("hidden");
+    });
+}
+
+function finalizeModalClose() {
+  const modal = getModalElement();
+  if (modal) {
+    modal.classList.add("hidden");
+  }
+
+  removeModalEscapeHandler();
+  currentImageElement = null;
+  currentSelectedPlatform = null;
+  currentHas100Replay = false;
+}
+
+function closeImageModal() {
+  const imageId = getCurrentImageId();
+  if (!imageId) {
+    finalizeModalClose();
+    return;
+  }
 
   if (autoSaveTimers[imageId]) {
     clearTimeout(autoSaveTimers[imageId]);
@@ -376,92 +497,111 @@ function closeImageModal() {
     autoSaveTimeout = null;
   }
 
-  const searchInput = document.getElementById('search-input');
-  const currentQuery = searchInput ? searchInput.value : '';
+  const metadata = getCurrentMetadataFromForm();
+  const currentQuery = getSearchQueryValue();
 
-  saveImageMetadataToIndexedDB(imageId, imageMetadata)
+  saveImageMetadataToIndexedDB(imageId, metadata)
     .then(async () => {
-      await sortCurrentImageTierIfOrdered(currentImageElement).catch(() => {});
-      await saveTierListLocally().catch(() => {});
+      await sortCurrentImageTierIfOrdered(currentImageElement);
+      await saveTierListLocally().catch((err) => {
+        gameDetailsLogError("Failed local save while closing modal.", err);
+      });
 
-      if (currentUser && firebaseDb) {
-        return saveTierListToFirebase();
+      if (currentUser && firebaseDb && firebaseAvailable) {
+        await saveTierListToFirebase();
       }
     })
-    .catch(err => {
+    .catch((err) => {
+      gameDetailsLogError(`Failed saving metadata while closing modal for ${imageId}.`, err);
     })
     .finally(() => {
       try {
-        filterImages(currentQuery);
-      } catch (e) {
+        if (typeof filterImages === "function") {
+          filterImages(currentQuery);
+        }
+      } catch (err) {
+        gameDetailsLogError("Failed re-running search filter after closing modal.", err);
       }
 
-      if (window.currentModalEscapeHandler) {
-        document.removeEventListener("keydown", window.currentModalEscapeHandler);
-        window.currentModalEscapeHandler = null;
-      }
-
-      modal.classList.add("hidden");
-      currentImageElement = null;
-      currentSelectedPlatform = null;
+      finalizeModalClose();
     });
-}
-
-
-async function sortCurrentImageTierIfOrdered(imageElement) {
-  if (!imageElement) return;
-  const row = imageElement.closest('.row');
-  if (!row) return;
-
-  const rows = Array.from(document.querySelectorAll('.row'));
-  const tierIndex = rows.indexOf(row);
-  if (tierIndex < 0) return;
-  if (!tierOrderingStates[tierIndex]) return;
-
-  try {
-    await sortTierByPlatform(row.children[1]);
-    await saveImagePositions().catch(() => {});
-  } catch (err) {
-  }
 }
 
 function deleteImageFromModal() {
-  if (currentImageElement) {
-    promptDeleteImage(() => {
-      const imageId = currentImageElement.dataset.imageId;
-      const cloudinaryUrl = currentImageElement.dataset.cloudinaryUrl || currentImageElement.src;
+  if (!currentImageElement) return;
 
-      deleteImageMetadataFromIndexedDB(imageId);
-      deleteFromCloudinary(cloudinaryUrl).then(() => {
-        return deleteImageFromIndexedDB(imageId);
-      })
-        .then(() => {
-          currentImageElement.remove();
-          closeImageModal();
-          saveImagePositions();
+  promptDeleteImage(async () => {
+    const imageId = getCurrentImageId();
+    if (!imageId) {
+      finalizeModalClose();
+      return;
+    }
 
-          if (currentUser && firebaseDb) {
-            saveTierListToFirebase().catch(err => {
-            });
-          }
-        })
-        .catch(err => {
+    const imageElement = currentImageElement;
+    const cloudinaryUrl = imageElement.dataset.cloudinaryUrl || imageElement.dataset.imageSrc || imageElement.src;
+    const currentQuery = getSearchQueryValue();
+
+    try {
+      await deleteImageMetadataFromIndexedDB(imageId).catch((err) => {
+        gameDetailsLogError(`Failed deleting metadata for ${imageId}.`, err);
+      });
+
+      await deleteImageFromIndexedDB(imageId).catch((err) => {
+        gameDetailsLogError(`Failed deleting IndexedDB image for ${imageId}.`, err);
+      });
+
+      await deleteFromCloudinary(cloudinaryUrl).catch((err) => {
+        gameDetailsLogError(`Remote delete failed for ${imageId}.`, err);
+      });
+
+      imageElement.remove();
+
+      await saveImagePositions().catch((err) => {
+        gameDetailsLogError("Failed saving image positions after deleting image.", err);
+      });
+
+      await saveTierListLocally().catch((err) => {
+        gameDetailsLogError("Failed local save after deleting image.", err);
+      });
+
+      if (typeof updateTierCounts === "function") {
+        try {
+          updateTierCounts(typeof countsAreShown === "function" ? countsAreShown() : false);
+        } catch (err) {
+          gameDetailsLogError("Failed updating tier counts after deleting image.", err);
+        }
+      }
+
+      if (typeof setDropHintVisibility === "function") {
+        try {
+          setDropHintVisibility();
+        } catch (err) {
+          gameDetailsLogError("Failed updating drop hint visibility after deleting image.", err);
+        }
+      }
+
+      if (currentUser && firebaseDb && firebaseAvailable) {
+        await saveTierListToFirebase().catch((err) => {
+          gameDetailsLogError("Failed syncing deletion to Firebase.", err);
         });
-    });
-  }
-}
+      }
 
-function togglePlatformDropdown() {
-  const dropdownMenu = document.getElementById("platform-dropdown-menu");
-  dropdownMenu.classList.toggle("hidden");
-  if (!dropdownMenu.classList.contains("hidden")) {
-    document.getElementById("platform-search").focus();
-  }
+      try {
+        if (typeof filterImages === "function") {
+          filterImages(currentQuery);
+        }
+      } catch (err) {
+        gameDetailsLogError("Failed re-running search after deleting image.", err);
+      }
+    } finally {
+      finalizeModalClose();
+    }
+  });
 }
 
 document.addEventListener("DOMContentLoaded", () => {
-  const platformSearch = document.getElementById("platform-search");
-  if (platformSearch) {
-    platformSearch.addEventListener("keyup", renderPlatformOptions);
-  }
+  bindModalFieldEvents();
+  renderPlatformOptions();
+  updatePlatformButton();
+  updateReplayVisibility();
 });
