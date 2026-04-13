@@ -17,6 +17,8 @@ let lastFirebaseSyncTime = {};
 let lastRemoteSyncTime = null;
 let syncUnsubscribe = null;
 let isApplyingRemoteUpdate = false;
+let pendingRemoteTierData = null;
+let pendingRemoteUpdatedAt = null;
 
 const DB_NAME = "TierListDB";
 const DB_VERSION = 2;
@@ -586,6 +588,44 @@ async function signInWithGoogle() {
   }
 }
 
+function shouldDeferRealtimeApply() {
+  const modalOpen =
+    typeof isImageModalOpen === "function" && isImageModalOpen();
+
+  const draggingActive =
+    typeof isDraggingImages !== "undefined" && !!isDraggingImages;
+
+  return isApplyingRemoteUpdate || modalOpen || draggingActive;
+}
+
+async function applyRemoteTierData(remoteTierData, remoteUpdatedAt) {
+  if (!remoteTierData) return;
+
+  isApplyingRemoteUpdate = true;
+  try {
+    await loadTierListFromObject(remoteTierData);
+    lastRemoteSyncTime = remoteUpdatedAt;
+  } catch (err) {
+    logDbSyncError("Realtime Firebase update failed.", err);
+  } finally {
+    isApplyingRemoteUpdate = false;
+  }
+}
+
+async function flushPendingRealtimeSync() {
+  if (!pendingRemoteTierData) return;
+  if (shouldDeferRealtimeApply()) return;
+
+  const remoteTierData = pendingRemoteTierData;
+  const remoteUpdatedAt = pendingRemoteUpdatedAt;
+
+  pendingRemoteTierData = null;
+  pendingRemoteUpdatedAt = null;
+
+  await applyRemoteTierData(remoteTierData, remoteUpdatedAt);
+}
+
+
 async function signOut() {
   stopRealtimeSync();
 
@@ -730,19 +770,15 @@ function startRealtimeSync() {
 
       const remoteUpdatedAt = new Date(data.updated_at || 0).getTime();
       if (Number.isNaN(remoteUpdatedAt)) return;
-
-      if (isApplyingRemoteUpdate) return;
       if (lastRemoteSyncTime !== null && remoteUpdatedAt <= lastRemoteSyncTime) return;
 
-      try {
-        isApplyingRemoteUpdate = true;
-        await loadTierListFromObject(data.tier_data);
-        lastRemoteSyncTime = remoteUpdatedAt;
-      } catch (err) {
-        logDbSyncError("Realtime Firebase update failed.", err);
-      } finally {
-        isApplyingRemoteUpdate = false;
+      if (shouldDeferRealtimeApply()) {
+        pendingRemoteTierData = data.tier_data;
+        pendingRemoteUpdatedAt = remoteUpdatedAt;
+        return;
       }
+
+      await applyRemoteTierData(data.tier_data, remoteUpdatedAt);
     },
     (err) => {
       if (err && err.code === "permission-denied") {
@@ -760,6 +796,8 @@ function stopRealtimeSync() {
     syncUnsubscribe();
   }
   syncUnsubscribe = null;
+  pendingRemoteTierData = null;
+  pendingRemoteUpdatedAt = null;
 }
 
 

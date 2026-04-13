@@ -324,6 +324,11 @@ function renderPlatformOptions() {
   });
 }
 
+function isImageModalOpen() {
+  const modal = getModalElement?.();
+  return !!modal && !modal.classList.contains("hidden");
+}
+
 function triggerMetadataAutosaveDebounced(imageId) {
   const resolvedImageId = imageId || getCurrentImageId();
   if (!resolvedImageId) return;
@@ -467,10 +472,15 @@ function finalizeModalClose() {
 
   unlockBackgroundScroll();
   removeModalEscapeHandler();
-  setModalHeaderImage(null);
   currentImageElement = null;
   currentSelectedPlatform = null;
   currentHas100Replay = false;
+
+  if (typeof flushPendingRealtimeSync === "function") {
+    flushPendingRealtimeSync().catch((err) => {
+      gameDetailsLogError("Failed flushing pending realtime sync after modal close.", err);
+    });
+  }
 }
 
 function openImageModal(imgElement) {

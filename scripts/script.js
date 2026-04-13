@@ -10,6 +10,7 @@ let drake = null;
 let scrollable = true;
 let suppressNextLeftClick = false;
 let selectedImages = new Set();
+let isDraggingImages = false;
 
 const MAX_FILE_SIZE_MB = 10;
 const ALLOWED_IMAGE_TYPES = new Set([
@@ -431,8 +432,13 @@ function initializeDragula() {
   const containers = Array.from(document.querySelectorAll(".sort"));
 
   if (drake) {
-    drake.destroy();
-    drake = null;
+    try {
+      drake.destroy();
+    } catch (err) {
+      scriptLogError("Dragula destroy failed during reinit.", err);
+    } finally {
+      drake = null;
+    }
   }
 
   if (!containers.length || typeof dragula !== "function") {
@@ -447,16 +453,20 @@ function initializeDragula() {
 
   drake
     .on("drag", (el) => {
+      isDraggingImages = true;
       scrollable = false;
+
       if (!selectedImages.has(el)) {
         clearImageSelection();
         selectImage(el);
       }
+
       updateDragMirror();
     })
 
     .on("drop", async (el, target, source, sibling) => {
       scrollable = true;
+      isDraggingImages = false;
 
       try {
         if (!target) {
@@ -465,25 +475,42 @@ function initializeDragula() {
         }
 
         moveSelectedImagesToTarget(el, target, sibling);
-
-        // Remove the blue highlight immediately
         clearImageSelection();
-
         await handlePostDrop(target);
+
+        if (typeof flushPendingRealtimeSync === "function") {
+          await flushPendingRealtimeSync();
+        }
       } finally {
         clearImageSelection();
       }
     })
 
-    .on("cancel", () => {
+    .on("cancel", async () => {
       scrollable = true;
+      isDraggingImages = false;
       clearImageSelection();
+
+      if (typeof flushPendingRealtimeSync === "function") {
+        await flushPendingRealtimeSync();
+      }
     })
+
+    .on("dragend", async () => {
+      scrollable = true;
+      isDraggingImages = false;
+
+      if (typeof flushPendingRealtimeSync === "function") {
+        await flushPendingRealtimeSync();
+      }
+    })
+
     .on("over", (el, container) => {
       if (container && container.classList.contains("sort")) {
         container.style.backgroundColor = "rgba(127, 255, 255, 0.1)";
       }
     })
+
     .on("out", (el, container) => {
       if (container && container.classList.contains("sort")) {
         container.style.backgroundColor = "";
