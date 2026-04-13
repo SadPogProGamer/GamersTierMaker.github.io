@@ -15,7 +15,8 @@ let autoSaveTimeout = null;
 let autoSaveTimers = {};
 let lastFirebaseSyncTime = {};
 let lastRemoteSyncTime = null;
-let syncPollInterval = null;
+let syncUnsubscribe = null;
+let isApplyingRemoteUpdate = false;
 
 const DB_NAME = "TierListDB";
 const DB_VERSION = 2;
@@ -23,7 +24,6 @@ const STORE_IMAGES = "images";
 const STORE_SETTINGS = "settings";
 const STORE_IMAGE_METADATA = "imageMetadata";
 const FIREBASE_COLLECTION = isLocalhost ? "DebugRoom" : "tierLists";
-const SYNC_POLL_MS = 10000;
 const IMAGE_VALIDATE_TIMEOUT_MS = 8000;
 
 function logDbSyncError(context, err) {
@@ -502,15 +502,12 @@ async function initializeFirebase() {
       if (currentUser) {
         try {
           await loadTierListFromFirebase();
+          startRealtimeSync();
         } catch (err) {
           logDbSyncError("Failed loading tier list after auth state change.", err);
         }
-
-        if (typeof initializationComplete !== "undefined" && initializationComplete) {
-          startSyncPolling();
-        }
       } else {
-        stopSyncPolling();
+        stopRealtimeSync();
       }
     });
 
@@ -590,7 +587,7 @@ async function signInWithGoogle() {
 }
 
 async function signOut() {
-  stopSyncPolling();
+  stopRealtimeSync();
 
   if (!firebaseAuth) {
     alert("Firebase auth is not initialized.");
@@ -607,22 +604,24 @@ async function signOut() {
 
 async function saveTierListToFirebase() {
   if (!currentUser || !firebaseDb || !firebaseAvailable) return;
+  if (isApplyingRemoteUpdate) return;
 
   try {
     const tierListData = await buildTierListDataForSync();
+    const nowIso = new Date().toISOString();
 
     await firebaseDb.collection(FIREBASE_COLLECTION).doc(currentUser.uid).set({
       userId: currentUser.uid,
       userEmail: currentUser.email || null,
       tier_data: tierListData,
-      updated_at: new Date().toISOString(),
+      updated_at: nowIso,
     }, { merge: true });
 
-    lastRemoteSyncTime = Date.now();
+    lastRemoteSyncTime = new Date(nowIso).getTime();
   } catch (err) {
     if (err && err.code === "permission-denied") {
       firebaseAvailable = false;
-      stopSyncPolling();
+      stopRealtimeSync();
       alert("Firebase save failed because Firestore permissions are insufficient. Saving locally instead.");
     }
     logDbSyncError("Saving tier list to Firebase failed.", err);
@@ -697,12 +696,18 @@ async function loadTierListFromFirebase() {
       return;
     }
 
-    await loadTierListFromObject(data.tier_data);
+    isApplyingRemoteUpdate = true;
+    try {
+      await loadTierListFromObject(data.tier_data);
+    } finally {
+      isApplyingRemoteUpdate = false;
+    }
+
     lastRemoteSyncTime = new Date(data.updated_at || Date.now()).getTime();
   } catch (err) {
     if (err && err.code === "permission-denied") {
       firebaseAvailable = false;
-      stopSyncPolling();
+      stopRealtimeSync();
       alert("Firebase access denied. Your tierlist will load locally until Firestore permissions are fixed.");
     }
     logDbSyncError("Failed loading tier list from Firebase.", err);
@@ -710,44 +715,53 @@ async function loadTierListFromFirebase() {
   }
 }
 
-async function pollFirebaseForUpdates() {
+function startRealtimeSync() {
+  if (syncUnsubscribe) return;
   if (!currentUser || !firebaseDb || !firebaseAvailable) return;
 
-  try {
-    const doc = await firebaseDb.collection(FIREBASE_COLLECTION).doc(currentUser.uid).get();
-    if (!doc.exists) return;
+  const docRef = firebaseDb.collection(FIREBASE_COLLECTION).doc(currentUser.uid);
 
-    const data = doc.data();
-    if (!data || !data.tier_data) return;
+  syncUnsubscribe = docRef.onSnapshot(
+    async (doc) => {
+      if (!doc.exists) return;
 
-    const remoteUpdatedAt = new Date(data.updated_at || 0).getTime();
-    if (Number.isNaN(remoteUpdatedAt)) return;
+      const data = doc.data();
+      if (!data || !data.tier_data) return;
 
-    if (lastRemoteSyncTime === null || remoteUpdatedAt > lastRemoteSyncTime) {
-      await loadTierListFromObject(data.tier_data);
-      lastRemoteSyncTime = remoteUpdatedAt;
+      const remoteUpdatedAt = new Date(data.updated_at || 0).getTime();
+      if (Number.isNaN(remoteUpdatedAt)) return;
+
+      if (isApplyingRemoteUpdate) return;
+      if (lastRemoteSyncTime !== null && remoteUpdatedAt <= lastRemoteSyncTime) return;
+
+      try {
+        isApplyingRemoteUpdate = true;
+        await loadTierListFromObject(data.tier_data);
+        lastRemoteSyncTime = remoteUpdatedAt;
+      } catch (err) {
+        logDbSyncError("Realtime Firebase update failed.", err);
+      } finally {
+        isApplyingRemoteUpdate = false;
+      }
+    },
+    (err) => {
+      if (err && err.code === "permission-denied") {
+        firebaseAvailable = false;
+        stopRealtimeSync();
+        alert("Firebase sync disabled because Firestore permissions are insufficient.");
+      }
+      logDbSyncError("Realtime Firebase listener failed.", err);
     }
-  } catch (err) {
-    if (err && err.code === "permission-denied") {
-      firebaseAvailable = false;
-      stopSyncPolling();
-      alert("Firebase sync disabled because Firestore permissions are insufficient.");
-    }
-    logDbSyncError("Polling Firebase for updates failed.", err);
+  );
+}
+
+function stopRealtimeSync() {
+  if (typeof syncUnsubscribe === "function") {
+    syncUnsubscribe();
   }
+  syncUnsubscribe = null;
 }
 
-function startSyncPolling() {
-  if (syncPollInterval) return;
-  if (!currentUser || !firebaseDb || !firebaseAvailable) return;
-  syncPollInterval = setInterval(pollFirebaseForUpdates, SYNC_POLL_MS);
-}
-
-function stopSyncPolling() {
-  if (!syncPollInterval) return;
-  clearInterval(syncPollInterval);
-  syncPollInterval = null;
-}
 
 function getCloudinaryFolder() {
   return CLOUDINARY_CONFIG && CLOUDINARY_CONFIG.folder ? CLOUDINARY_CONFIG.folder : null;
