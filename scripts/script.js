@@ -915,7 +915,7 @@ async function bootstrapApp() {
   initializationComplete = true;
 
   if (currentUser && firebaseDb && firebaseAvailable) {
-    startSyncPolling();
+    startRealtimeSync();
   }
 }
 
