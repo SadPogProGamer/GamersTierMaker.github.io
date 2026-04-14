@@ -307,12 +307,18 @@ function toggleImageSelection(image) {
 }
 
 function handleImageContextMenu(event, image) {
+  const isMultiSelect = event.ctrlKey || event.metaKey || event.shiftKey;
+
+  // Normal right-click: allow browser context menu
+  if (!isMultiSelect) {
+    return;
+  }
+
+  // Modifier + right-click: use selection mode
   event.preventDefault();
   suppressNextLeftClick = true;
 
-  const isCtrl = event.ctrlKey || event.metaKey;
-  if (!isCtrl && !selectedImages.has(image)) {
-    clearImageSelection();
+  if (!selectedImages.has(image)) {
     selectImage(image);
     return;
   }
