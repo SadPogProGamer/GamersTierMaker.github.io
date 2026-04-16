@@ -364,6 +364,37 @@ p {
   scale: 1.1;
 }
 
+.centered-ui-button-wrapper {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  padding: 0px 0 100px;
+  background: transparent;
+}
+
+.centered-ui-button {
+  width: min(560px, 100%);
+  min-width: 260px;
+  padding: 18px 26px;
+  border: none;
+  border-radius: 5px;
+  background-color: #0b5ed7;
+  color: white;
+  font-size: 18px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 180ms ease, background-color 180ms ease;
+}
+
+.centered-ui-button:hover {
+  background-color: #0b5ed7;
+  transform: translateY(-1px);
+}
+
+.centered-ui-button:active {
+  transform: translateY(0);
+}
+
 img {
   cursor: pointer;
 }
@@ -1367,4 +1398,8 @@ img {
 .upload-status.error {
   background: rgba(231, 76, 60, 0.9);
   color: #fff;
+}
+
+#buttons-container {
+  padding-bottom: 20px;
 }
