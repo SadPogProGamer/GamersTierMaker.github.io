@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>My Tierlists</title>
+  <link rel="icon" href="assets/icon.svg" />
+
+  <script defer src="scripts/config.js"></script>
+  <script defer src="scripts/DatabaseSyncing.js"></script>
+  <script defer src="scripts/script.js"></script>
+
+  <style>
+    :root {
+      --bg: #242222;
+      --panel: #1d1b1c;
+      --panel-2: #2b2829;
+      --text: #ffffff;
+      --muted: #b9b2b5;
+      --border: rgba(255,255,255,0.08);
+      --hover: #343031;
+      --accent: #ffcc66;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    .top-bar {
+      background-color: #0e0e0e;
+      padding: 8px 20px;
+      display: flex;
+      justify-content: center;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .top-bar-content {
+      display: flex;
+      align-items: center;
+      gap: 15px;
+      max-width: 1400px;
+      width: 100%;
+    }
+
+    .logo {
+      height: 64px;
+      width: 64px;
+      object-fit: contain;
+    }
+
+    .top-title {
+      font-size: 32px;
+      margin: 0;
+      color: white;
+      font-weight: bold;
+      flex: 1;
+    }
+
+    .page-shell {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 28px 20px 40px;
+    }
+
+    .page-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 26px;
+    }
+
+    .page-header h1 {
+      margin: 0 0 6px;
+      font-size: 34px;
+    }
+
+    .page-header p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 15px;
+    }
+
+    .back-btn {
+      background: var(--panel);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px 14px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+
+    .back-btn:hover {
+      background: var(--hover);
+    }
+
+    .tierlists-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 18px;
+    }
+
+    .template-card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      overflow: hidden;
+      min-height: 220px;
+      display: flex;
+      flex-direction: column;
+      transition: transform 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+    }
+
+    .template-card:hover {
+      transform: translateY(-2px);
+      background: var(--hover);
+      border-color: rgba(255,255,255,0.18);
+    }
+
+    .template-preview {
+      flex: 1;
+      min-height: 160px;
+      background:
+        linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.01)),
+        var(--panel-2);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      padding: 16px;
+      text-align: center;
+    }
+
+    .template-preview-title {
+      font-size: 18px;
+      font-weight: 700;
+      line-height: 1.25;
+      margin-bottom: 8px;
+      word-break: break-word;
+    }
+
+    .template-preview-meta {
+      font-size: 14px;
+      color: var(--muted);
+    }
+
+    .template-footer {
+      padding: 12px 14px;
+      font-size: 13px;
+      color: var(--accent);
+      font-weight: 700;
+      letter-spacing: 0.2px;
+    }
+
+    .empty-state,
+    .loading-state {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 36px 24px;
+      text-align: center;
+      color: var(--muted);
+    }
+
+    .empty-state h2,
+    .loading-state h2 {
+      color: var(--text);
+      margin-top: 0;
+      margin-bottom: 8px;
+      font-size: 24px;
+    }
+
+    .empty-state p,
+    .loading-state p {
+      margin: 0;
+      line-height: 1.5;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+  </style>
+</head>
+<body>
+  <div class="top-bar">
+    <div class="top-bar-content">
+      <img src="assets/Logo.jpg" alt="Logo" class="logo" />
+      <h1 class="top-title">TIERMAKER</h1>
+      <button type="button" class="back-btn" onclick="window.location.href='index.html'">← Back</button>
+    </div>
+  </div>
+
+  <main class="page-shell">
+    <div class="page-header">
+      <div>
+        <h1>My Tierlists</h1>
+        <p>Your saved tierlists will show up here. Click one to open it.</p>
+      </div>
+    </div>
+
+    <div id="tierlists-loading" class="loading-state">
+      <h2>Loading tierlists...</h2>
+      <p>Please wait while your saved tierlists are prepared.</p>
+    </div>
+
+    <div id="tierlists-empty" class="empty-state hidden">
+      <h2>No tierlists yet</h2>
+      <p>Save a tierlist from the main page and it will appear here.</p>
+    </div>
+
+    <div id="tierlists-grid" class="tierlists-grid hidden"></div>
+  </main>
+
+  <script>
+    function createMyTierlistCard(container, data, label = "Saved") {
+      if (!container || !data) return;
+
+      const card = document.createElement("div");
+      card.className = "template-card";
+
+      const preview = document.createElement("div");
+      preview.className = "template-preview";
+
+      const title = document.createElement("div");
+      title.className = "template-preview-title";
+      title.textContent = data.header || "Untitled Tierlist";
+
+      const meta = document.createElement("div");
+      meta.className = "template-preview-meta";
+      meta.textContent = `${(data.imagePositions && data.imagePositions.length) || 0} images`;
+
+      const footer = document.createElement("div");
+      footer.className = "template-footer";
+      footer.textContent = label;
+
+      preview.appendChild(title);
+      preview.appendChild(meta);
+      card.appendChild(preview);
+      card.appendChild(footer);
+
+      card.style.cursor = "pointer";
+      card.addEventListener("click", () => {
+        try {
+          sessionStorage.my_tierlist_to_load = JSON.stringify(data);
+          window.location.href = "index.html";
+        } catch (err) {
+          console.error("Failed preparing tierlist load from My Tierlists card.", err);
+        }
+      });
+
+      container.appendChild(card);
+    }
+
+    async function setupMyTierlistsUi() {
+      const grid = document.getElementById("tierlists-grid");
+      const empty = document.getElementById("tierlists-empty");
+      const loading = document.getElementById("tierlists-loading");
+
+      if (!grid || !empty || !loading) return;
+
+      grid.innerHTML = "";
+
+      let foundAny = false;
+
+      try {
+        if (typeof initializeFirebase === "function") {
+          await initializeFirebase();
+        }
+      } catch (err) {
+        console.error("Firebase init failed on My Tierlists page.", err);
+      }
+
+      try {
+        if (typeof initializeIndexedDB === "function") {
+          await initializeIndexedDB();
+        }
+      } catch (err) {
+        console.error("IndexedDB init failed on My Tierlists page.", err);
+      }
+
+      try {
+        const localTierList = typeof getSetting === "function"
+          ? await getSetting("localTierList")
+          : null;
+
+        if (localTierList) {
+          createMyTierlistCard(grid, localTierList, "Local save");
+          foundAny = true;
+        }
+      } catch (err) {
+        console.error("Failed loading local tierlist for My Tierlists UI.", err);
+      }
+
+      loading.classList.add("hidden");
+
+      if (foundAny) {
+        grid.classList.remove("hidden");
+        empty.classList.add("hidden");
+      } else {
+        grid.classList.add("hidden");
+        empty.classList.remove("hidden");
+      }
+    }
+
+    document.addEventListener("DOMContentLoaded", () => {
+      setupMyTierlistsUi().catch((err) => {
+        console.error("My Tierlists UI bootstrap failed.", err);
+      });
+    });
+  </script>
+</body>
+</html>
