@@ -894,24 +894,6 @@ function bindCoreUiEvents() {
   }
 }
 
-document.addEventListener("DOMContentLoaded", async () => {
-  try {
-    const saved = sessionStorage.getItem("my_tierlist_to_load");
-    if (!saved) return;
-
-    const data = JSON.parse(saved);
-
-    // Clear so it doesn't reload again on refresh
-    sessionStorage.removeItem("my_tierlist_to_load");
-
-    if (typeof loadTierListFromObject === "function") {
-      await loadTierListFromObject(data);
-    }
-  } catch (err) {
-    console.error("Failed loading tierlist from My Tierlists page", err);
-  }
-});
-
 async function bootstrapApp() {
   try {
     await initializeFirebase();

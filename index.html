@@ -3,16 +3,6 @@
 
 <head>
   <meta charset="UTF-8" />
-
-  <script>
-    const hasRedirected = sessionStorage.getItem("visited");
-
-    if (!hasRedirected) {
-      sessionStorage.setItem("visited", "true");
-      window.location.replace("my-tierlist.html");
-    }
-  </script>
-
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Gamers Tiermaker</title>
   <link rel="icon" href="assets/icon.svg" />
@@ -293,18 +283,15 @@
 
   <div id="buttons-container">
     <button type="button" onclick="selectImages()">Click here to add images</button>
-    <button id="btn" type="button">Download Tierlist Image</button>
+    <button id="btn" type="button">Download Tierlist</button>
     <button id="download-all-btn" type="button" onclick="downloadAllImagesZip()">Download All Images</button>
     <button type="button" onclick="importGameDetails()">Import Game Details</button>
     <button type="button" onclick="downloadGameDetailsJSON()">Export Game Details</button>
     <button type="button" onclick="deleteTierList()" style="background: #dc3545; color: white;">Delete Tier
       List</button>
 
+    <!-- ✅ ADD THIS -->
     <div id="upload-status" class="upload-status hidden"></div>
-  </div>
-
-  <div class="centered-ui-button-wrapper">
-    <button type="button" class="centered-ui-button">Save Tierlist</button>
   </div>
 
   <div id="image-modal" class="modal hidden">

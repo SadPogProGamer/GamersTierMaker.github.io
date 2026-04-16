@@ -565,7 +565,7 @@ function toggleProfileDropdown() {
 }
 
 function openProfileScreen() {
-  window.location.href = "my-tierlist.html";
+  window.location.href = "my-tierlists.html";
 }
 
 function closeProfileScreen() {
