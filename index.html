@@ -3,6 +3,16 @@
 
 <head>
   <meta charset="UTF-8" />
+
+  <script>
+    const hasRedirected = sessionStorage.getItem("visited");
+
+    if (!hasRedirected) {
+      sessionStorage.setItem("visited", "true");
+      window.location.replace("my-tierlist.html");
+    }
+  </script>
+
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Gamers Tiermaker</title>
   <link rel="icon" href="assets/icon.svg" />
