@@ -364,6 +364,37 @@ p {
   scale: 1.1;
 }
 
+.centered-ui-button-wrapper {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  padding: 0px 0 100px;
+  background: transparent;
+}
+
+.centered-ui-button {
+  width: min(560px, 100%);
+  min-width: 260px;
+  padding: 18px 26px;
+  border: none;
+  border-radius: 5px;
+  background-color: #3a5795;
+  color: white;
+  font-size: 18px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 180ms ease, background-color 180ms ease;
+}
+
+.centered-ui-button:hover {
+  background-color: #0b5ed7;
+  transform: translateY(-1px);
+}
+
+.centered-ui-button:active {
+  transform: translateY(0);
+}
+
 img {
   cursor: pointer;
 }
@@ -1367,4 +1398,40 @@ img {
 .upload-status.error {
   background: rgba(231, 76, 60, 0.9);
   color: #fff;
+}
+
+#buttons-container {
+  padding-bottom: 20px;
+}
+
+/* MOBILE MODAL FIX */
+body.mobile .modal,
+body.mobile #image-modal,
+body.mobile .modal-content {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  max-height: 100vh;
+
+  display: flex;
+  flex-direction: column;
+}
+
+/* make modal content scrollable */
+body.mobile .modal-content,
+body.mobile #image-modal {
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* prevent clipping */
+body.mobile .modal-inner {
+  min-height: 100%;
+  padding-bottom: 40px; /* breathing room */
+}
+
+body.mobile .modal-content {
+  padding-bottom: env(safe-area-inset-bottom);
+  padding-top: env(safe-area-inset-top);
 }

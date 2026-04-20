@@ -49,6 +49,10 @@ function getSearchInput() {
   return document.getElementById("search-input");
 }
 
+function isMobileDevice() {
+  return window.matchMedia("(max-width: 768px), (pointer: coarse)").matches;
+}
+
 function setDropHintVisibility() {
   const imagesBar = getImagesBar();
   const hint = getDropZoneHint();
@@ -999,3 +1003,14 @@ document.addEventListener("drop", (event) => {
     });
   }
 });
+
+function applyDeviceClass() {
+  if (isMobileDevice()) {
+    document.body.classList.add("mobile");
+  } else {
+    document.body.classList.remove("mobile");
+  }
+}
+
+applyDeviceClass();
+window.addEventListener("resize", applyDeviceClass);
