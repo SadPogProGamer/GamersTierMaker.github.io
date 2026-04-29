@@ -206,7 +206,10 @@ async function buildTierListDataForSync() {
 }
 
 function queueRemoteSave(delay = 1000) {
+  if (isDraggingImages) return; // 🚨 KEY FIX
+
   if (!currentUser || !firebaseDb || !firebaseAvailable) return;
+
   clearTimeout(autoSaveTimeout);
   autoSaveTimeout = setTimeout(() => {
     saveTierListToFirebase().catch((err) => {

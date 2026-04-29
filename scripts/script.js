@@ -205,11 +205,8 @@ async function buildTierListData() {
   return tierListData;
 }
 
-async function saveTierList() {
-  if (!initializationComplete) {
-    alert("The app is still loading. Please try again in a moment.");
-    return;
-  }
+async function saveTierListLocally() {
+  if (!initializationComplete || isDraggingImages) return;
 
   let data;
   try {
@@ -376,23 +373,21 @@ function setupImageSelection(image) {
 function moveSelectedImagesToTarget(primaryElement, target, sibling = null) {
   if (!target || !primaryElement) return;
 
-  const movingImages = selectedImages.has(primaryElement)
-    ? Array.from(selectedImages)
-    : [primaryElement];
+  const extraImages = Array.from(selectedImages).filter((img) => {
+    return (
+      img !== primaryElement &&
+      img &&
+      img.isConnected &&
+      img.classList.contains("image")
+    );
+  });
 
-  const uniqueMovingImages = movingImages.filter((img, index, arr) => arr.indexOf(img) === index);
-
-  if (sibling && uniqueMovingImages.includes(sibling)) {
+  if (sibling && extraImages.includes(sibling)) {
     sibling = null;
   }
 
-  uniqueMovingImages.forEach((img) => {
-    if (img === primaryElement) return;
-    if (sibling) {
-      target.insertBefore(img, sibling);
-    } else {
-      target.appendChild(img);
-    }
+  extraImages.forEach((img) => {
+    target.insertBefore(img, sibling || null);
   });
 }
 
@@ -475,23 +470,35 @@ function initializeDragula() {
     })
 
     .on("drop", async (el, target, source, sibling) => {
-      scrollable = true;
-      isDraggingImages = false;
-
       try {
         if (!target) {
-          clearImageSelection();
           return;
         }
 
-        moveSelectedImagesToTarget(el, target, sibling);
+        // Dragula already moved the dragged image.
+        // Only move extra selected images when multi-select is active.
+        if (selectedImages.has(el) && selectedImages.size > 1) {
+          moveSelectedImagesToTarget(el, target, sibling);
+        }
+
         clearImageSelection();
+
+        // Wait one frame so Dragula finishes DOM cleanup before autosave/sync.
+        await new Promise((resolve) => requestAnimationFrame(resolve));
+
+        scrollable = true;
+        isDraggingImages = false;
+
         await handlePostDrop(target);
 
         if (typeof flushPendingRealtimeSync === "function") {
           await flushPendingRealtimeSync();
         }
+      } catch (err) {
+        scriptLogError("Dragula drop handling failed.", err);
       } finally {
+        scrollable = true;
+        isDraggingImages = false;
         clearImageSelection();
       }
     })
@@ -604,9 +611,9 @@ async function uploadImages(fileList) {
 
   const existingImages = indexedDb
     ? await getImagesFromIndexedDB().catch((err) => {
-        scriptLogError("Failed loading existing images before upload.", err);
-        return [];
-      })
+      scriptLogError("Failed loading existing images before upload.", err);
+      return [];
+    })
     : [];
 
   const existingIds = new Set(existingImages.map((img) => img.id));
