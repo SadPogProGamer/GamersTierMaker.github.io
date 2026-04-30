@@ -205,7 +205,7 @@ async function buildTierListDataForSync() {
   return tierListData;
 }
 
-function queueRemoteSave(delay = 1000) {
+function queueRemoteSave(delay = 600) {
   if (isDraggingImages) return; // 🚨 KEY FIX
 
   if (!currentUser || !firebaseDb || !firebaseAvailable) return;
@@ -241,7 +241,7 @@ function createImageElementFromStoredData(imageObj) {
     deleteImageFromIndexedDB(imageObj.id).catch((err) => {
       logDbSyncError(`Failed to remove broken image ${imageObj.id} from IndexedDB.`, err);
     });
-    queueRemoteSave(1000);
+    queueRemoteSave(600); // Save after a short delay to allow the UI to update and avoid multiple rapid saves if several images are broken.
   }, { once: true });
 
   return image;
