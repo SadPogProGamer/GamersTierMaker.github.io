@@ -224,16 +224,7 @@ function processCommandFilter(filteredQuery, imageName, imagePlatform, imageDesc
   }
 }
 
-  if (command.startsWith("/completion")) {
-
-  const validStatuses = [
-    "100%",
-    "story complete",
-    "played",
-    "dropped",
-    "unfinished",
-    "replaying"
-  ];
+if (command.startsWith("/completion")) {
 
   // Just "/Completion"
   if (command === "/completion") {
@@ -248,12 +239,7 @@ function processCommandFilter(filteredQuery, imageName, imagePlatform, imageDesc
       .trim()
       .toLowerCase();
 
-    // 🚨 only allow valid statuses
-    if (!validStatuses.includes(statusQuery)) {
-      return false;
-    }
-
-    return normalizedStatus.toLowerCase() === statusQuery;
+    return normalizedStatus.toLowerCase().includes(statusQuery);
   }
 }
 
