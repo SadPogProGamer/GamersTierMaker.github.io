@@ -206,9 +206,23 @@ function processCommandFilter(filteredQuery, imageName, imagePlatform, imageDesc
     }
   }
 
+  if (command.startsWith("/datebeaten")) {
+
+  // Just "/DateBeaten"
   if (command === "/datebeaten") {
     return normalizedDate !== "";
   }
+
+  // "/DateBeaten something"
+  if (command.startsWith("/datebeaten ")) {
+    const dateQuery = command
+      .substring("/datebeaten ".length)
+      .trim()
+      .toLowerCase();
+
+    return normalizedDate.toLowerCase().includes(dateQuery);
+  }
+}
 
   if (command === "/completion") {
     return normalizedStatus !== "";
