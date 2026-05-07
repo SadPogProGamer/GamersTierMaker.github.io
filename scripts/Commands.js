@@ -224,9 +224,38 @@ function processCommandFilter(filteredQuery, imageName, imagePlatform, imageDesc
   }
 }
 
+  if (command.startsWith("/completion")) {
+
+  const validStatuses = [
+    "100%",
+    "story complete",
+    "played",
+    "dropped",
+    "unfinished",
+    "replaying"
+  ];
+
+  // Just "/Completion"
   if (command === "/completion") {
     return normalizedStatus !== "";
   }
+
+  // "/Completion something"
+  if (command.startsWith("/completion ")) {
+
+    const statusQuery = command
+      .substring("/completion ".length)
+      .trim()
+      .toLowerCase();
+
+    // 🚨 only allow valid statuses
+    if (!validStatuses.includes(statusQuery)) {
+      return false;
+    }
+
+    return normalizedStatus.toLowerCase() === statusQuery;
+  }
+}
 
   if (command === "/noname") {
     return normalizedName === "";
