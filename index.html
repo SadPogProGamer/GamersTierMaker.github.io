@@ -281,18 +281,37 @@
     </div>
   </main>
 
-  <div id="buttons-container">
-    <button type="button" onclick="selectImages()">Click here to add images</button>
-    <button id="btn" type="button">Download Tierlist Image</button>
-    <button id="download-all-btn" type="button" onclick="downloadAllImagesZip()">Download All Images</button>
-    <button type="button" onclick="importGameDetails()">Import Game Details</button>
-    <button type="button" onclick="downloadGameDetailsJSON()">Export Game Details</button>
-    <button type="button" onclick="deleteTierList()" style="background: #dc3545; color: white;">Delete Tier
-      List</button>
+  <!-- SAVE BUTTON -->
+<div class="save-tierlist-wrapper">
+  <button id="save-tierlist-btn" type="button" onclick="saveTierList()">
+    Save Tierlist
+  </button>
+</div>
 
-    <!-- ✅ ADD THIS -->
-    <div id="upload-status" class="upload-status hidden"></div>
-  </div>
+<!-- BOTTOM BUTTONS -->
+<div id="buttons-container">
+  <button type="button" onclick="selectImages()">Click here to add images</button>
+  <button id="btn" type="button">Download Tierlist Image</button>
+  <button id="download-all-btn" type="button" onclick="downloadAllImagesZip()">
+    Download All Images
+  </button>
+  <button type="button" onclick="importGameDetails()">
+    Import Game Details
+  </button>
+  <button type="button" onclick="downloadGameDetailsJSON()">
+    Export Game Details
+  </button>
+
+  <button
+    type="button"
+    onclick="deleteTierList()"
+    style="background: #dc3545; color: white;"
+  >
+    Delete Tier List
+  </button>
+
+  <div id="upload-status" class="upload-status hidden"></div>
+</div>
 
   <div id="image-modal" class="modal hidden">
     <div class="modal-content">
