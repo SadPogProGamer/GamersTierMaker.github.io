@@ -1061,6 +1061,8 @@ function normalizeImportedStatus(rawStatus) {
 
 // BottomButtons.js - Update the saveTierList function at the bottom
 
+// BottomButtons.js - Update saveTierList function
+
 async function saveTierList() {
   if (!initializationComplete) {
     alert("Tier list is still loading, please wait...");
@@ -1076,6 +1078,11 @@ async function saveTierList() {
   }
 
   try {
+    // Save tier ordering and limit states to storage
+    if (typeof saveTierSettingsToStorage === "function") {
+      await saveTierSettingsToStorage();
+    }
+    
     await saveTierListLocally();
     
     if (currentUser && firebaseDb && firebaseAvailable) {

@@ -1450,7 +1450,7 @@ body.mobile .modal-content {
   height: 65px;
   border: none;
   border-radius: 8px;
-  background: #0d6efd;
+  background: #3a5795;
   color: white;
   font-size: 24px;
   font-weight: bold;
@@ -1459,7 +1459,7 @@ body.mobile .modal-content {
 }
 
 #save-tierlist-btn:hover {
-  background: #0b5ed7;
+  background: #3a5795;
   transform: scale(1.02);
 }
 

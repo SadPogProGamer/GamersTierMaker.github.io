@@ -15,6 +15,8 @@ const defaultColors = [
 
 let tierOrderingStates = {};
 let tierLimitStates = {};
+let tierColorsArray = []; // Store tier colors in memory
+let pendingDeletions = new Set(); // Track tiers marked for deletion
 window.pickrInstances = window.pickrInstances || [];
 
 const platformPriority = {
@@ -114,16 +116,6 @@ function getTierIndexFromRow(row) {
   return getTierRows().indexOf(row);
 }
 
-function scheduleTierStateSave() {
-  Promise.resolve()
-    .then(() => saveTierColors())
-    .then(() => saveImagePositions?.())
-    .then(() => saveTierListLocally?.())
-    .catch((err) => {
-      tierSettingsLogError("Failed saving tier settings state.", err);
-    });
-}
-
 function createMenuButton(iconSrc, alt, onClick) {
   const wrapper = document.createElement("div");
   wrapper.className = "option";
@@ -136,28 +128,6 @@ function createMenuButton(iconSrc, alt, onClick) {
 
   wrapper.appendChild(image);
   return wrapper;
-}
-
-function createCheckboxRow(labelText, checked, onChange) {
-  const row = document.createElement("label");
-  row.className = "row-menu-item checkbox-item";
-  row.style.display = "flex";
-  row.style.alignItems = "center";
-  row.style.gap = "8px";
-  row.style.padding = "8px 10px";
-  row.style.cursor = "pointer";
-
-  const checkbox = document.createElement("input");
-  checkbox.type = "checkbox";
-  checkbox.checked = !!checked;
-  checkbox.addEventListener("change", () => onChange(checkbox.checked));
-
-  const text = document.createElement("span");
-  text.textContent = labelText;
-
-  row.appendChild(checkbox);
-  row.appendChild(text);
-  return row;
 }
 
 function createActionRow(labelText, onClick, danger = false) {
@@ -186,13 +156,11 @@ function openRowMenu(element, event) {
 
   const clickedCogId = element.dataset.menuCogId;
 
-  // Same cog clicked again -> just close
   if (existingMenu && existingOwner === clickedCogId) {
     existingMenu.remove();
     return;
   }
 
-  // Different cog clicked -> close old one, then continue opening new one
   removeExistingRowMenu();
 
   const row = element.closest(".row");
@@ -207,17 +175,15 @@ function openRowMenu(element, event) {
     createActionRow("Add Tier Above", () => {
       const newRow = createNewRow("New tier", "lightslategray");
       row.parentNode.insertBefore(newRow, row);
-
       rebuildTierStateIndexes();
       try {
         initializeDragula?.();
       } catch (err) {
         tierSettingsLogError("Failed reinitializing dragula after adding row above.", err);
       }
-
-      scheduleTierStateSave();
       try { updateTierCounts(countsAreShown()); } catch (e) { }
       menu.remove();
+      // NO save to storage
     })
   );
 
@@ -225,46 +191,87 @@ function openRowMenu(element, event) {
     createActionRow("Add Tier Below", () => {
       const newRow = createNewRow("New tier", "lightslategray");
       row.parentNode.insertBefore(newRow, row.nextSibling);
-
       rebuildTierStateIndexes();
       try {
         initializeDragula?.();
       } catch (err) {
         tierSettingsLogError("Failed reinitializing dragula after adding row below.", err);
       }
-
-      scheduleTierStateSave();
       try { updateTierCounts(countsAreShown()); } catch (e) { }
       menu.remove();
+      // NO save to storage
     })
   );
 
-  menu.appendChild(
-    createCheckboxRow("Order on platform", !!tierOrderingStates[tierIndex], async (checked) => {
-      try {
-        await toggleTierOrdering(tierIndex, checked);
-      } finally {
-        menu.remove();
-      }
-    })
-  );
+  // Create checkbox for Order on platform - updates state but does NOT save to storage
+  const orderCheckboxRow = document.createElement("label");
+  orderCheckboxRow.className = "row-menu-item checkbox-item";
+  orderCheckboxRow.style.display = "flex";
+  orderCheckboxRow.style.alignItems = "center";
+  orderCheckboxRow.style.gap = "8px";
+  orderCheckboxRow.style.padding = "8px 10px";
+  orderCheckboxRow.style.cursor = "pointer";
 
-  menu.appendChild(
-    createCheckboxRow("Limit to 10", !!tierLimitStates[tierIndex], async (checked) => {
-      try {
-        await toggleTierLimit(tierIndex, checked);
-      } finally {
-        menu.remove();
+  const orderCheckbox = document.createElement("input");
+  orderCheckbox.type = "checkbox";
+  orderCheckbox.checked = !!tierOrderingStates[tierIndex];
+  orderCheckbox.addEventListener("change", async (e) => {
+    e.stopPropagation();
+    tierOrderingStates[tierIndex] = orderCheckbox.checked;
+    if (orderCheckbox.checked) {
+      const rows = getTierRows();
+      if (rows[tierIndex]) {
+        await sortTierByPlatform(rows[tierIndex].children[1]);
       }
-    })
-  );
+    }
+    // NO save to storage - only update in-memory state
+  });
+
+  const orderText = document.createElement("span");
+  orderText.textContent = "Order on platform";
+
+  orderCheckboxRow.appendChild(orderCheckbox);
+  orderCheckboxRow.appendChild(orderText);
+  menu.appendChild(orderCheckboxRow);
+
+  // Create checkbox for Limit to 10 - updates state but does NOT save to storage
+  const limitCheckboxRow = document.createElement("label");
+  limitCheckboxRow.className = "row-menu-item checkbox-item";
+  limitCheckboxRow.style.display = "flex";
+  limitCheckboxRow.style.alignItems = "center";
+  limitCheckboxRow.style.gap = "8px";
+  limitCheckboxRow.style.padding = "8px 10px";
+  limitCheckboxRow.style.cursor = "pointer";
+
+  const limitCheckbox = document.createElement("input");
+  limitCheckbox.type = "checkbox";
+  limitCheckbox.checked = !!tierLimitStates[tierIndex];
+  limitCheckbox.addEventListener("change", async (e) => {
+    e.stopPropagation();
+    tierLimitStates[tierIndex] = limitCheckbox.checked;
+    if (limitCheckbox.checked) {
+      const rows = getTierRows();
+      const imagesBar = getImagesBar();
+      enforceTierLimitForRow(rows, tierIndex, imagesBar);
+    }
+    // NO save to storage - only update in-memory state
+  });
+
+  const limitText = document.createElement("span");
+  limitText.textContent = "Limit to 10";
+
+  limitCheckboxRow.appendChild(limitCheckbox);
+  limitCheckboxRow.appendChild(limitText);
+  menu.appendChild(limitCheckboxRow);
 
   menu.appendChild(
     createActionRow("Delete Tier", () => {
       if (typeof promptDeleteTier === "function") {
-        promptDeleteTier(() => deleteRow(row));
+        promptDeleteTier(() => {
+          deleteRowVisualOnly(row);
+        });
       } else {
-        deleteRow(row);
+        deleteRowVisualOnly(row);
       }
       menu.remove();
     }, true)
@@ -299,7 +306,6 @@ function openRowMenu(element, event) {
     window.addEventListener("resize", closeMenuOnScroll);
   }, 0);
 }
-
 
 function createColorPicker(colorPicker, onPreview, onSave, defaultColor) {
   if (typeof Pickr === "undefined") {
@@ -390,7 +396,7 @@ function moveRow(button, direction) {
     console.error("Failed reinitializing dragula after moving row.", err);
   }
 
-  saveTierColors();
+  // NO save - only visual update
 }
 
 function createNewRow(name = "New tier", color = "lightslategray") {
@@ -421,7 +427,8 @@ function createNewRow(name = "New tier", color = "lightslategray") {
     },
     (hexColor) => {
       tierLabelDiv.style.backgroundColor = hexColor;
-      saveTierColors();
+      // Only update in-memory tier colors array, NO save to storage
+      updateTierColorsInMemory();
     },
     color
   );
@@ -477,7 +484,6 @@ function createNewRow(name = "New tier", color = "lightslategray") {
   return newRow;
 }
 
-
 function addRow(name = "New tier", color = "lightslategray") {
   const main = getMainElement();
   if (!main) return null;
@@ -497,7 +503,7 @@ function addRow(name = "New tier", color = "lightslategray") {
     tierSettingsLogError("Failed reinitializing dragula after adding row.", err);
   }
 
-  saveTierColors();
+  updateTierColorsInMemory();
   return newRow;
 }
 
@@ -518,7 +524,7 @@ function addRowAbove(referenceRow, name = "New tier", color = "lightslategray") 
   }
 
   rebuildTierStateIndexes();
-  scheduleTierStateSave();
+  updateTierColorsInMemory();
   return newRow;
 }
 
@@ -539,10 +545,9 @@ function addRowBelow(referenceRow, name = "New tier", color = "lightslategray") 
   }
 
   rebuildTierStateIndexes();
-  scheduleTierStateSave();
+  updateTierColorsInMemory();
   return newRow;
 }
-
 
 function destroyRowPickers(row) {
   const tooltips = row.querySelectorAll(".tooltip");
@@ -572,7 +577,8 @@ function rebuildTierStateIndexes() {
   tierLimitStates = nextLimits;
 }
 
-function deleteRow(element) {
+// Visual-only delete - NO saving to storage
+function deleteRowVisualOnly(element) {
   const row = element?.classList?.contains("row") ? element : element?.closest?.(".row");
   if (!row) return;
 
@@ -597,40 +603,10 @@ function deleteRow(element) {
     tierSettingsLogError("Failed reinitializing dragula after deleting row.", err);
   }
 
-  scheduleTierStateSave();
+  updateTierColorsInMemory();
 }
 
-function moveRow(button, direction) {
-  const row = button?.closest?.(".row");
-  if (!row) return;
-
-  const parent = row.parentNode;
-  const rows = Array.from(parent.children).filter((child) => child.classList?.contains("row"));
-  const currentIndex = rows.indexOf(row);
-  const newIndex = currentIndex + direction;
-
-  if (newIndex < 0 || newIndex >= rows.length) {
-    return;
-  }
-
-  rows.forEach((r, index) => {
-    r.dataset.tierIndexSnapshot = String(index);
-  });
-
-  const referenceRow = direction === 1 ? rows[newIndex].nextElementSibling : rows[newIndex];
-  parent.insertBefore(row, referenceRow);
-  rebuildTierStateIndexes();
-
-  try {
-    initializeDragula?.();
-  } catch (err) {
-    tierSettingsLogError("Failed reinitializing dragula after moving row.", err);
-  }
-
-  scheduleTierStateSave();
-}
-
-function saveTierColors() {
+function saveTierColorsToStorage() {
   const tiers = getTierRows().map((row) => {
     const tierLabel = row.querySelector(".tier-label");
     return {
@@ -642,12 +618,17 @@ function saveTierColors() {
   saveSetting("tierColors", tiers).catch((err) => {
     tierSettingsLogError("Failed saving tier colors.", err);
   });
+}
 
-  if (currentUser && firebaseDb && firebaseAvailable) {
-    saveTierListToFirebase().catch((err) => {
-      tierSettingsLogError("Failed syncing tier colors to Firebase.", err);
-    });
-  }
+function updateTierColorsInMemory() {
+  // Just update in-memory array - no save to storage
+  tierColorsArray = getTierRows().map((row) => {
+    const tierLabel = row.querySelector(".tier-label");
+    return {
+      name: tierLabel?.querySelector("p")?.textContent || "New tier",
+      color: tierLabel?.style?.backgroundColor || "lightslategray",
+    };
+  });
 }
 
 function loadTierColors() {
@@ -671,6 +652,8 @@ function loadTierColors() {
         const tier = storedTiers[i];
         addRow(tier.name || "New tier", tier.color || "lightslategray");
       }
+      
+      updateTierColorsInMemory();
     })
     .catch((err) => {
       tierSettingsLogError("Failed loading tier colors.", err);
@@ -738,6 +721,7 @@ function enforceTierLimitForRow(rows, tierIndex, imagesBar) {
   }
 }
 
+// These functions now only update in-memory state - NO saving to storage
 async function toggleTierOrdering(tierIndex, enabled) {
   tierOrderingStates[tierIndex] = !!enabled;
 
@@ -746,19 +730,6 @@ async function toggleTierOrdering(tierIndex, enabled) {
     if (rows[tierIndex]) {
       await sortTierByPlatform(rows[tierIndex].children[1]);
     }
-  }
-
-  await saveSetting("tierOrderingStates", tierOrderingStates).catch((err) => {
-    tierSettingsLogError("Failed saving tier ordering toggle state.", err);
-  });
-  await saveTierListLocally?.().catch((err) => {
-    tierSettingsLogError("Failed local save after toggling tier ordering.", err);
-  });
-
-  if (currentUser && firebaseDb && firebaseAvailable) {
-    await saveTierListToFirebase().catch((err) => {
-      tierSettingsLogError("Failed Firebase save after toggling tier ordering.", err);
-    });
   }
 }
 
@@ -769,22 +740,6 @@ async function toggleTierLimit(tierIndex, enabled) {
   const imagesBar = getImagesBar();
   if (enabled) {
     enforceTierLimitForRow(rows, tierIndex, imagesBar);
-  }
-
-  await saveSetting("tierLimitStates", tierLimitStates).catch((err) => {
-    tierSettingsLogError("Failed saving tier limit toggle state.", err);
-  });
-  await saveImagePositions?.().catch((err) => {
-    tierSettingsLogError("Failed saving image positions after toggling tier limit.", err);
-  });
-  await saveTierListLocally?.().catch((err) => {
-    tierSettingsLogError("Failed local save after toggling tier limit.", err);
-  });
-
-  if (currentUser && firebaseDb && firebaseAvailable) {
-    await saveTierListToFirebase().catch((err) => {
-      tierSettingsLogError("Failed Firebase save after toggling tier limit.", err);
-    });
   }
 }
 
@@ -832,6 +787,17 @@ function loadHeaderFromStorage() {
     });
 }
 
+// Save all tier settings to storage (called by manual save button)
+async function saveTierSettingsToStorage() {
+  await saveSetting("tierOrderingStates", tierOrderingStates).catch((err) => {
+    tierSettingsLogError("Failed saving tier ordering states.", err);
+  });
+  await saveSetting("tierLimitStates", tierLimitStates).catch((err) => {
+    tierSettingsLogError("Failed saving tier limit states.", err);
+  });
+  await saveTierColorsToStorage();
+}
+
 async function applyTierSettingsToRows() {
   const rows = getTierRows();
   const imagesBar = getImagesBar();
@@ -873,7 +839,7 @@ function bindTierSettingsBootEvents() {
       },
       (hexColor) => {
         tierLabel.style.backgroundColor = hexColor;
-        saveTierColors();
+        updateTierColorsInMemory();
       },
       defaultColor
     );
@@ -901,7 +867,7 @@ function insertRowAbove(referenceElement, name = "New tier", color = "lightslate
     console.error("Failed reinitializing dragula after inserting row above.", err);
   }
 
-  saveTierColors();
+  updateTierColorsInMemory();
   return newRow;
 }
 
@@ -918,7 +884,7 @@ function insertRowBelow(referenceElement, name = "New tier", color = "lightslate
     console.error("Failed reinitializing dragula after inserting row below.", err);
   }
 
-  saveTierColors();
+  updateTierColorsInMemory();
   return newRow;
 }
 
@@ -929,17 +895,17 @@ function attachTierLabelKeydownListener(tierLabel) {
         e.preventDefault();
         document.execCommand("insertLineBreak");
         setTimeout(() => {
-          saveTierColors();
+          updateTierColorsInMemory();
         }, 0);
       } else {
         e.preventDefault();
-        saveTierColors();
+        updateTierColorsInMemory();
         tierLabel.blur();
       }
     }
   });
 
   tierLabel.addEventListener("blur", () => {
-    saveTierColors();
+    updateTierColorsInMemory();
   });
 }
