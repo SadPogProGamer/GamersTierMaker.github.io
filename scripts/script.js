@@ -1,6 +1,5 @@
 // script.js
-// Safer core app logic for uploads, selection, drag/drop, local save/load, and bootstrapping.
-// Designed to stay compatible with the existing HTML and other scripts.
+// Core app logic for uploads, selection, drag/drop, local save/load, and bootstrapping.
 
 const hash = location.hash.substring(1);
 
@@ -81,15 +80,6 @@ function createImageElement({ src, id, cloudinaryUrl }) {
         scriptLogError(`Failed removing broken image ${id} from IndexedDB.`, err);
       });
       setDropHintVisibility();
-
-      if (currentUser && firebaseDb && firebaseAvailable) {
-        clearTimeout(autoSaveTimeout);
-        autoSaveTimeout = setTimeout(() => {
-          saveTierListToFirebase().catch((err) => {
-            scriptLogError("Failed syncing after broken image cleanup.", err);
-          });
-        }, 1000);
-      }
     },
     { once: true }
   );
@@ -208,53 +198,12 @@ async function buildTierListData() {
 async function saveTierListLocally() {
   if (!initializationComplete || isDraggingImages) return;
 
-  let data;
-  try {
-    data = await buildTierListData();
-  } catch (err) {
-    scriptLogError("Failed building tier list for save.", err);
-    alert("Failed to prepare the tier list for saving.");
-    return;
-  }
-
-  if (currentUser && firebaseDb && firebaseAvailable) {
-    try {
-      await saveTierListToFirebase();
-      alert("Tierlist saved to your account.");
-      return;
-    } catch (err) {
-      scriptLogError("Firebase save failed, falling back to local save.", err);
-    }
-  }
-
-  try {
-    await saveSetting("localTierList", data);
-    alert("Tierlist saved locally in this browser.");
-  } catch (err) {
-    scriptLogError("IndexedDB local save failed, falling back to localStorage.", err);
-    try {
-      localStorage.setItem("savedTierList", JSON.stringify(data));
-      alert("Tierlist saved using fallback storage.");
-    } catch (fallbackErr) {
-      scriptLogError("localStorage fallback save failed.", fallbackErr);
-      alert("Failed to save tierlist.");
-    }
-  }
-}
-
-async function saveTierListLocally() {
-  if (!initializationComplete) return;
   try {
     const data = await buildTierListData();
     await saveSetting("localTierList", data);
-
-    try {
-      localStorage.setItem("savedTierList", JSON.stringify(data));
-    } catch (err) {
-      scriptLogError("Failed updating legacy localStorage fallback.", err);
-    }
+    localStorage.setItem("savedTierList", JSON.stringify(data));
   } catch (err) {
-    scriptLogError("Best-effort local save failed.", err);
+    scriptLogError("Failed saving tier list locally.", err);
   }
 }
 
@@ -310,12 +259,10 @@ function toggleImageSelection(image) {
 function handleImageContextMenu(event, image) {
   const isMultiSelect = event.ctrlKey || event.metaKey || event.shiftKey;
 
-  // Normal right-click: allow browser context menu
   if (!isMultiSelect) {
     return;
   }
 
-  // Modifier + right-click: use selection mode
   event.preventDefault();
   suppressNextLeftClick = true;
 
@@ -475,15 +422,12 @@ function initializeDragula() {
           return;
         }
 
-        // Dragula already moved the dragged image.
-        // Only move extra selected images when multi-select is active.
         if (selectedImages.has(el) && selectedImages.size > 1) {
           moveSelectedImagesToTarget(el, target, sibling);
         }
 
         clearImageSelection();
 
-        // Wait one frame so Dragula finishes DOM cleanup before autosave/sync.
         await new Promise((resolve) => requestAnimationFrame(resolve));
 
         scrollable = true;
@@ -577,25 +521,6 @@ function validateUploadFile(file) {
   }
 }
 
-function setUploadStatus(message, type = "loading") {
-  const el = document.getElementById("upload-status");
-  if (!el) return;
-
-  el.textContent = message;
-  el.className = `upload-status ${type}`;
-  el.classList.remove("hidden");
-}
-
-function clearUploadStatus(delay = 1500) {
-  const el = document.getElementById("upload-status");
-  if (!el) return;
-
-  setTimeout(() => {
-    el.classList.add("hidden");
-    el.textContent = "";
-  }, delay);
-}
-
 const activeUploadIds = new Set();
 
 async function uploadImages(fileList) {
@@ -668,15 +593,6 @@ async function uploadImages(fileList) {
   saveTierListLocally().catch((err) => {
     scriptLogError("Failed saving tier list locally after upload.", err);
   });
-
-  if (currentUser && firebaseDb && firebaseAvailable) {
-    clearTimeout(autoSaveTimeout);
-    autoSaveTimeout = setTimeout(() => {
-      saveTierListToFirebase().catch((err) => {
-        scriptLogError("Failed syncing uploaded images to Firebase.", err);
-      });
-    }, 1000);
-  }
 
   if (failedCount > 0) {
     setUploadStatus(
@@ -894,13 +810,7 @@ function bindCoreUiEvents() {
   const title = document.getElementById("main-title");
   if (title) {
     title.addEventListener("input", () => {
-      saveTierListLocally().catch((err) => scriptLogError("Failed autosaving title change.", err));
-      if (currentUser && firebaseDb && firebaseAvailable) {
-        clearTimeout(autoSaveTimeout);
-        autoSaveTimeout = setTimeout(() => {
-          saveTierListToFirebase().catch((err) => scriptLogError("Failed syncing title change.", err));
-        }, 800);
-      }
+      saveTierListLocally().catch((err) => scriptLogError("Failed saving title change.", err));
     });
   }
 }
@@ -924,7 +834,6 @@ async function bootstrapApp() {
     if (typeof loadTierOrderingStates === "function") await loadTierOrderingStates();
     if (typeof loadTierLimitStates === "function") await loadTierLimitStates();
     if (typeof loadTierColors === "function") loadTierColors();
-
   } catch (err) {
     scriptLogError("Failed loading saved tier settings during bootstrap.", err);
   }
@@ -984,7 +893,6 @@ document.addEventListener("dragover", (event) => {
 document.addEventListener("dragleave", (event) => {
   if (!hasDraggedFiles(event)) return;
 
-  // Only clear when leaving the window/document, not when moving between elements
   const related = event.relatedTarget;
   if (!related || related === document.documentElement || related === document.body) {
     setGlobalDropActive(false);

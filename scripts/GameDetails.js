@@ -332,19 +332,6 @@ function isImageModalOpen() {
   return !!modal && !modal.classList.contains("hidden");
 }
 
-function triggerMetadataAutosaveDebounced(imageId) {
-  const resolvedImageId = imageId || getCurrentImageId();
-  if (!resolvedImageId) return;
-
-  if (autoSaveTimers[resolvedImageId]) {
-    clearTimeout(autoSaveTimers[resolvedImageId]);
-  }
-
-  autoSaveTimers[resolvedImageId] = setTimeout(() => {
-    autoSaveMetadata(resolvedImageId);
-  }, 800);
-}
-
 async function sortCurrentImageTierIfOrdered(imageElement) {
   if (!imageElement) return;
 
@@ -361,40 +348,6 @@ async function sortCurrentImageTierIfOrdered(imageElement) {
     await saveImagePositions();
   } catch (err) {
     gameDetailsLogError(`Failed sorting ordered tier ${tierIndex} after metadata update.`, err);
-  }
-}
-
-async function autoSaveMetadata(imageId) {
-  if (!currentImageElement) return;
-  if (getCurrentImageId() !== imageId) return;
-
-  const metadata = getCurrentMetadataFromForm();
-
-  try {
-    await saveImageMetadataToIndexedDB(imageId, metadata);
-    await sortCurrentImageTierIfOrdered(currentImageElement);
-
-    await saveTierListLocally().catch((err) => {
-      gameDetailsLogError("Best-effort local save after metadata autosave failed.", err);
-    });
-
-    if (currentUser && firebaseDb && firebaseAvailable) {
-      await saveTierListToFirebase();
-    }
-  } catch (err) {
-    gameDetailsLogError(`Metadata autosave failed for ${imageId}.`, err);
-  } finally {
-    if (autoSaveTimers[imageId]) {
-      clearTimeout(autoSaveTimers[imageId]);
-      delete autoSaveTimers[imageId];
-    }
-  }
-}
-
-function autoSaveMetadataWrapper() {
-  const imageId = getCurrentImageId();
-  if (imageId) {
-    autoSaveMetadata(imageId);
   }
 }
 
@@ -522,27 +475,12 @@ function closeImageModal() {
 
   finalizeModalClose();
 
-
   if (!imageId || !imageElement) return;
-
-  if (autoSaveTimers[imageId]) {
-    clearTimeout(autoSaveTimers[imageId]);
-    delete autoSaveTimers[imageId];
-  }
-
-  if (autoSaveTimeout) {
-    clearTimeout(autoSaveTimeout);
-    autoSaveTimeout = null;
-  }
 
   saveImageMetadataToIndexedDB(imageId, metadata)
     .then(async () => {
       await sortCurrentImageTierIfOrdered(imageElement);
       await saveTierListLocally().catch(() => { });
-
-      if (currentUser && firebaseDb && firebaseAvailable) {
-        await saveTierListToFirebase().catch(() => { });
-      }
     })
     .finally(() => {
       try {

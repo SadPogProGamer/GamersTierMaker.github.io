@@ -1059,6 +1059,42 @@ function normalizeImportedStatus(rawStatus) {
   return "";
 }
 
+// BottomButtons.js - Update the saveTierList function at the bottom
+
+async function saveTierList() {
+  if (!initializationComplete) {
+    alert("Tier list is still loading, please wait...");
+    return;
+  }
+
+  const button = document.getElementById("save-tierlist-btn");
+  const originalText = button?.textContent || "Save Tierlist";
+  
+  if (button) {
+    button.textContent = "Saving...";
+    button.disabled = true;
+  }
+
+  try {
+    await saveTierListLocally();
+    
+    if (currentUser && firebaseDb && firebaseAvailable) {
+      await saveTierListToFirebase();
+      alert("Tierlist saved to your account and locally!");
+    } else {
+      alert("Tierlist saved locally! Sign in with Google to save to the cloud.");
+    }
+  } catch (err) {
+    console.error("Failed to save tierlist:", err);
+    alert("Failed to save tierlist. See console for details.");
+  } finally {
+    if (button) {
+      button.textContent = originalText;
+      button.disabled = false;
+    }
+  }
+}
+
 (function bindBottomButtons() {
   document.addEventListener("DOMContentLoaded", () => {
     const screenshotButton = document.getElementById("btn");

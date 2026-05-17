@@ -1,19 +1,16 @@
 // DatabaseSyncing.js
-// Safer rewrite for IndexedDB, Firebase sync, and Cloudinary helpers.
-// This file keeps the same public function names so the rest of the app can keep calling them.
+// Manages IndexedDB, Firebase sync, and Cloudinary helpers.
+// Firebase saves only happen when manually triggered.
 
 let indexedDb = null;
 
-// Firebase globals used elsewhere in the app
+// Firebase globals
 let firebaseApp = null;
 let firebaseAuth = null;
 let firebaseDb = null;
 let currentUser = null;
 let firebaseAvailable = true;
 
-let autoSaveTimeout = null;
-let autoSaveTimers = {};
-let lastFirebaseSyncTime = {};
 let lastRemoteSyncTime = null;
 let syncUnsubscribe = null;
 let isApplyingRemoteUpdate = false;
@@ -205,19 +202,6 @@ async function buildTierListDataForSync() {
   return tierListData;
 }
 
-function queueRemoteSave(delay = 600) {
-  if (isDraggingImages) return; // 🚨 KEY FIX
-
-  if (!currentUser || !firebaseDb || !firebaseAvailable) return;
-
-  clearTimeout(autoSaveTimeout);
-  autoSaveTimeout = setTimeout(() => {
-    saveTierListToFirebase().catch((err) => {
-      logDbSyncError("Queued Firebase save failed.", err);
-    });
-  }, delay);
-}
-
 function createImageElementFromStoredData(imageObj) {
   const image = document.createElement("img");
   image.src = imageObj.src;
@@ -241,7 +225,6 @@ function createImageElementFromStoredData(imageObj) {
     deleteImageFromIndexedDB(imageObj.id).catch((err) => {
       logDbSyncError(`Failed to remove broken image ${imageObj.id} from IndexedDB.`, err);
     });
-    queueRemoteSave(600); // Save after a short delay to allow the UI to update and avoid multiple rapid saves if several images are broken.
   }, { once: true });
 
   return image;
@@ -385,18 +368,11 @@ async function saveImagePositions() {
       order: position.order,
     });
   }));
-
-  if (currentUser && firebaseDb && firebaseAvailable) {
-    await saveTierListToFirebase();
-  }
 }
 
 async function loadTierListFromLocalStorage() {
-  // Header / tier colors / ordering / limits are already loaded separately in bootstrap,
-  // so for refresh we should prefer the image store, which has the freshest tier/order.
   await loadImagesFromStorage();
 
-  // Optional legacy fallback only if no images were restored.
   const displayedImages = document.querySelectorAll(".image");
   if (displayedImages.length > 0) return;
 
@@ -458,7 +434,6 @@ function loadImagesFromStorage() {
     });
 }
 
-// Deprecated wrappers kept for compatibility with other scripts.
 function getImageMetadata() {
   return getDefaultImageMetadata();
 }
@@ -627,7 +602,6 @@ async function flushPendingRealtimeSync() {
 
   await applyRemoteTierData(remoteTierData, remoteUpdatedAt);
 }
-
 
 async function signOut() {
   stopRealtimeSync();
@@ -803,7 +777,6 @@ function stopRealtimeSync() {
   pendingRemoteUpdatedAt = null;
 }
 
-
 function getCloudinaryFolder() {
   return CLOUDINARY_CONFIG && CLOUDINARY_CONFIG.folder ? CLOUDINARY_CONFIG.folder : null;
 }
@@ -823,7 +796,6 @@ async function uploadToCloudinary(file) {
   formData.append("file", file);
   formData.append("upload_preset", CLOUDINARY_CONFIG.uploadPreset);
 
-  // 🔥 THIS is what makes localhost go to LocalHost folder
   if (CLOUDINARY_CONFIG.folder) {
     formData.append("folder", CLOUDINARY_CONFIG.folder);
   }
