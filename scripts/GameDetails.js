@@ -1,6 +1,5 @@
 // GameDetails.js
-// Handles the game details modal, platform picker, metadata autosave, and deleting a single image.
-// Designed to stay compatible with the existing HTML and the rewritten DatabaseSyncing.js / script.js.
+// Handles the game details modal, platform picker, metadata management, and deleting a single image.
 
 const platformOptions = {
   "PC": [
@@ -136,7 +135,7 @@ function getCurrentMetadataFromForm() {
 }
 
 function lockBackgroundScroll() {
-  if (isMobileDevice()) return; // 👈 disable on mobile
+  if (isMobileDevice()) return;
 
   const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
   document.body.style.overflow = "hidden";
@@ -214,7 +213,6 @@ function updateReplayVisibility() {
 function toggleReplayStatus() {
   currentHas100Replay = !currentHas100Replay;
   updateReplayVisibility();
-  triggerMetadataAutosaveDebounced();
 }
 
 function updatePlatformButton() {
@@ -332,83 +330,6 @@ function isImageModalOpen() {
   return !!modal && !modal.classList.contains("hidden");
 }
 
-async function sortCurrentImageTierIfOrdered(imageElement) {
-  if (!imageElement) return;
-
-  const row = imageElement.closest(".row");
-  if (!row) return;
-
-  const rows = Array.from(document.querySelectorAll(".row"));
-  const tierIndex = rows.indexOf(row);
-  if (tierIndex < 0) return;
-  if (!tierOrderingStates || !tierOrderingStates[tierIndex]) return;
-
-  try {
-    await sortTierByPlatform(row.children[1]);
-    await saveImagePositions();
-  } catch (err) {
-    gameDetailsLogError(`Failed sorting ordered tier ${tierIndex} after metadata update.`, err);
-  }
-}
-
-function bindModalFieldEvents() {
-  if (modalBindingsInitialized) return;
-  modalBindingsInitialized = true;
-
-  const inputIds = [
-    "image-name",
-    "image-developer",
-    "image-date",
-    "image-date-100",
-    "image-description"
-  ];
-
-  inputIds.forEach((id) => {
-    const field = getField(id);
-    if (!field) return;
-    field.addEventListener("input", () => triggerMetadataAutosaveDebounced());
-  });
-
-  const statusField = getField("image-status");
-  if (statusField) {
-    statusField.addEventListener("change", () => {
-      updateDateLabel();
-      updateReplayVisibility();
-      triggerMetadataAutosaveDebounced();
-    });
-  }
-
-  const platformSearch = getField("platform-search");
-  if (platformSearch) {
-    platformSearch.addEventListener("input", renderPlatformOptions);
-    platformSearch.addEventListener("keyup", renderPlatformOptions);
-  }
-}
-
-function setupMetadataAutoSave() {
-  bindModalFieldEvents();
-}
-
-function setModalEscapeHandler() {
-  if (currentModalEscapeHandler) {
-    document.removeEventListener("keydown", currentModalEscapeHandler);
-  }
-
-  currentModalEscapeHandler = (event) => {
-    if (event.key === "Escape") {
-      closeImageModal();
-    }
-  };
-
-  document.addEventListener("keydown", currentModalEscapeHandler);
-}
-
-function removeModalEscapeHandler() {
-  if (!currentModalEscapeHandler) return;
-  document.removeEventListener("keydown", currentModalEscapeHandler);
-  currentModalEscapeHandler = null;
-}
-
 function updateSyncNotification() {
   const syncNotification = getField("sync-notification");
   if (!syncNotification) return;
@@ -448,7 +369,6 @@ function openImageModal(imgElement) {
   const imageId = imgElement.dataset.imageId;
   if (!modal || !imageId) return;
 
-  setupMetadataAutoSave();
   updateSyncNotification();
 
   getImageMetadataFromIndexedDB(imageId)
@@ -479,7 +399,6 @@ function closeImageModal() {
 
   saveImageMetadataToIndexedDB(imageId, metadata)
     .then(async () => {
-      await sortCurrentImageTierIfOrdered(imageElement);
       await saveTierListLocally().catch(() => { });
     })
     .finally(() => {
@@ -502,6 +421,26 @@ function setModalHeaderImage(imgElement) {
     headerImage.src = "";
     headerImage.classList.add("hidden");
   }
+}
+
+function setModalEscapeHandler() {
+  if (currentModalEscapeHandler) {
+    document.removeEventListener("keydown", currentModalEscapeHandler);
+  }
+
+  currentModalEscapeHandler = (event) => {
+    if (event.key === "Escape") {
+      closeImageModal();
+    }
+  };
+
+  document.addEventListener("keydown", currentModalEscapeHandler);
+}
+
+function removeModalEscapeHandler() {
+  if (!currentModalEscapeHandler) return;
+  document.removeEventListener("keydown", currentModalEscapeHandler);
+  currentModalEscapeHandler = null;
 }
 
 function deleteImageFromModal() {
@@ -563,12 +502,6 @@ function deleteImageFromModal() {
           }
         }
 
-        if (currentUser && firebaseDb && firebaseAvailable) {
-          await saveTierListToFirebase().catch((err) => {
-            gameDetailsLogError("Failed syncing deletion to Firebase.", err);
-          });
-        }
-
         try {
           if (typeof filterImages === "function") {
             filterImages(currentQuery);
@@ -581,6 +514,32 @@ function deleteImageFromModal() {
       }
     })();
   });
+}
+
+// Simple field update function that only updates metadata when modal closes
+function updateMetadataField() {
+  // No auto-save - metadata only saves when modal closes
+}
+
+function bindModalFieldEvents() {
+  if (modalBindingsInitialized) return;
+  modalBindingsInitialized = true;
+
+  // No auto-save event listeners - we only save on modal close
+  // Just bind platform search functionality
+  const platformSearch = getField("platform-search");
+  if (platformSearch) {
+    platformSearch.addEventListener("input", renderPlatformOptions);
+    platformSearch.addEventListener("keyup", renderPlatformOptions);
+  }
+
+  const statusField = getField("image-status");
+  if (statusField) {
+    statusField.addEventListener("change", () => {
+      updateDateLabel();
+      updateReplayVisibility();
+    });
+  }
 }
 
 document.addEventListener("DOMContentLoaded", () => {
