@@ -708,52 +708,197 @@ async function sortTierByPlatform(tierContainer) {
   });
 }
 
+let isApplyingAutomaticTierRules = false;
+let pendingAutomaticTierRulesStartIndex = null;
+let automaticTierRulesTimer = null;
+let tierRulesMutationObserver = null;
+
+function getTierContainerForIndex(rows, tierIndex) {
+  return rows[tierIndex]?.children?.[1] || null;
+}
+
 function enforceTierLimitForRow(rows, tierIndex, imagesBar) {
-  const row = rows[tierIndex];
-  const tierContainer = row?.children?.[1];
+  const tierContainer = getTierContainerForIndex(rows, tierIndex);
   if (!tierContainer) return false;
 
   const tierImages = Array.from(tierContainer.querySelectorAll(".image"));
   if (tierImages.length <= 10) return false;
 
   const overflow = tierImages.slice(10);
-  const nextRow = rows[tierIndex + 1];
-  const nextTierContainer = nextRow?.children?.[1];
+  const nextTierContainer = getTierContainerForIndex(rows, tierIndex + 1);
 
   if (nextTierContainer) {
-    overflow.reverse().forEach((img) => {
-      nextTierContainer.insertBefore(img, nextTierContainer.firstChild);
-    });
+    // Keep overflow order while moving it to the start of the next tier.
+    const fragment = document.createDocumentFragment();
+    overflow.forEach((img) => fragment.appendChild(img));
+    nextTierContainer.insertBefore(fragment, nextTierContainer.firstChild);
   } else if (imagesBar) {
-    overflow.forEach((img) => {
-      imagesBar.appendChild(img);
-    });
+    overflow.forEach((img) => imagesBar.appendChild(img));
   }
 
   return true;
 }
 
-async function applyTierRulesFromIndex(startTierIndex = 0) {
-  const rows = getTierRows();
-  const imagesBar = getImagesBar();
-  const safeStartIndex = Math.max(0, Number(startTierIndex) || 0);
+async function sortAllEnabledTiersFromIndex(rows, startTierIndex) {
+  for (let tierIndex = startTierIndex; tierIndex < rows.length; tierIndex += 1) {
+    const tierContainer = getTierContainerForIndex(rows, tierIndex);
+    if (!tierContainer || !tierOrderingStates[tierIndex]) continue;
 
-  for (let tierIndex = safeStartIndex; tierIndex < rows.length; tierIndex += 1) {
-    const tierContainer = rows[tierIndex]?.children?.[1];
-    if (!tierContainer) continue;
-
-    if (tierOrderingStates[tierIndex]) {
-      try {
-        await sortTierByPlatform(tierContainer);
-      } catch (err) {
-        tierSettingsLogError(`Failed sorting tier ${tierIndex} while applying automatic tier rules.`, err);
-      }
-    }
-
-    if (tierLimitStates[tierIndex]) {
-      enforceTierLimitForRow(rows, tierIndex, imagesBar);
+    try {
+      await sortTierByPlatform(tierContainer);
+    } catch (err) {
+      tierSettingsLogError(`Failed sorting tier ${tierIndex} while applying automatic tier rules.`, err);
     }
   }
+}
+
+async function applyTierRulesFromIndex(startTierIndex = 0) {
+  if (isApplyingAutomaticTierRules) {
+    const requestedStart = Math.max(0, Number(startTierIndex) || 0);
+    pendingAutomaticTierRulesStartIndex = pendingAutomaticTierRulesStartIndex === null
+      ? requestedStart
+      : Math.min(pendingAutomaticTierRulesStartIndex, requestedStart);
+    return;
+  }
+
+  isApplyingAutomaticTierRules = true;
+
+  try {
+    let safeStartIndex = Math.max(0, Number(startTierIndex) || 0);
+    let passCount = 0;
+    let changed = true;
+
+    while (changed && passCount < 25) {
+      passCount += 1;
+      changed = false;
+
+      const rows = getTierRows();
+      const imagesBar = getImagesBar();
+
+      await sortAllEnabledTiersFromIndex(rows, safeStartIndex);
+
+      for (let tierIndex = safeStartIndex; tierIndex < rows.length; tierIndex += 1) {
+        if (!tierLimitStates[tierIndex]) continue;
+        const didMoveOverflow = enforceTierLimitForRow(rows, tierIndex, imagesBar);
+        if (didMoveOverflow) changed = true;
+      }
+
+      // Sort again after overflow has been pushed into lower tiers, so the receiving tier
+      // immediately respects "Order on platform" too.
+      const rowsAfterOverflow = getTierRows();
+      await sortAllEnabledTiersFromIndex(rowsAfterOverflow, safeStartIndex);
+
+      // After the first pass, a later overflow can only affect the same/lower tiers.
+      safeStartIndex = Math.max(0, safeStartIndex);
+    }
+
+    if (passCount >= 25) {
+      console.warn("Stopped automatic tier-rule loop after 25 passes to avoid an infinite loop.");
+    }
+  } finally {
+    isApplyingAutomaticTierRules = false;
+
+    if (pendingAutomaticTierRulesStartIndex !== null) {
+      const nextStart = pendingAutomaticTierRulesStartIndex;
+      pendingAutomaticTierRulesStartIndex = null;
+      setTimeout(() => applyTierRulesFromIndex(nextStart), 0);
+    }
+  }
+}
+
+function scheduleAutomaticTierRulesFromIndex(startTierIndex = 0) {
+  const safeStartIndex = Math.max(0, Number(startTierIndex) || 0);
+  pendingAutomaticTierRulesStartIndex = pendingAutomaticTierRulesStartIndex === null
+    ? safeStartIndex
+    : Math.min(pendingAutomaticTierRulesStartIndex, safeStartIndex);
+
+  if (automaticTierRulesTimer) return;
+
+  automaticTierRulesTimer = setTimeout(async () => {
+    automaticTierRulesTimer = null;
+    const nextStart = pendingAutomaticTierRulesStartIndex ?? 0;
+    pendingAutomaticTierRulesStartIndex = null;
+
+    try {
+      await applyTierRulesFromIndex(nextStart);
+      if (typeof saveImagePositions === "function") {
+        await saveImagePositions().catch(() => { });
+      }
+      if (typeof saveTierListLocally === "function") {
+        await saveTierListLocally().catch(() => { });
+      }
+      if (typeof updateTierCounts === "function") {
+        updateTierCounts(typeof countsAreShown === "function" ? countsAreShown() : false);
+      }
+    } catch (err) {
+      tierSettingsLogError("Failed applying scheduled automatic tier rules.", err);
+    }
+  }, 0);
+}
+
+function scheduleAutomaticTierRulesForContainer(container) {
+  const tierContainer = container?.classList?.contains("sort")
+    ? container
+    : container?.closest?.(".sort");
+
+  if (!tierContainer || tierContainer.id === "images-bar") return;
+
+  const row = tierContainer.closest(".row");
+  const tierIndex = getTierRows().indexOf(row);
+  if (tierIndex < 0) return;
+
+  scheduleAutomaticTierRulesFromIndex(tierIndex);
+}
+
+function initializeAutomaticTierRuleObserver() {
+  if (tierRulesMutationObserver) {
+    tierRulesMutationObserver.disconnect();
+    tierRulesMutationObserver = null;
+  }
+
+  const main = getMainElement();
+  if (!main || typeof MutationObserver === "undefined") return;
+
+  tierRulesMutationObserver = new MutationObserver((mutations) => {
+    if (isApplyingAutomaticTierRules) return;
+
+    let earliestTierIndex = null;
+
+    mutations.forEach((mutation) => {
+      if (mutation.type !== "childList" || !mutation.addedNodes.length) return;
+
+      const target = mutation.target;
+      if (!target?.classList?.contains("sort") || target.id === "images-bar") return;
+
+      const hasAddedImage = Array.from(mutation.addedNodes).some((node) => {
+        if (!(node instanceof Element)) return false;
+        return node.classList?.contains("image") || !!node.querySelector?.(".image");
+      });
+
+      if (!hasAddedImage) return;
+
+      const row = target.closest(".row");
+      const tierIndex = getTierRows().indexOf(row);
+      if (tierIndex < 0) return;
+
+      earliestTierIndex = earliestTierIndex === null ? tierIndex : Math.min(earliestTierIndex, tierIndex);
+    });
+
+    if (earliestTierIndex !== null) {
+      scheduleAutomaticTierRulesFromIndex(earliestTierIndex);
+    }
+  });
+
+  tierRulesMutationObserver.observe(main, {
+    childList: true,
+    subtree: true,
+  });
+}
+
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", initializeAutomaticTierRuleObserver, { once: true });
+} else {
+  initializeAutomaticTierRuleObserver();
 }
 
 // These functions now only update in-memory state - NO saving to storage
