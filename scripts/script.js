@@ -362,6 +362,11 @@ async function applyAutomaticTierRules(tierContainer) {
   const tierIndex = rows.indexOf(targetRow);
   if (tierIndex < 0) return;
 
+  if (typeof applyTierRulesFromIndex === "function") {
+    await applyTierRulesFromIndex(tierIndex);
+    return;
+  }
+
   if (tierOrderingStates[tierIndex]) {
     try {
       await sortTierByPlatform(tierContainer);
@@ -370,24 +375,8 @@ async function applyAutomaticTierRules(tierContainer) {
     }
   }
 
-  if (tierLimitStates[tierIndex]) {
-    if (typeof enforceTierLimitForRow === "function") {
-      enforceTierLimitForRow(rows, tierIndex, getImagesBar());
-    } else {
-      const tierImages = Array.from(tierContainer.querySelectorAll(".image"));
-      if (tierImages.length > 10) {
-        const overflow = tierImages.slice(10);
-        const tierBelow = rows[tierIndex + 1]?.children?.[1];
-        if (tierBelow) {
-          overflow.reverse().forEach((img) => {
-            tierBelow.insertBefore(img, tierBelow.firstChild);
-          });
-        } else {
-          const imagesBar = getImagesBar();
-          overflow.forEach((img) => imagesBar?.appendChild(img));
-        }
-      }
-    }
+  if (tierLimitStates[tierIndex] && typeof enforceTierLimitForRow === "function") {
+    enforceTierLimitForRow(rows, tierIndex, getImagesBar());
   }
 }
 

@@ -529,8 +529,15 @@ function closeImageModal() {
       const row = imageElement.closest(".row");
       const rows = typeof getRows === "function" ? getRows() : Array.from(document.querySelectorAll(".row"));
       const tierIndex = rows.indexOf(row);
-      if (tierIndex >= 0 && tierOrderingStates?.[tierIndex] && row?.children?.[1]) {
-        await sortTierByPlatform(row.children[1]);
+      if (tierIndex >= 0) {
+        if (typeof applyTierRulesFromIndex === "function") {
+          await applyTierRulesFromIndex(tierIndex);
+        } else if (tierOrderingStates?.[tierIndex] && row?.children?.[1]) {
+          await sortTierByPlatform(row.children[1]);
+        }
+      }
+      if (typeof saveImagePositions === "function") {
+        await saveImagePositions().catch(() => { });
       }
       await saveTierListLocally().catch(() => { });
     })

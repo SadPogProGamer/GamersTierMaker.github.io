@@ -219,10 +219,7 @@ function openRowMenu(element, event) {
     e.stopPropagation();
     tierOrderingStates[tierIndex] = orderCheckbox.checked;
     if (orderCheckbox.checked) {
-      const rows = getTierRows();
-      if (rows[tierIndex]) {
-        await sortTierByPlatform(rows[tierIndex].children[1]);
-      }
+      await applyTierRulesFromIndex(tierIndex);
     }
     // NO save to storage - only update in-memory state
   });
@@ -250,9 +247,7 @@ function openRowMenu(element, event) {
     e.stopPropagation();
     tierLimitStates[tierIndex] = limitCheckbox.checked;
     if (limitCheckbox.checked) {
-      const rows = getTierRows();
-      const imagesBar = getImagesBar();
-      enforceTierLimitForRow(rows, tierIndex, imagesBar);
+      await applyTierRulesFromIndex(tierIndex);
     }
     // NO save to storage - only update in-memory state
   });
@@ -716,10 +711,10 @@ async function sortTierByPlatform(tierContainer) {
 function enforceTierLimitForRow(rows, tierIndex, imagesBar) {
   const row = rows[tierIndex];
   const tierContainer = row?.children?.[1];
-  if (!tierContainer) return;
+  if (!tierContainer) return false;
 
   const tierImages = Array.from(tierContainer.querySelectorAll(".image"));
-  if (tierImages.length <= 10) return;
+  if (tierImages.length <= 10) return false;
 
   const overflow = tierImages.slice(10);
   const nextRow = rows[tierIndex + 1];
@@ -734,6 +729,31 @@ function enforceTierLimitForRow(rows, tierIndex, imagesBar) {
       imagesBar.appendChild(img);
     });
   }
+
+  return true;
+}
+
+async function applyTierRulesFromIndex(startTierIndex = 0) {
+  const rows = getTierRows();
+  const imagesBar = getImagesBar();
+  const safeStartIndex = Math.max(0, Number(startTierIndex) || 0);
+
+  for (let tierIndex = safeStartIndex; tierIndex < rows.length; tierIndex += 1) {
+    const tierContainer = rows[tierIndex]?.children?.[1];
+    if (!tierContainer) continue;
+
+    if (tierOrderingStates[tierIndex]) {
+      try {
+        await sortTierByPlatform(tierContainer);
+      } catch (err) {
+        tierSettingsLogError(`Failed sorting tier ${tierIndex} while applying automatic tier rules.`, err);
+      }
+    }
+
+    if (tierLimitStates[tierIndex]) {
+      enforceTierLimitForRow(rows, tierIndex, imagesBar);
+    }
+  }
 }
 
 // These functions now only update in-memory state - NO saving to storage
@@ -741,20 +761,15 @@ async function toggleTierOrdering(tierIndex, enabled) {
   tierOrderingStates[tierIndex] = !!enabled;
 
   if (enabled) {
-    const rows = getTierRows();
-    if (rows[tierIndex]) {
-      await sortTierByPlatform(rows[tierIndex].children[1]);
-    }
+    await applyTierRulesFromIndex(tierIndex);
   }
 }
 
 async function toggleTierLimit(tierIndex, enabled) {
   tierLimitStates[tierIndex] = !!enabled;
 
-  const rows = getTierRows();
-  const imagesBar = getImagesBar();
   if (enabled) {
-    enforceTierLimitForRow(rows, tierIndex, imagesBar);
+    await applyTierRulesFromIndex(tierIndex);
   }
 }
 
@@ -814,24 +829,7 @@ async function saveTierSettingsToStorage() {
 }
 
 async function applyTierSettingsToRows() {
-  const rows = getTierRows();
-  const imagesBar = getImagesBar();
-
-  for (let tierIndex = 0; tierIndex < rows.length; tierIndex += 1) {
-    const tierContainer = rows[tierIndex].children?.[1];
-
-    if (tierOrderingStates[tierIndex]) {
-      try {
-        await sortTierByPlatform(tierContainer);
-      } catch (err) {
-        tierSettingsLogError(`Failed sorting tier ${tierIndex} while applying settings.`, err);
-      }
-    }
-
-    if (tierLimitStates[tierIndex]) {
-      enforceTierLimitForRow(rows, tierIndex, imagesBar);
-    }
-  }
+  await applyTierRulesFromIndex(0);
 }
 
 function bindTierSettingsBootEvents() {
