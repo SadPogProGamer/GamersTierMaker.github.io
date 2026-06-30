@@ -338,32 +338,66 @@ function moveSelectedImagesToTarget(primaryElement, target, sibling = null) {
   });
 }
 
-async function handlePostDrop(target) {
-  const targetRow = target?.parentNode;
-  if (targetRow && targetRow.classList.contains("row")) {
-    const rows = getRows();
-    const tierIndex = rows.indexOf(targetRow);
+function getTierContainerFromTarget(target) {
+  if (!(target instanceof Node)) return null;
 
-    if (tierIndex >= 0 && tierLimitStates[tierIndex]) {
-      const tierImages = Array.from(target.querySelectorAll(".image"));
-      if (tierImages.length > 10 && tierIndex < rows.length - 1) {
+  const tierContainer = target.closest?.(".sort");
+  if (tierContainer && tierContainer.classList.contains("sort")) {
+    return tierContainer;
+  }
+
+  const imagesBar = getImagesBar();
+  if (imagesBar && imagesBar.contains(target)) {
+    return imagesBar;
+  }
+
+  return null;
+}
+
+async function applyAutomaticTierRules(tierContainer) {
+  if (!tierContainer || !tierContainer.classList.contains("sort")) return;
+
+  const rows = getRows();
+  const targetRow = tierContainer.closest(".row");
+  const tierIndex = rows.indexOf(targetRow);
+  if (tierIndex < 0) return;
+
+  if (tierOrderingStates[tierIndex]) {
+    try {
+      await sortTierByPlatform(tierContainer);
+    } catch (err) {
+      scriptLogError("Failed sorting tier by platform after drop.", err);
+    }
+  }
+
+  if (tierLimitStates[tierIndex]) {
+    if (typeof enforceTierLimitForRow === "function") {
+      enforceTierLimitForRow(rows, tierIndex, getImagesBar());
+    } else {
+      const tierImages = Array.from(tierContainer.querySelectorAll(".image"));
+      if (tierImages.length > 10) {
         const overflow = tierImages.slice(10);
         const tierBelow = rows[tierIndex + 1]?.children?.[1];
         if (tierBelow) {
           overflow.reverse().forEach((img) => {
             tierBelow.insertBefore(img, tierBelow.firstChild);
           });
+        } else {
+          const imagesBar = getImagesBar();
+          overflow.forEach((img) => imagesBar?.appendChild(img));
         }
       }
     }
+  }
+}
 
-    if (tierIndex >= 0 && tierOrderingStates[tierIndex]) {
-      try {
-        await sortTierByPlatform(target);
-      } catch (err) {
-        scriptLogError("Failed sorting tier by platform after drop.", err);
-      }
-    }
+async function handlePostDrop(target) {
+  const tierContainer = target?.classList?.contains("sort")
+    ? target
+    : getTierContainerFromTarget(target);
+
+  if (tierContainer) {
+    await applyAutomaticTierRules(tierContainer);
   }
 
   try {
@@ -523,10 +557,14 @@ function validateUploadFile(file) {
 
 const activeUploadIds = new Set();
 
-async function uploadImages(fileList) {
+async function uploadImages(fileList, destinationContainer = null) {
   const files = Array.from(fileList || []);
   const imagesBar = getImagesBar();
-  if (!imagesBar || !files.length) return;
+  const uploadTarget =
+    destinationContainer?.classList?.contains("sort") || destinationContainer?.id === "images-bar"
+      ? destinationContainer
+      : imagesBar;
+  if (!imagesBar || !uploadTarget || !files.length) return;
 
   let skippedCount = 0;
   let uploadedCount = 0;
@@ -567,14 +605,17 @@ async function uploadImages(fileList) {
           cloudinaryUrl: uploadedUrl,
         });
 
-        imagesBar.appendChild(image);
+        uploadTarget.appendChild(image);
+
+        const targetRow = uploadTarget.closest?.(".row");
+        const targetTierIndex = targetRow ? getRows().indexOf(targetRow) : -1;
 
         await saveImageToIndexedDB({
           id: imageId,
           src: uploadedUrl,
           cloudinaryUrl: uploadedUrl,
-          tier: -1,
-          order: imagesBar.querySelectorAll(".image").length - 1,
+          tier: uploadTarget.classList.contains("sort") ? targetTierIndex : -1,
+          order: uploadTarget.querySelectorAll(".image").length - 1,
         });
 
         existingIds.add(imageId);
@@ -588,11 +629,15 @@ async function uploadImages(fileList) {
     }
   }
 
-  setDropHintVisibility();
+  if (uploadTarget.classList.contains("sort")) {
+    await handlePostDrop(uploadTarget);
+  } else {
+    setDropHintVisibility();
 
-  saveTierListLocally().catch((err) => {
-    scriptLogError("Failed saving tier list locally after upload.", err);
-  });
+    saveTierListLocally().catch((err) => {
+      scriptLogError("Failed saving tier list locally after upload.", err);
+    });
+  }
 
   if (failedCount > 0) {
     setUploadStatus(
@@ -640,7 +685,8 @@ function handleImageDrop(event) {
 
   const files = event.dataTransfer?.files;
   if (files && files.length) {
-    uploadImages(files).catch((err) => {
+    const dropTarget = getTierContainerFromTarget(event.target) || getImagesBar();
+    uploadImages(files, dropTarget).catch((err) => {
       scriptLogError("Drop upload failed.", err);
     });
   }
@@ -902,18 +948,14 @@ document.addEventListener("dragleave", (event) => {
 document.addEventListener("drop", (event) => {
   if (!hasDraggedFiles(event)) return;
 
-  const imagesBar = getImagesBar();
-
-  if (imagesBar && event.target instanceof Node && imagesBar.contains(event.target)) {
-    return;
-  }
+  const dropTarget = getTierContainerFromTarget(event.target) || getImagesBar();
 
   event.preventDefault();
   setGlobalDropActive(false);
 
   const files = event.dataTransfer?.files;
   if (files && files.length) {
-    uploadImages(files).catch((err) => {
+    uploadImages(files, dropTarget).catch((err) => {
       scriptLogError("Global drop upload failed.", err);
     });
   }
