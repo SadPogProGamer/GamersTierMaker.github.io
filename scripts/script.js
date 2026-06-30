@@ -423,7 +423,8 @@ function initializeDragula() {
   drake = dragula(containers, {
     removeOnSpill: false,
     mirrorContainer: document.body,
-    accepts: (el, target) => !!target && target.classList.contains("sort"),
+    moves: () => !!initializationComplete,
+    accepts: (el, target) => !!initializationComplete && !!target && target.classList.contains("sort"),
   });
 
   drake

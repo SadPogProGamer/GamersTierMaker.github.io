@@ -422,13 +422,16 @@ function loadImagesFromStorage() {
       }
     })
     .then(() => {
-      if (typeof initializeDragula === "function") {
-        initializeDragula();
+      if (typeof applyTierSettingsToRows === "function") {
+        return applyTierSettingsToRows();
       }
     })
     .then(() => {
-      if (typeof applyTierSettingsToRows === "function") {
-        return applyTierSettingsToRows();
+      // Do not initialize Dragula during the initial storage restore.
+      // bootstrapApp initializes Dragula after all images, tier settings, and cleanup are done.
+      // Initializing early can make the first drag use stale DOM/state and snap back to Unassigned.
+      if (typeof initializationComplete !== "undefined" && initializationComplete && typeof initializeDragula === "function") {
+        initializeDragula();
       }
     })
     .catch((err) => {
