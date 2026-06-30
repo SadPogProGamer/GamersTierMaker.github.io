@@ -425,6 +425,21 @@ function getImageDetailsFromPage() {
   });
 }
 
+function getTierLayoutForExport() {
+  return getTierRowsForButtons().map((row, index) => {
+    const tierLabel = row.querySelector(".tier-label");
+    const tierNameElement = tierLabel ? tierLabel.querySelector("p") : null;
+
+    return {
+      index,
+      name: tierNameElement?.textContent || `Tier ${index + 1}`,
+      color: tierLabel?.style?.backgroundColor || "lightslategray",
+      orderOnPlatform: !!(typeof tierOrderingStates === "object" && tierOrderingStates && tierOrderingStates[index]),
+      limitTo10: !!(typeof tierLimitStates === "object" && tierLimitStates && tierLimitStates[index]),
+    };
+  });
+}
+
 async function getGameDetailsForExport() {
   const entries = [];
   const imageDetails = getImageDetailsFromPage();
@@ -494,6 +509,9 @@ function downloadGameDetailsJSON() {
 
       const payload = {
         exportedAt: new Date().toISOString(),
+        layout: {
+          tiers: getTierLayoutForExport(),
+        },
         entries,
       };
 
@@ -849,6 +867,78 @@ async function deleteTierList() {
   }
 }
 
+async function applyImportedTierLayout(layout) {
+  if (!layout || !Array.isArray(layout.tiers) || !layout.tiers.length) return;
+
+  const main = document.querySelector("main");
+  const imagesBar = getImagesBarForButtons();
+  if (!main || !imagesBar) return;
+
+  const orderedTiers = layout.tiers
+    .slice()
+    .sort((a, b) => Number(a?.index ?? 0) - Number(b?.index ?? 0));
+
+  const existingRows = getTierRowsForButtons();
+  existingRows.forEach((row) => {
+    const tierContainer = row.children?.[1];
+    Array.from(tierContainer?.querySelectorAll(".image") || []).forEach((img) => {
+      imagesBar.appendChild(img);
+    });
+    row.remove();
+  });
+
+  if (typeof tierOrderingStates === "object") {
+    tierOrderingStates = {};
+  }
+
+  if (typeof tierLimitStates === "object") {
+    tierLimitStates = {};
+  }
+
+  let insertBeforeElement = main.querySelector(".unassigned-container") || imagesBar.parentElement || null;
+
+  orderedTiers.forEach((tier, index) => {
+    if (typeof createNewRow !== "function") return;
+
+    const newRow = createNewRow(
+      tier?.name || `Tier ${index + 1}`,
+      tier?.color || "lightslategray"
+    );
+
+    main.insertBefore(newRow, insertBeforeElement);
+
+    if (typeof tierOrderingStates === "object") {
+      tierOrderingStates[index] = !!tier?.orderOnPlatform;
+    }
+
+    if (typeof tierLimitStates === "object") {
+      tierLimitStates[index] = !!tier?.limitTo10;
+    }
+  });
+
+  if (typeof rebuildTierStateIndexes === "function") {
+    rebuildTierStateIndexes();
+  }
+
+  if (typeof updateTierColorsInMemory === "function") {
+    updateTierColorsInMemory();
+  }
+
+  if (typeof initializeDragula === "function") {
+    try {
+      initializeDragula();
+    } catch (err) {
+      bottomButtonsLogError("Failed reinitializing dragula after importing tier layout.", err);
+    }
+  }
+
+  if (typeof saveTierSettingsToStorage === "function") {
+    await saveTierSettingsToStorage().catch((err) => {
+      bottomButtonsLogError("Failed saving imported tier settings.", err);
+    });
+  }
+}
+
 function importGameDetails() {
   const input = document.createElement("input");
   input.type = "file";
@@ -867,6 +957,7 @@ function importGameDetails() {
         return;
       }
 
+      await applyImportedTierLayout(data.layout);
       await applyImportedGameDetails(data.entries);
       alert("Game details imported successfully!");
     } catch (err) {
