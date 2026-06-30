@@ -860,7 +860,10 @@ function initializeAutomaticTierRuleObserver() {
   if (!main || typeof MutationObserver === "undefined") return;
 
   tierRulesMutationObserver = new MutationObserver((mutations) => {
+    // Do not apply tier rules while Dragula is only hovering/previewing a move.
+    // The real drop handler applies the rules after the drop is finalized.
     if (isApplyingAutomaticTierRules) return;
+    if (typeof isDraggingImages !== "undefined" && isDraggingImages) return;
 
     let earliestTierIndex = null;
 
