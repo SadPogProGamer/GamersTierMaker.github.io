@@ -375,6 +375,18 @@
           </div>
         </div>
 
+        <div class="form-group hidden" id="original-platform-group">
+          <label>Original Platform:</label>
+          <div class="platform-dropdown">
+            <button type="button" id="original-platform-btn" class="platform-dropdown-btn" onclick="toggleOriginalPlatformDropdown()">--
+              Select Original Platform --</button>
+            <div id="original-platform-dropdown-menu" class="platform-dropdown-menu hidden">
+              <input type="text" id="original-platform-search" class="platform-search" placeholder="Search original platform..." />
+              <div id="original-platform-options" class="platform-options"></div>
+            </div>
+          </div>
+        </div>
+
         <div class="form-group">
           <label for="image-status">Completion:</label>
           <select id="image-status">

@@ -99,6 +99,7 @@ function buildImportedEntryMetadata(entry) {
     date100: normalizedStatus === "100% complete" ? (entry.date100 || "") : "",
     description: entry.description || "",
     platform: entry.platform || null,
+    originalPlatform: entry.originalPlatform || null,
     status: normalizedStatus,
     has100Replay: normalizedStatus === "100% complete" ? !!entry.has100Replay : false,
     gameKey: entry.gameKey || makeGameKey(entry.name, entry.developer),
@@ -173,6 +174,7 @@ function updateManualImportOverlay() {
 
   metaEl.innerHTML = `
     <div>Platform: ${current.platform || "Unknown"}</div>
+    <div>Original Platform: ${current.originalPlatform || "Unknown"}</div>
     <div>Status: ${current.status || "Unknown"}</div>
     <div>Date: ${current.date || "Unknown"}</div>
     <div>Tier: ${typeof current.tier === "number" ? current.tier : "Unknown"}</div>
@@ -437,6 +439,7 @@ async function getGameDetailsForExport() {
       description: "",
       status: "",
       platform: null,
+      originalPlatform: null,
       date100: "",
       has100Replay: false,
       gameKey: "",
@@ -471,6 +474,7 @@ async function getGameDetailsForExport() {
       date: metadata.date || "",
       description: metadata.description || "",
       platform: metadata.platform || null,
+      originalPlatform: metadata.originalPlatform || null,
       status: metadata.status || "",
       date100: metadata.date100 || "",
       has100Replay: !!metadata.has100Replay,

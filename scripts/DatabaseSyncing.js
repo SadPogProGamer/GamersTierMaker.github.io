@@ -42,6 +42,7 @@ function getDefaultImageMetadata() {
     description: "",
     status: "",
     platform: null,
+    originalPlatform: null,
     genres: [],
     has100Replay: false,
   };
@@ -64,6 +65,7 @@ function normalizeImageMetadata(record) {
     description: record.description || "",
     status: record.status || "",
     platform: record.platform || null,
+    originalPlatform: record.originalPlatform || null,
     genres,
     has100Replay: !!record.has100Replay || !!record.has100,
   };

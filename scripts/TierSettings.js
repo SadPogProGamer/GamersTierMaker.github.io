@@ -660,11 +660,26 @@ function loadTierColors() {
     });
 }
 
+function getSortingPlatformFromMetadata(metadata) {
+  if (!metadata) return null;
+
+  const isPcDecompOrRecomp =
+    metadata.platform === "PC (Via Decompilation)" ||
+    metadata.platform === "PC (Via Recompilation)";
+
+  if (isPcDecompOrRecomp && metadata.originalPlatform) {
+    return metadata.originalPlatform;
+  }
+
+  return metadata.platform || null;
+}
+
 async function getImagePlatformPriority(imageId) {
   try {
     const metadata = await getImageMetadataFromIndexedDB(imageId);
-    if (metadata && metadata.platform) {
-      const priority = platformPriority[metadata.platform];
+    const sortingPlatform = getSortingPlatformFromMetadata(metadata);
+    if (sortingPlatform) {
+      const priority = platformPriority[sortingPlatform];
       return priority !== undefined ? priority : 999;
     }
   } catch (err) {

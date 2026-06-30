@@ -97,6 +97,7 @@ const platformOptions = {
 
 let currentImageElement = null;
 let currentSelectedPlatform = null;
+let currentSelectedOriginalPlatform = null;
 let currentHas100Replay = false;
 let modalBindingsInitialized = false;
 let currentModalEscapeHandler = null;
@@ -130,6 +131,7 @@ function getCurrentMetadataFromForm() {
     description: getField("image-description")?.value || "",
     status: getField("image-status")?.value || "",
     platform: currentSelectedPlatform || null,
+    originalPlatform: shouldUseOriginalPlatform() ? (currentSelectedOriginalPlatform || null) : null,
     has100Replay: !!currentHas100Replay
   };
 }
@@ -159,16 +161,23 @@ function setFormFromMetadata(metadata) {
   getField("image-status").value = metadata.status || "";
 
   currentSelectedPlatform = metadata.platform || null;
+  currentSelectedOriginalPlatform = metadata.originalPlatform || null;
   currentHas100Replay = !!metadata.has100Replay;
 
   const platformSearch = getField("platform-search");
   const dropdown = getField("platform-dropdown-menu");
+  const originalPlatformSearch = getField("original-platform-search");
+  const originalDropdown = getField("original-platform-dropdown-menu");
   if (platformSearch) platformSearch.value = "";
   if (dropdown) dropdown.classList.add("hidden");
+  if (originalPlatformSearch) originalPlatformSearch.value = "";
+  if (originalDropdown) originalDropdown.classList.add("hidden");
 
   updateReplayVisibility();
   updatePlatformButton();
   renderPlatformOptions();
+  renderOriginalPlatformOptions();
+  updateOriginalPlatformVisibility();
   updateDateLabel();
 }
 
@@ -221,6 +230,34 @@ function updatePlatformButton() {
   btn.textContent = currentSelectedPlatform || "-- Select Platform --";
 }
 
+function shouldUseOriginalPlatform(platform = currentSelectedPlatform) {
+  return platform === "PC (Via Decompilation)" || platform === "PC (Via Recompilation)";
+}
+
+function updateOriginalPlatformVisibility() {
+  const group = getField("original-platform-group");
+  if (!group) return;
+
+  const shouldShow = shouldUseOriginalPlatform();
+  group.classList.toggle("hidden", !shouldShow);
+
+  if (!shouldShow) {
+    currentSelectedOriginalPlatform = null;
+    const search = getField("original-platform-search");
+    const dropdown = getField("original-platform-dropdown-menu");
+    if (search) search.value = "";
+    if (dropdown) dropdown.classList.add("hidden");
+  }
+
+  updateOriginalPlatformButton();
+}
+
+function updateOriginalPlatformButton() {
+  const btn = getField("original-platform-btn");
+  if (!btn) return;
+  btn.textContent = currentSelectedOriginalPlatform || "-- Select Original Platform --";
+}
+
 function togglePlatformDropdown() {
   const dropdownMenu = getField("platform-dropdown-menu");
   if (!dropdownMenu) return;
@@ -234,8 +271,13 @@ function togglePlatformDropdown() {
 
 function selectPlatform(platform) {
   currentSelectedPlatform = platform || null;
+  if (!shouldUseOriginalPlatform(currentSelectedPlatform)) {
+    currentSelectedOriginalPlatform = null;
+  }
   updatePlatformButton();
+  updateOriginalPlatformVisibility();
   renderPlatformOptions();
+  renderOriginalPlatformOptions();
 
   const dropdown = getField("platform-dropdown-menu");
   if (dropdown) dropdown.classList.add("hidden");
@@ -243,8 +285,11 @@ function selectPlatform(platform) {
 
 function clearSelectedPlatform() {
   currentSelectedPlatform = null;
+  currentSelectedOriginalPlatform = null;
   updatePlatformButton();
+  updateOriginalPlatformVisibility();
   renderPlatformOptions();
+  renderOriginalPlatformOptions();
 
   const dropdown = getField("platform-dropdown-menu");
   if (dropdown) dropdown.classList.add("hidden");
@@ -325,6 +370,87 @@ function renderPlatformOptions() {
   });
 }
 
+function toggleOriginalPlatformDropdown() {
+  const dropdownMenu = getField("original-platform-dropdown-menu");
+  if (!dropdownMenu || !shouldUseOriginalPlatform()) return;
+
+  dropdownMenu.classList.toggle("hidden");
+  if (!dropdownMenu.classList.contains("hidden")) {
+    getField("original-platform-search")?.focus();
+    renderOriginalPlatformOptions();
+  }
+}
+
+function selectOriginalPlatform(platform) {
+  currentSelectedOriginalPlatform = platform || null;
+  updateOriginalPlatformButton();
+  renderOriginalPlatformOptions();
+
+  const dropdown = getField("original-platform-dropdown-menu");
+  if (dropdown) dropdown.classList.add("hidden");
+}
+
+function clearSelectedOriginalPlatform() {
+  currentSelectedOriginalPlatform = null;
+  updateOriginalPlatformButton();
+  renderOriginalPlatformOptions();
+
+  const dropdown = getField("original-platform-dropdown-menu");
+  if (dropdown) dropdown.classList.add("hidden");
+}
+
+function renderOriginalPlatformOptions() {
+  const optionsContainer = getField("original-platform-options");
+  const searchField = getField("original-platform-search");
+  if (!optionsContainer) return;
+
+  const searchValue = searchField?.value || "";
+  const { originalSearchQuery, searchQuery, selectedCategory } = getPlatformSearchTerms(searchValue);
+
+  optionsContainer.innerHTML = "";
+
+  const clearOption = document.createElement("div");
+  clearOption.className = "platform-option clear-platform-option";
+  clearOption.textContent = "No Original Platform";
+  if (!currentSelectedOriginalPlatform) {
+    clearOption.classList.add("selected");
+  }
+  clearOption.addEventListener("click", clearSelectedOriginalPlatform);
+  optionsContainer.appendChild(clearOption);
+
+  Object.entries(platformOptions).forEach(([category, platforms]) => {
+    if (category === "PC") return;
+    if (selectedCategory && category !== selectedCategory) return;
+
+    const filteredPlatforms = platforms.filter((platform) => {
+      const lower = platform.toLowerCase();
+      if (!searchQuery && !originalSearchQuery) return true;
+      return lower.includes(searchQuery) || lower.includes(originalSearchQuery);
+    });
+
+    if (!filteredPlatforms.length) return;
+
+    const categoryHeader = document.createElement("div");
+    categoryHeader.className = "platform-category-header";
+    categoryHeader.textContent = category;
+    optionsContainer.appendChild(categoryHeader);
+
+    filteredPlatforms.forEach((platform) => {
+      const option = document.createElement("div");
+      option.className = "platform-option";
+      option.dataset.platform = platform;
+
+      if (currentSelectedOriginalPlatform === platform) {
+        option.classList.add("selected");
+      }
+
+      option.textContent = platform;
+      option.addEventListener("click", () => selectOriginalPlatform(platform));
+      optionsContainer.appendChild(option);
+    });
+  });
+}
+
 function isImageModalOpen() {
   const modal = getModalElement?.();
   return !!modal && !modal.classList.contains("hidden");
@@ -351,6 +477,7 @@ function finalizeModalClose() {
   removeModalEscapeHandler();
   currentImageElement = null;
   currentSelectedPlatform = null;
+  currentSelectedOriginalPlatform = null;
   currentHas100Replay = false;
 
   if (typeof flushPendingRealtimeSync === "function") {
@@ -399,6 +526,12 @@ function closeImageModal() {
 
   saveImageMetadataToIndexedDB(imageId, metadata)
     .then(async () => {
+      const row = imageElement.closest(".row");
+      const rows = typeof getRows === "function" ? getRows() : Array.from(document.querySelectorAll(".row"));
+      const tierIndex = rows.indexOf(row);
+      if (tierIndex >= 0 && tierOrderingStates?.[tierIndex] && row?.children?.[1]) {
+        await sortTierByPlatform(row.children[1]);
+      }
       await saveTierListLocally().catch(() => { });
     })
     .finally(() => {
@@ -533,6 +666,12 @@ function bindModalFieldEvents() {
     platformSearch.addEventListener("keyup", renderPlatformOptions);
   }
 
+  const originalPlatformSearch = getField("original-platform-search");
+  if (originalPlatformSearch) {
+    originalPlatformSearch.addEventListener("input", renderOriginalPlatformOptions);
+    originalPlatformSearch.addEventListener("keyup", renderOriginalPlatformOptions);
+  }
+
   const statusField = getField("image-status");
   if (statusField) {
     statusField.addEventListener("change", () => {
@@ -545,7 +684,9 @@ function bindModalFieldEvents() {
 document.addEventListener("DOMContentLoaded", () => {
   bindModalFieldEvents();
   renderPlatformOptions();
+  renderOriginalPlatformOptions();
   updatePlatformButton();
+  updateOriginalPlatformVisibility();
   updateReplayVisibility();
   updateDateLabel();
 });
