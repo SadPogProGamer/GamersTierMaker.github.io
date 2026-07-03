@@ -1469,7 +1469,7 @@ body.mobile .modal-content {
 
 #image-description {
     width: 100%;
-    min-height: 265px; /* Increase this value as desired */
+    min-height: 270px; /* Increase this value as desired */
     resize: vertical;  /* Allows the user to make it even taller */
     box-sizing: border-box;
 }
