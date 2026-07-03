@@ -595,7 +595,7 @@ img {
   border-radius: 8px;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.5);
   width: 94.3%;
-  max-width: 560px;
+  max-width: 500px;
   color: var(--button-text);
 }
 
@@ -1465,4 +1465,11 @@ body.mobile .modal-content {
 
 #save-tierlist-btn:active {
   transform: scale(0.98);
+}
+
+#image-description {
+    width: 100%;
+    min-height: 265px; /* Increase this value as desired */
+    resize: vertical;  /* Allows the user to make it even taller */
+    box-sizing: border-box;
 }
