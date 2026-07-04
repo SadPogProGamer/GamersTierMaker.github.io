@@ -274,26 +274,21 @@ if (command.startsWith("/completion")) {
     return developerQuery ? normalizedDeveloper.includes(developerQuery) : true;
   }
 
-  if (command.startsWith("/exclude")) {
+if (command.startsWith("/exclude")) {
 
   // Just "/Exclude"
   if (command === "/exclude") {
     return true;
   }
 
-  // "/Exclude Mario Zelda Pokemon"
+  // "/Exclude something"
   if (command.startsWith("/exclude ")) {
-
-    const words = command
+    const excludeQuery = command
       .substring("/exclude ".length)
       .trim()
-      .toLowerCase()
-      .split(/\s+/)
-      .filter(Boolean);
+      .toLowerCase();
 
-    const name = normalizedName.toLowerCase();
-
-    return !words.some(word => name.includes(word));
+    return !normalizedName.toLowerCase().includes(excludeQuery);
   }
 }
 
