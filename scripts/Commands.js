@@ -14,6 +14,7 @@ const SEARCH_COMMANDS = {
   "/NoStatus": "Show games with no status",
   "/Developer": "Search by developer name (e.g. /Developer Rockstar)",
   "/ShowAmount": "Show number of images in each tier (can combine with other commands or search)",
+  "/Exclude": "Hide games whose name contains the given text (e.g. /Exclude Mario)",
 };
 
 let searchCommandHighlightedIndex = -1;
@@ -272,6 +273,29 @@ if (command.startsWith("/completion")) {
     const developerQuery = mapDeveloperCommandAlias(rawDeveloperQuery);
     return developerQuery ? normalizedDeveloper.includes(developerQuery) : true;
   }
+
+  if (command.startsWith("/exclude")) {
+
+  // Just "/Exclude"
+  if (command === "/exclude") {
+    return true;
+  }
+
+  // "/Exclude Mario Zelda Pokemon"
+  if (command.startsWith("/exclude ")) {
+
+    const words = command
+      .substring("/exclude ".length)
+      .trim()
+      .toLowerCase()
+      .split(/\s+/)
+      .filter(Boolean);
+
+    const name = normalizedName.toLowerCase();
+
+    return !words.some(word => name.includes(word));
+  }
+}
 
   return true;
 }
