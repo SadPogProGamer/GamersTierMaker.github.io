@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>My Tier Lists - Gamers Tiermaker</title>
+  <link rel="icon" href="assets/icon.svg" />
+  <link rel="stylesheet" href="css/styles.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css" />
+
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+
+  <script defer src="scripts/config.js"></script>
+  <script defer src="scripts/DatabaseSyncing.js"></script>
+  <script defer src="scripts/MyTierLists.js"></script>
+</head>
+
+<body>
+  <div class="top-bar">
+    <div class="top-bar-content">
+      <img src="assets/Logo.jpg" alt="Logo" class="logo" />
+      <h1 class="top-title">TIERMAKER</h1>
+    </div>
+  </div>
+
+  <main class="mytl-page">
+    <div id="mytl-profile" class="mytl-profile">
+      <!-- Filled in by MyTierLists.js -->
+    </div>
+
+    <div id="mytl-signin-banner" class="mytl-signin-banner hidden">
+      <span>Sign in with Google to sync your tier lists across devices.</span>
+      <button type="button" class="mytl-btn mytl-btn-primary" onclick="signInWithGoogle()">Sign in with Google</button>
+    </div>
+
+    <div class="mytl-section-header">
+      <h2 class="mytl-section-title">Your Tier Lists <span id="mytl-count-pill" class="mytl-count-pill">0</span></h2>
+    </div>
+
+    <div id="mytl-grid" class="mytl-grid">
+      <div class="mytl-loading">Loading your tier lists...</div>
+    </div>
+
+    <div id="mytl-empty-state" class="mytl-empty-state hidden">
+      <p>You haven't created any tier lists yet.</p>
+      <a href="index.html?new=1" class="mytl-btn mytl-btn-primary">Create your first tier list</a>
+    </div>
+  </main>
+</body>
+
+</html>

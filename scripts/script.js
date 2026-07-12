@@ -118,6 +118,7 @@ function setGlobalDropActive(isActive) {
 
 async function buildTierListData() {
   const tierListData = {
+    id: typeof getCurrentTierListId === "function" ? getCurrentTierListId() : null,
     header: document.getElementById("main-title")?.textContent || "Untitled Tierlist",
     tiers: [],
     imagePositions: [],
@@ -199,9 +200,22 @@ async function saveTierListLocally() {
   if (!initializationComplete || isDraggingImages) return;
 
   try {
+    let id = typeof getCurrentTierListId === "function" ? getCurrentTierListId() : null;
+    if (!id && typeof generateTierListId === "function") {
+      id = generateTierListId();
+      setCurrentTierListId(id);
+    }
+
     const data = await buildTierListData();
-    await saveSetting("localTierList", data);
-    localStorage.setItem("savedTierList", JSON.stringify(data));
+    data.id = id;
+
+    await saveSetting(id ? `localTierList:${id}` : "localTierList", data);
+
+    if (id && typeof saveLocalTierList === "function") {
+      saveLocalTierList(id, data);
+    } else {
+      localStorage.setItem("savedTierList", JSON.stringify(data));
+    }
   } catch (err) {
     scriptLogError("Failed saving tier list locally.", err);
   }
@@ -682,52 +696,6 @@ function handleImageDrop(event) {
   }
 }
 
-function createTemplateCard(container, data) {
-  if (!container || !data) return;
-
-  const card = document.createElement("div");
-  card.className = "template-card";
-
-  const preview = document.createElement("div");
-  preview.className = "template-preview";
-  preview.style.display = "flex";
-  preview.style.flexDirection = "column";
-  preview.style.justifyContent = "center";
-  preview.style.alignItems = "center";
-  preview.style.color = "#fff";
-  preview.style.padding = "8px";
-
-  const title = document.createElement("div");
-  title.style.fontWeight = "bold";
-  title.style.marginBottom = "6px";
-  title.textContent = data.header || "Untitled Tierlist";
-
-  const count = document.createElement("div");
-  const imgCount = (data.imagePositions && data.imagePositions.length) || 0;
-  count.textContent = `${imgCount} images`;
-
-  const footer = document.createElement("div");
-  footer.className = "template-footer";
-  footer.textContent = "Saved";
-
-  preview.appendChild(title);
-  preview.appendChild(count);
-  card.appendChild(preview);
-  card.appendChild(footer);
-
-  card.style.cursor = "pointer";
-  card.addEventListener("click", () => {
-    try {
-      sessionStorage.my_tierlist_to_load = JSON.stringify(data);
-      window.location.href = "index.html";
-    } catch (err) {
-      scriptLogError("Failed preparing tierlist load from template card.", err);
-    }
-  });
-
-  container.appendChild(card);
-}
-
 async function loadTierListFromObject(tierListData) {
   if (!tierListData) return;
 
@@ -851,7 +819,42 @@ function bindCoreUiEvents() {
   }
 }
 
+function resolveTierListIdFromUrl() {
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const urlListId = params.get("list");
+    const isNew = params.get("new") === "1";
+
+    if (isNew) {
+      const newId = urlListId || (typeof generateTierListId === "function" ? generateTierListId() : `list_${Date.now()}`);
+      window.__isNewTierList = true;
+      if (typeof setCurrentTierListId === "function") setCurrentTierListId(newId);
+
+      const newUrl = `${window.location.pathname}?list=${encodeURIComponent(newId)}`;
+      window.history.replaceState(null, "", newUrl);
+      return;
+    }
+
+    window.__isNewTierList = false;
+
+    if (urlListId) {
+      if (typeof setCurrentTierListId === "function") setCurrentTierListId(urlListId);
+      return;
+    }
+
+    // Legacy/bookmarked link with no id: reuse whichever list was last open.
+    const lastUsed = localStorage.getItem("currentTierListId");
+    if (lastUsed && typeof setCurrentTierListId === "function") {
+      setCurrentTierListId(lastUsed);
+    }
+  } catch (err) {
+    scriptLogError("Failed resolving tier list id from URL.", err);
+  }
+}
+
 async function bootstrapApp() {
+  resolveTierListIdFromUrl();
+
   try {
     await initializeFirebase();
   } catch (err) {
@@ -875,7 +878,9 @@ async function bootstrapApp() {
   }
 
   try {
-    if (sessionStorage && sessionStorage.my_tierlist_to_load) {
+    if (window.__isNewTierList) {
+      // Brand-new blank list: keep the default template already in the DOM.
+    } else if (sessionStorage && sessionStorage.my_tierlist_to_load) {
       const data = JSON.parse(sessionStorage.my_tierlist_to_load);
       delete sessionStorage.my_tierlist_to_load;
       await loadTierListFromObject(data);

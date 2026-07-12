@@ -25,6 +25,125 @@ const STORE_IMAGE_METADATA = "imageMetadata";
 const FIREBASE_COLLECTION = isLocalhost ? "DebugRoom" : "tierLists";
 const IMAGE_VALIDATE_TIMEOUT_MS = 8000;
 
+// ---- MULTI TIER LIST SUPPORT ----
+// Each tier list has its own id. Signed-in users store a map of lists inside
+// one Firestore doc (lists.<id>); guests store the same shape in localStorage.
+const LOCAL_LISTS_KEY = "savedTierLists"; // localStorage: { [id]: tierListData }
+const LEGACY_LOCAL_LIST_KEY = "savedTierList"; // old single-list format, migrated on first read
+const CURRENT_LIST_ID_KEY = "currentTierListId"; // localStorage: last-used list id
+
+function generateTierListId() {
+  return `list_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+}
+
+function getCurrentTierListId() {
+  return window.__currentTierListId || null;
+}
+
+function setCurrentTierListId(id) {
+  window.__currentTierListId = id || null;
+  if (!id) return;
+
+  try {
+    localStorage.setItem(CURRENT_LIST_ID_KEY, id);
+  } catch (err) {
+    logDbSyncError("Failed persisting current tier list id.", err);
+  }
+}
+
+function sortTierListsByRecency(list) {
+  return list.slice().sort((a, b) => {
+    const aTime = new Date((a && (a.lastUpdated || a.createdAt)) || 0).getTime();
+    const bTime = new Date((b && (b.lastUpdated || b.createdAt)) || 0).getTime();
+    return bTime - aTime;
+  });
+}
+
+function readLocalTierListsMap() {
+  try {
+    const raw = localStorage.getItem(LOCAL_LISTS_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === "object") return parsed;
+    }
+  } catch (err) {
+    logDbSyncError("Failed reading local tier lists map.", err);
+  }
+
+  // Migrate the old single-tierlist format into the new map, once.
+  try {
+    const legacyRaw = localStorage.getItem(LEGACY_LOCAL_LIST_KEY);
+    if (legacyRaw) {
+      const legacyData = JSON.parse(legacyRaw);
+      if (legacyData) {
+        const id = generateTierListId();
+        const migrated = {
+          [id]: {
+            ...legacyData,
+            id,
+            createdAt: legacyData.createdAt || legacyData.lastUpdated || new Date().toISOString(),
+          },
+        };
+        localStorage.setItem(LOCAL_LISTS_KEY, JSON.stringify(migrated));
+        localStorage.removeItem(LEGACY_LOCAL_LIST_KEY);
+        return migrated;
+      }
+    }
+  } catch (err) {
+    logDbSyncError("Failed migrating legacy local tier list.", err);
+  }
+
+  return {};
+}
+
+function writeLocalTierListsMap(map) {
+  try {
+    localStorage.setItem(LOCAL_LISTS_KEY, JSON.stringify(map || {}));
+  } catch (err) {
+    logDbSyncError("Failed writing local tier lists map.", err);
+  }
+}
+
+function getAllLocalTierLists() {
+  const map = readLocalTierListsMap();
+  return sortTierListsByRecency(Object.values(map));
+}
+
+function getLocalTierListById(id) {
+  if (!id) return null;
+  const map = readLocalTierListsMap();
+  return map[id] || null;
+}
+
+function saveLocalTierList(id, data) {
+  if (!id || !data) return null;
+
+  const map = readLocalTierListsMap();
+  const existing = map[id] || null;
+
+  const record = {
+    ...data,
+    id,
+    createdAt: (existing && existing.createdAt) || data.createdAt || new Date().toISOString(),
+  };
+
+  map[id] = record;
+  writeLocalTierListsMap(map);
+  setCurrentTierListId(id);
+
+  return record;
+}
+
+function deleteLocalTierList(id) {
+  if (!id) return;
+
+  const map = readLocalTierListsMap();
+  if (map[id]) {
+    delete map[id];
+    writeLocalTierListsMap(map);
+  }
+}
+
 function logDbSyncError(context, err) {
   console.error(`[DatabaseSyncing] ${context}`, err);
 }
@@ -119,8 +238,13 @@ function getTierLimitStateSnapshot() {
   return typeof tierLimitStates === "object" && tierLimitStates ? { ...tierLimitStates } : {};
 }
 
+function isTierListEditorPage() {
+  return !!document.getElementById("main-title");
+}
+
 async function buildTierListDataForSync() {
   const tierListData = {
+    id: getCurrentTierListId(),
     header: getMainTitleText(),
     tiers: [],
     imagePositions: [],
@@ -373,6 +497,29 @@ async function saveImagePositions() {
 }
 
 async function loadTierListFromLocalStorage() {
+  if (!isTierListEditorPage()) return;
+  if (window.__isNewTierList) return;
+
+  const id = getCurrentTierListId();
+
+  if (id) {
+    const listData = getLocalTierListById(id);
+    if (listData) {
+      await loadTierListFromObject(listData);
+      return;
+    }
+  } else {
+    const allLists = getAllLocalTierLists();
+    if (allLists.length) {
+      const mostRecent = allLists[0];
+      setCurrentTierListId(mostRecent.id);
+      await loadTierListFromObject(mostRecent);
+      return;
+    }
+  }
+
+  // Nothing saved under the multi-list format yet (very first run) — fall
+  // back to whatever legacy IndexedDB cache may still be present.
   await loadImagesFromStorage();
 
   const displayedImages = document.querySelectorAll(".image");
@@ -629,13 +776,30 @@ async function saveTierListToFirebase() {
   if (isApplyingRemoteUpdate) return;
 
   try {
-    const tierListData = await buildTierListDataForSync();
+    const id = getCurrentTierListId() || generateTierListId();
+    setCurrentTierListId(id);
+
+    const docRef = firebaseDb.collection(FIREBASE_COLLECTION).doc(currentUser.uid);
     const nowIso = new Date().toISOString();
 
-    await firebaseDb.collection(FIREBASE_COLLECTION).doc(currentUser.uid).set({
+    const tierListData = await buildTierListDataForSync();
+    tierListData.id = id;
+    tierListData.lastUpdated = nowIso;
+
+    let existingCreatedAt = null;
+    try {
+      const existingDoc = await docRef.get();
+      const existingList = existingDoc.exists ? existingDoc.data()?.lists?.[id] : null;
+      existingCreatedAt = existingList ? existingList.createdAt : null;
+    } catch (err) {
+      logDbSyncError("Failed reading existing tier list before save.", err);
+    }
+    tierListData.createdAt = existingCreatedAt || tierListData.createdAt || nowIso;
+
+    await docRef.set({
       userId: currentUser.uid,
       userEmail: currentUser.email || null,
-      tier_data: tierListData,
+      lists: { [id]: tierListData },
       updated_at: nowIso,
     }, { merge: true });
 
@@ -702,30 +866,90 @@ async function cleanupBrokenImages() {
   return brokenImageIds;
 }
 
+async function getFirebaseListsMapForCurrentUser() {
+  if (!currentUser || !firebaseDb || !firebaseAvailable) return {};
+
+  const docRef = firebaseDb.collection(FIREBASE_COLLECTION).doc(currentUser.uid);
+  const doc = await docRef.get();
+  if (!doc.exists) return {};
+
+  const data = doc.data();
+  if (!data) return {};
+
+  if (data.lists && typeof data.lists === "object") {
+    return data.lists;
+  }
+
+  // Legacy migration: a single tier_data doc becomes a one-entry lists map.
+  if (data.tier_data) {
+    const id = generateTierListId();
+    const migratedList = {
+      ...data.tier_data,
+      id,
+      createdAt: data.tier_data.lastUpdated || new Date().toISOString(),
+    };
+
+    try {
+      await docRef.set({
+        lists: { [id]: migratedList },
+        updated_at: new Date().toISOString(),
+      }, { merge: true });
+    } catch (err) {
+      logDbSyncError("Failed migrating legacy Firebase tier_data into lists map.", err);
+    }
+
+    return { [id]: migratedList };
+  }
+
+  return {};
+}
+
+async function getAllRemoteTierLists() {
+  const listsMap = await getFirebaseListsMapForCurrentUser();
+  return sortTierListsByRecency(Object.values(listsMap));
+}
+
+async function deleteRemoteTierList(id) {
+  if (!currentUser || !firebaseDb || !firebaseAvailable || !id) return;
+
+  await firebaseDb.collection(FIREBASE_COLLECTION).doc(currentUser.uid).update({
+    [`lists.${id}`]: firebase.firestore.FieldValue.delete(),
+    updated_at: new Date().toISOString(),
+  });
+}
+
 async function loadTierListFromFirebase() {
   if (!currentUser || !firebaseDb || !firebaseAvailable) return;
+  if (!isTierListEditorPage()) return;
+  if (window.__isNewTierList) return;
 
   try {
-    const doc = await firebaseDb.collection(FIREBASE_COLLECTION).doc(currentUser.uid).get();
-    if (!doc.exists) {
+    const listsMap = await getFirebaseListsMapForCurrentUser();
+    const entries = sortTierListsByRecency(Object.values(listsMap));
+
+    let targetId = getCurrentTierListId();
+    let targetList = targetId ? listsMap[targetId] : null;
+
+    if (!targetList && entries.length) {
+      targetList = entries[0];
+      targetId = targetList.id;
+    }
+
+    if (!targetList) {
       await loadTierListFromLocalStorage();
       return;
     }
 
-    const data = doc.data();
-    if (!data || !data.tier_data) {
-      await loadTierListFromLocalStorage();
-      return;
-    }
+    setCurrentTierListId(targetId);
 
     isApplyingRemoteUpdate = true;
     try {
-      await loadTierListFromObject(data.tier_data);
+      await loadTierListFromObject(targetList);
     } finally {
       isApplyingRemoteUpdate = false;
     }
 
-    lastRemoteSyncTime = new Date(data.updated_at || Date.now()).getTime();
+    lastRemoteSyncTime = new Date(targetList.lastUpdated || Date.now()).getTime();
   } catch (err) {
     if (err && err.code === "permission-denied") {
       firebaseAvailable = false;
@@ -740,6 +964,7 @@ async function loadTierListFromFirebase() {
 function startRealtimeSync() {
   if (syncUnsubscribe) return;
   if (!currentUser || !firebaseDb || !firebaseAvailable) return;
+  if (!isTierListEditorPage()) return;
 
   const docRef = firebaseDb.collection(FIREBASE_COLLECTION).doc(currentUser.uid);
 
@@ -748,19 +973,25 @@ function startRealtimeSync() {
       if (!doc.exists) return;
 
       const data = doc.data();
-      if (!data || !data.tier_data) return;
+      if (!data) return;
 
-      const remoteUpdatedAt = new Date(data.updated_at || 0).getTime();
+      const listId = getCurrentTierListId();
+      if (!listId) return;
+
+      const listData = data.lists && data.lists[listId];
+      if (!listData) return;
+
+      const remoteUpdatedAt = new Date(listData.lastUpdated || 0).getTime();
       if (Number.isNaN(remoteUpdatedAt)) return;
       if (lastRemoteSyncTime !== null && remoteUpdatedAt <= lastRemoteSyncTime) return;
 
       if (shouldDeferRealtimeApply()) {
-        pendingRemoteTierData = data.tier_data;
+        pendingRemoteTierData = listData;
         pendingRemoteUpdatedAt = remoteUpdatedAt;
         return;
       }
 
-      await applyRemoteTierData(data.tier_data, remoteUpdatedAt);
+      await applyRemoteTierData(listData, remoteUpdatedAt);
     },
     (err) => {
       if (err && err.code === "permission-denied") {

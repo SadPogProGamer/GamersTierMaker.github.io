@@ -796,6 +796,8 @@ async function deleteTierList() {
     .map((img) => img.dataset.cloudinaryUrl || img.dataset.imageSrc || img.src)
     .filter(Boolean);
 
+  const currentId = typeof getCurrentTierListId === "function" ? getCurrentTierListId() : null;
+
   try {
     updateLoadingOverlay("Removing local data...");
 
@@ -810,25 +812,35 @@ async function deleteTierList() {
     await clearImagesFromIndexedDB().catch((err) => {
       bottomButtonsLogError("Failed clearing images store after delete loop.", err);
     });
-    await saveSetting("localTierList", null).catch((err) => {
-      bottomButtonsLogError("Failed clearing saved local tier list setting.", err);
-    });
+
+    if (currentId) {
+      await saveSetting(`localTierList:${currentId}`, null).catch((err) => {
+        bottomButtonsLogError("Failed clearing cached tier list setting.", err);
+      });
+      if (typeof deleteLocalTierList === "function") {
+        deleteLocalTierList(currentId);
+      }
+    }
+    // Clean up legacy single-list keys too, in case they still linger.
+    await saveSetting("localTierList", null).catch(() => {});
     localStorage.removeItem("savedTierList");
 
-    if (currentUser && firebaseDb && firebaseAvailable) {
+    if (currentUser && firebaseDb && firebaseAvailable && currentId) {
       updateLoadingOverlay("Finishing delete...");
 
-      const firebaseClearPromise = saveTierListToFirebase().catch((err) => {
-        bottomButtonsLogError("Failed syncing empty tier list after delete.", err);
+      const firebaseDeletePromise = (typeof deleteRemoteTierList === "function"
+        ? deleteRemoteTierList(currentId)
+        : Promise.resolve()
+      ).catch((err) => {
+        bottomButtonsLogError("Failed deleting remote tier list.", err);
       });
 
       const timeoutPromise = new Promise((resolve) => {
         setTimeout(resolve, 5000);
       });
 
-      await Promise.race([firebaseClearPromise, timeoutPromise]);
+      await Promise.race([firebaseDeletePromise, timeoutPromise]);
     }
-
 
     if (cloudinaryUrls.length) {
       updateLoadingOverlay("Requesting remote image deletes...");
@@ -842,23 +854,8 @@ async function deleteTierList() {
       }
     }
 
-    if (typeof updateTierCounts === "function") {
-      try {
-        updateTierCounts(false);
-      } catch (err) {
-        bottomButtonsLogError("Failed updating tier counts after delete.", err);
-      }
-    }
-
-    if (typeof setDropHintVisibility === "function") {
-      try {
-        setDropHintVisibility();
-      } catch (err) {
-        bottomButtonsLogError("Failed restoring drop hint visibility after delete.", err);
-      }
-    }
-
     alert("Tier list deleted.");
+    window.location.href = "my-tierlists.html";
   } catch (err) {
     bottomButtonsLogError("Failed deleting tier list.", err);
     alert("Failed to delete the tier list completely. See console for details.");
