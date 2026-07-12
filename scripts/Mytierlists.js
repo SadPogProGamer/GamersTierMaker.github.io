@@ -16,6 +16,7 @@ function escapeHtml(value) {
   }[char]));
 }
 
+
 function formatRelativeDate(isoString) {
   if (!isoString) return "";
 
