@@ -1,7 +1,7 @@
 // Commands.js
 // Handles slash-command suggestions, command filtering, and count badge helpers.
 // ADDED: /GameType and /ExcludeGameType commands with multi-select support
-// Designed to stay compatible with index.html and SearchFunction.js.
+// FIXED: Search dropdown shows all commands when typing "/"
 
 const SEARCH_COMMANDS = {
   "/Platform": "Show games with specific platform",
@@ -20,7 +20,8 @@ const SEARCH_COMMANDS = {
   "/ExcludeGameType": "Hide games with specific game type: Original Game, Romhack, Fan Game, Mod (e.g. /ExcludeGameType Mod)",
 };
 
-const GAME_TYPES = ["Original Game", "Romhack", "Fan Game", "Mod"];
+// Use the GAME_TYPES from GameDetails.js if available, otherwise define it
+const GAME_TYPES = (typeof GAME_TYPES !== 'undefined') ? GAME_TYPES : ["Original Game", "Romhack", "Fan Game", "Mod"];
 
 let searchCommandHighlightedIndex = -1;
 
@@ -42,8 +43,13 @@ function normalizeCommandText(value) {
 
 function getFilteredSearchCommands(query) {
   const normalized = normalizeCommandText(query);
+  
+  // If the query is just "/" or empty, return all commands
+  if (normalized === "/" || normalized === "") {
+    return Object.keys(SEARCH_COMMANDS);
+  }
+  
   return Object.keys(SEARCH_COMMANDS).filter((cmd) => {
-    if (normalized === "/") return true;
     return cmd.toLowerCase().includes(normalized);
   });
 }
@@ -154,10 +160,13 @@ function handleSearchInput(searchQuery) {
   const trimmedQuery = String(searchQuery || "").trim();
   const lastSlashIndex = trimmedQuery.lastIndexOf("/");
 
+  // If there's a slash in the query, show command suggestions
   if (lastSlashIndex >= 0) {
     const partialCommand = trimmedQuery.substring(lastSlashIndex);
+    // If the partial is just "/" or starts with "/", show all commands or filtered
     showSearchCommandsDropdown(partialCommand, dropdown);
   } else {
+    // No slash, hide the dropdown
     dropdown.classList.add("hidden");
     searchCommandHighlightedIndex = -1;
   }
