@@ -16,8 +16,8 @@ const SEARCH_COMMANDS = {
   "/Developer": "Search by developer name (e.g. /Developer Rockstar)",
   "/ShowAmount": "Show number of images in each tier (can combine with other commands or search)",
   "/Exclude": "Hide games whose name contains the given text (e.g. /Exclude Mario)",
-  "/GameType": "Show games with specific game type: Original Game, Romhack, Fan Game, Fan Port, Mod (e.g. /GameType Romhack)",
-  "/ExcludeGameType": "Hide games with specific game type: Original Game, Romhack, Fan Game, Fan Port, Mod (e.g. /ExcludeGameType Mod)",
+  "/GameType": "Show games with specific game type: Original Game, Romhack, Fan Game, Fan Port, Fan Remake, Mod (e.g. /GameType Romhack)",
+  "/ExcludeGameType": "Hide games with specific game type: Original Game, Romhack, Fan Game, Fan Port, Fan Remake, Mod (e.g. /ExcludeGameType Mod)",
 };
 
 // GAME_TYPES is defined in GameDetails.js - use it globally
@@ -201,7 +201,7 @@ function mapDeveloperCommandAlias(value) {
 function parseGameTypeQuery(value) {
   const normalized = normalizeCommandText(value);
   // Use the global GAME_TYPES from GameDetails.js
-  const gameTypes = typeof GAME_TYPES !== 'undefined' ? GAME_TYPES : ["Original Game", "Romhack", "Fan Game", "Fan Port", "Mod"];
+  const gameTypes = typeof GAME_TYPES !== 'undefined' ? GAME_TYPES : ["Original Game", "Romhack", "Fan Game", "Fan Port", "Fan Remake", "Mod"];
   const matchingTypes = gameTypes.filter(type => 
     normalizeCommandText(type).includes(normalized) || 
     normalized.includes(normalizeCommandText(type))
