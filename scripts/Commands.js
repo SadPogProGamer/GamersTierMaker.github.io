@@ -20,8 +20,8 @@ const SEARCH_COMMANDS = {
   "/ExcludeGameType": "Hide games with specific game type: Original Game, Romhack, Fan Game, Mod (e.g. /ExcludeGameType Mod)",
 };
 
-// Use the GAME_TYPES from GameDetails.js if available, otherwise define it
-const GAME_TYPES = (typeof GAME_TYPES !== 'undefined') ? GAME_TYPES : ["Original Game", "Romhack", "Fan Game", "Mod"];
+// GAME_TYPES is defined in GameDetails.js - use it globally
+// No need to redeclare it here
 
 let searchCommandHighlightedIndex = -1;
 
@@ -200,7 +200,9 @@ function mapDeveloperCommandAlias(value) {
 
 function parseGameTypeQuery(value) {
   const normalized = normalizeCommandText(value);
-  const matchingTypes = GAME_TYPES.filter(type => 
+  // Use the global GAME_TYPES from GameDetails.js
+  const gameTypes = typeof GAME_TYPES !== 'undefined' ? GAME_TYPES : ["Original Game", "Romhack", "Fan Game", "Mod"];
+  const matchingTypes = gameTypes.filter(type => 
     normalizeCommandText(type).includes(normalized) || 
     normalized.includes(normalizeCommandText(type))
   );
