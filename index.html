@@ -145,7 +145,6 @@
             <img class="option-hover" src="assets/chevron-down.svg" alt="Down" onclick="moveRow(this, 1)" />
           </div>
         </div>
-
       </div>
     </div>
 
@@ -355,6 +354,23 @@
         <div class="form-group">
           <label for="image-name">Name:</label>
           <input type="text" id="image-name" placeholder="Enter game name" />
+        </div>
+
+        <!-- NEW: Game Type field -->
+        <div class="form-group">
+          <label for="image-game-type">Game Type:</label>
+          <select id="image-game-type">
+            <option value="Original Game">Original Game</option>
+            <option value="Romhack">Romhack</option>
+            <option value="Fan Game">Fan Game</option>
+            <option value="Mod">Mod</option>
+          </select>
+        </div>
+
+        <!-- NEW: Original Game field (hidden by default) -->
+        <div class="form-group hidden" id="original-game-group">
+          <label for="image-original-game">Original Game:</label>
+          <input type="text" id="image-original-game" placeholder="Enter the original game name" />
         </div>
 
         <div class="form-group">

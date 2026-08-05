@@ -1,5 +1,6 @@
 // BottomButtons.js
 // Handles export, download, sharing, screenshot download, and full tier list deletion.
+// UPDATED: Added gameType and originalGame to import/export
 // Designed to stay compatible with the existing HTML and the rewritten DatabaseSyncing.js / script.js.
 
 const BUTTONS_LOADING_OVERLAY_ID = "buttons-loading-overlay";
@@ -103,6 +104,8 @@ function buildImportedEntryMetadata(entry) {
     status: normalizedStatus,
     has100Replay: normalizedStatus === "100% complete" ? !!entry.has100Replay : false,
     gameKey: entry.gameKey || makeGameKey(entry.name, entry.developer),
+    gameType: entry.gameType || "Original Game",
+    originalGame: entry.originalGame || "",
   };
 }
 
@@ -178,6 +181,8 @@ function updateManualImportOverlay() {
     <div>Status: ${current.status || "Unknown"}</div>
     <div>Date: ${current.date || "Unknown"}</div>
     <div>Tier: ${typeof current.tier === "number" ? current.tier : "Unknown"}</div>
+    <div>Game Type: ${current.gameType || "Original Game"}</div>
+    <div>Original Game: ${current.originalGame || "N/A"}</div>
   `;
 
   skipBtn.onclick = () => {
@@ -458,6 +463,8 @@ async function getGameDetailsForExport() {
       date100: "",
       has100Replay: false,
       gameKey: "",
+      gameType: "Original Game",
+      originalGame: "",
     };
 
     try {
@@ -493,6 +500,8 @@ async function getGameDetailsForExport() {
       status: metadata.status || "",
       date100: metadata.date100 || "",
       has100Replay: !!metadata.has100Replay,
+      gameType: metadata.gameType || "Original Game",
+      originalGame: metadata.originalGame || "",
     });
   }
 

@@ -1,5 +1,6 @@
 // Commands.js
 // Handles slash-command suggestions, command filtering, and count badge helpers.
+// ADDED: /GameType and /ExcludeGameType commands with multi-select support
 // Designed to stay compatible with index.html and SearchFunction.js.
 
 const SEARCH_COMMANDS = {
@@ -15,7 +16,11 @@ const SEARCH_COMMANDS = {
   "/Developer": "Search by developer name (e.g. /Developer Rockstar)",
   "/ShowAmount": "Show number of images in each tier (can combine with other commands or search)",
   "/Exclude": "Hide games whose name contains the given text (e.g. /Exclude Mario)",
+  "/GameType": "Show games with specific game type: Original Game, Romhack, Fan Game, Mod (e.g. /GameType Romhack)",
+  "/ExcludeGameType": "Hide games with specific game type: Original Game, Romhack, Fan Game, Mod (e.g. /ExcludeGameType Mod)",
 };
+
+const GAME_TYPES = ["Original Game", "Romhack", "Fan Game", "Mod"];
 
 let searchCommandHighlightedIndex = -1;
 
@@ -184,7 +189,32 @@ function mapDeveloperCommandAlias(value) {
   return developerQuery;
 }
 
-function processCommandFilter(filteredQuery, imageName, imagePlatform, imageDescription, imageDate, imageStatus, imageDeveloper) {
+function parseGameTypeQuery(value) {
+  const normalized = normalizeCommandText(value);
+  const matchingTypes = GAME_TYPES.filter(type => 
+    normalizeCommandText(type).includes(normalized) || 
+    normalized.includes(normalizeCommandText(type))
+  );
+  return matchingTypes;
+}
+
+function parseGameTypeList(query) {
+  // Parse comma-separated list of game types
+  const parts = query.split(',').map(s => s.trim());
+  const result = [];
+  for (const part of parts) {
+    if (!part) continue;
+    const matches = parseGameTypeQuery(part);
+    for (const match of matches) {
+      if (!result.includes(match)) {
+        result.push(match);
+      }
+    }
+  }
+  return result;
+}
+
+function processCommandFilter(filteredQuery, imageName, imagePlatform, imageDescription, imageDate, imageStatus, imageDeveloper, imageGameType, imageOriginalGame) {
   const command = normalizeCommandText(filteredQuery);
   const normalizedName = String(imageName || "").trim();
   const normalizedPlatform = normalizeCommandText(imagePlatform);
@@ -192,6 +222,8 @@ function processCommandFilter(filteredQuery, imageName, imagePlatform, imageDesc
   const normalizedDate = String(imageDate || "").trim();
   const normalizedStatus = String(imageStatus || "").trim();
   const normalizedDeveloper = normalizeCommandText(imageDeveloper);
+  const normalizedGameType = String(imageGameType || "").trim();
+  const normalizedOriginalGame = String(imageOriginalGame || "").trim();
 
   if (!command) return true;
 
@@ -291,6 +323,38 @@ if (command.startsWith("/exclude")) {
     return !normalizedName.toLowerCase().includes(excludeQuery);
   }
 }
+
+  // NEW: /GameType command - show games with specific game type
+  if (command.startsWith("/gametype")) {
+    if (command === "/gametype") {
+      return normalizedGameType !== "";
+    }
+
+    if (command.startsWith("/gametype ")) {
+      const rawGameTypeQuery = command.substring("/gametype ".length).trim();
+      const gameTypes = parseGameTypeList(rawGameTypeQuery);
+      if (gameTypes.length === 0) return true;
+      return gameTypes.some(type => 
+        normalizeCommandText(normalizedGameType) === normalizeCommandText(type)
+      );
+    }
+  }
+
+  // NEW: /ExcludeGameType command - hide games with specific game type
+  if (command.startsWith("/excludegametype")) {
+    if (command === "/excludegametype") {
+      return true;
+    }
+
+    if (command.startsWith("/excludegametype ")) {
+      const rawExcludeQuery = command.substring("/excludegametype ".length).trim();
+      const excludeTypes = parseGameTypeList(rawExcludeQuery);
+      if (excludeTypes.length === 0) return true;
+      return !excludeTypes.some(type => 
+        normalizeCommandText(normalizedGameType) === normalizeCommandText(type)
+      );
+    }
+  }
 
   return true;
 }

@@ -1,5 +1,6 @@
 // DatabaseSyncing.js
 // Manages IndexedDB, Firebase sync, and Cloudinary helpers.
+// UPDATED: Added gameType and originalGame to metadata
 // Firebase saves only happen when manually triggered.
 
 let indexedDb = null;
@@ -164,6 +165,8 @@ function getDefaultImageMetadata() {
     originalPlatform: null,
     genres: [],
     has100Replay: false,
+    gameType: "Original Game",
+    originalGame: "",
   };
 }
 
@@ -187,6 +190,8 @@ function normalizeImageMetadata(record) {
     originalPlatform: record.originalPlatform || null,
     genres,
     has100Replay: !!record.has100Replay || !!record.has100,
+    gameType: record.gameType || "Original Game",
+    originalGame: record.originalGame || "",
   };
 }
 
@@ -603,12 +608,7 @@ function deleteImageMetadata(imageId) {
 }
 
 function isFirebaseConfigured() {
-  return !!(
-    typeof firebase !== "undefined" &&
-    FIREBASE_CONFIG &&
-    FIREBASE_CONFIG.apiKey &&
-    FIREBASE_CONFIG.apiKey !== "YOUR_API_KEY"
-  );
+  return !!(typeof firebase !== "undefined" && FIREBASE_CONFIG && FIREBASE_CONFIG.apiKey && FIREBASE_CONFIG.apiKey !== "YOUR_API_KEY");
 }
 
 async function initializeFirebase() {
@@ -719,11 +719,9 @@ async function signInWithGoogle() {
 }
 
 function shouldDeferRealtimeApply() {
-  const modalOpen =
-    typeof isImageModalOpen === "function" && isImageModalOpen();
+  const modalOpen = typeof isImageModalOpen === "function" && isImageModalOpen();
 
-  const draggingActive =
-    typeof isDraggingImages !== "undefined" && !!isDraggingImages;
+  const draggingActive = typeof isDraggingImages !== "undefined" && !!isDraggingImages;
 
   return isApplyingRemoteUpdate || modalOpen || draggingActive;
 }

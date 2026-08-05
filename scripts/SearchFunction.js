@@ -1,5 +1,6 @@
 // SearchFunction.js
 // Handles plain search filtering, slash-command-aware filtering, and clear-button UI.
+// UPDATED: Pass gameType and originalGame to processCommandFilter
 // Designed to stay compatible with the existing HTML and Commands.js.
 
 let latestSearchRequestId = 0;
@@ -38,6 +39,8 @@ function getDefaultSearchMetadata() {
     platform: null,
     date100: "",
     has100Replay: false,
+    gameType: "Original Game",
+    originalGame: "",
   };
 }
 
@@ -125,6 +128,8 @@ function extractMetadataForSearch(imageElement, metadataMap) {
     imageDate: metadata.date || "",
     imageStatus: metadata.status || "",
     imageDeveloper: metadata.developer || "",
+    imageGameType: metadata.gameType || "Original Game",
+    imageOriginalGame: metadata.originalGame || "",
   };
 }
 
@@ -145,7 +150,9 @@ function evaluateImageAgainstQuery(metadata, filteredQuery) {
       metadata.imageDescription,
       metadata.imageDate,
       metadata.imageStatus,
-      metadata.imageDeveloper
+      metadata.imageDeveloper,
+      metadata.imageGameType,
+      metadata.imageOriginalGame
     );
   }
 

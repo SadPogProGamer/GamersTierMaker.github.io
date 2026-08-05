@@ -1,5 +1,7 @@
 // GameDetails.js
 // Handles the game details modal, platform picker, metadata management, and deleting a single image.
+// ADDED: Game Type dropdown with Original Game, Romhack, Fan Game, Mod options
+// ADDED: Original Game text field that appears when non-Original Game type is selected
 
 const platformOptions = {
   "PC": [
@@ -95,10 +97,14 @@ const platformOptions = {
   ]
 };
 
+const GAME_TYPES = ["Original Game", "Romhack", "Fan Game", "Mod"];
+
 let currentImageElement = null;
 let currentSelectedPlatform = null;
 let currentSelectedOriginalPlatform = null;
 let currentHas100Replay = false;
+let currentGameType = "Original Game";
+let currentOriginalGame = "";
 let modalBindingsInitialized = false;
 let currentModalEscapeHandler = null;
 
@@ -132,7 +138,9 @@ function getCurrentMetadataFromForm() {
     status: getField("image-status")?.value || "",
     platform: currentSelectedPlatform || null,
     originalPlatform: shouldUseOriginalPlatform() ? (currentSelectedOriginalPlatform || null) : null,
-    has100Replay: !!currentHas100Replay
+    has100Replay: !!currentHas100Replay,
+    gameType: currentGameType || "Original Game",
+    originalGame: currentOriginalGame || ""
   };
 }
 
@@ -163,6 +171,8 @@ function setFormFromMetadata(metadata) {
   currentSelectedPlatform = metadata.platform || null;
   currentSelectedOriginalPlatform = metadata.originalPlatform || null;
   currentHas100Replay = !!metadata.has100Replay;
+  currentGameType = metadata.gameType || "Original Game";
+  currentOriginalGame = metadata.originalGame || "";
 
   const platformSearch = getField("platform-search");
   const dropdown = getField("platform-dropdown-menu");
@@ -179,6 +189,7 @@ function setFormFromMetadata(metadata) {
   renderOriginalPlatformOptions();
   updateOriginalPlatformVisibility();
   updateDateLabel();
+  updateGameTypeUI();
 }
 
 function updateDateLabel() {
@@ -222,6 +233,39 @@ function updateReplayVisibility() {
 function toggleReplayStatus() {
   currentHas100Replay = !currentHas100Replay;
   updateReplayVisibility();
+}
+
+function updateGameTypeUI() {
+  const gameTypeSelect = getField("image-game-type");
+  const originalGameGroup = getField("original-game-group");
+  const originalGameInput = getField("image-original-game");
+
+  if (!gameTypeSelect) return;
+
+  gameTypeSelect.value = currentGameType || "Original Game";
+
+  const isOriginal = currentGameType === "Original Game";
+  if (originalGameGroup) {
+    originalGameGroup.classList.toggle("hidden", isOriginal);
+  }
+  if (originalGameInput) {
+    originalGameInput.value = currentOriginalGame || "";
+  }
+}
+
+function handleGameTypeChange() {
+  const gameTypeSelect = getField("image-game-type");
+  if (!gameTypeSelect) return;
+
+  currentGameType = gameTypeSelect.value || "Original Game";
+  updateGameTypeUI();
+}
+
+function handleOriginalGameInput() {
+  const input = getField("image-original-game");
+  if (input) {
+    currentOriginalGame = input.value || "";
+  }
 }
 
 function updatePlatformButton() {
@@ -479,6 +523,8 @@ function finalizeModalClose() {
   currentSelectedPlatform = null;
   currentSelectedOriginalPlatform = null;
   currentHas100Replay = false;
+  currentGameType = "Original Game";
+  currentOriginalGame = "";
 
   if (typeof flushPendingRealtimeSync === "function") {
     flushPendingRealtimeSync().catch((err) => {
@@ -686,6 +732,16 @@ function bindModalFieldEvents() {
       updateReplayVisibility();
     });
   }
+
+  const gameTypeSelect = getField("image-game-type");
+  if (gameTypeSelect) {
+    gameTypeSelect.addEventListener("change", handleGameTypeChange);
+  }
+
+  const originalGameInput = getField("image-original-game");
+  if (originalGameInput) {
+    originalGameInput.addEventListener("input", handleOriginalGameInput);
+  }
 }
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -696,4 +752,5 @@ document.addEventListener("DOMContentLoaded", () => {
   updateOriginalPlatformVisibility();
   updateReplayVisibility();
   updateDateLabel();
+  updateGameTypeUI();
 });
