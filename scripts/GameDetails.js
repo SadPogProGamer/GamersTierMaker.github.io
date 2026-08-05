@@ -1,6 +1,6 @@
 // GameDetails.js
 // Handles the game details modal, platform picker, metadata management, and deleting a single image.
-// ADDED: Game Type dropdown with Original Game, Romhack, Fan Game, Mod options
+// ADDED: Game Type dropdown with Original Game, Romhack, Fan Game, Fan Port, Mod options
 // ADDED: Original Game text field that appears when non-Original Game type is selected
 
 const platformOptions = {
@@ -97,7 +97,7 @@ const platformOptions = {
   ]
 };
 
-const GAME_TYPES = ["Original Game", "Romhack", "Fan Game", "Mod"];
+const GAME_TYPES = ["Original Game", "Romhack", "Fan Game", "Fan Port", "Mod"];
 
 let currentImageElement = null;
 let currentSelectedPlatform = null;

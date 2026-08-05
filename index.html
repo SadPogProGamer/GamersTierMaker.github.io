@@ -295,36 +295,32 @@
   </main>
 
   <!-- SAVE BUTTON -->
-<div class="save-tierlist-wrapper">
-  <button id="save-tierlist-btn" type="button" onclick="saveTierList()">
-    Save Tierlist
-  </button>
-</div>
+  <div class="save-tierlist-wrapper">
+    <button id="save-tierlist-btn" type="button" onclick="saveTierList()">
+      Save Tierlist
+    </button>
+  </div>
 
-<!-- BOTTOM BUTTONS -->
-<div id="buttons-container">
-  <button type="button" onclick="selectImages()">Click here to add images</button>
-  <button id="btn" type="button">Download Tierlist Image</button>
-  <button id="download-all-btn" type="button" onclick="downloadAllImagesZip()">
-    Download All Images
-  </button>
-  <button type="button" onclick="importGameDetails()">
-    Import Game Details
-  </button>
-  <button type="button" onclick="downloadGameDetailsJSON()">
-    Export Game Details
-  </button>
+  <!-- BOTTOM BUTTONS -->
+  <div id="buttons-container">
+    <button type="button" onclick="selectImages()">Click here to add images</button>
+    <button id="btn" type="button">Download Tierlist Image</button>
+    <button id="download-all-btn" type="button" onclick="downloadAllImagesZip()">
+      Download All Images
+    </button>
+    <button type="button" onclick="importGameDetails()">
+      Import Game Details
+    </button>
+    <button type="button" onclick="downloadGameDetailsJSON()">
+      Export Game Details
+    </button>
 
-  <button
-    type="button"
-    onclick="deleteTierList()"
-    style="background: #dc3545; color: white;"
-  >
-    Delete Tier List
-  </button>
+    <button type="button" onclick="deleteTierList()" style="background: #dc3545; color: white;">
+      Delete Tier List
+    </button>
 
-  <div id="upload-status" class="upload-status hidden"></div>
-</div>
+    <div id="upload-status" class="upload-status hidden"></div>
+  </div>
 
   <div id="image-modal" class="modal hidden">
     <div class="modal-content">
@@ -363,6 +359,7 @@
             <option value="Original Game">Original Game</option>
             <option value="Romhack">Romhack</option>
             <option value="Fan Game">Fan Game</option>
+            <option value="Fan Port">Fan Port</option>
             <option value="Mod">Mod</option>
           </select>
         </div>
@@ -408,10 +405,12 @@
         <div class="form-group hidden" id="original-platform-group">
           <label>Original Platform:</label>
           <div class="platform-dropdown">
-            <button type="button" id="original-platform-btn" class="platform-dropdown-btn" onclick="toggleOriginalPlatformDropdown()">--
+            <button type="button" id="original-platform-btn" class="platform-dropdown-btn"
+              onclick="toggleOriginalPlatformDropdown()">--
               Select Original Platform --</button>
             <div id="original-platform-dropdown-menu" class="platform-dropdown-menu hidden">
-              <input type="text" id="original-platform-search" class="platform-search" placeholder="Search original platform..." />
+              <input type="text" id="original-platform-search" class="platform-search"
+                placeholder="Search original platform..." />
               <div id="original-platform-options" class="platform-options"></div>
             </div>
           </div>
