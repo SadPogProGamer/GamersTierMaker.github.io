@@ -15,7 +15,7 @@
   var BASELINE_WIDTH = 2560; // resolution the current sizing was tuned for
   var MIN_SCALE = 0.85;
   var MAX_SCALE = 1.7;
-  var GLOBAL_SCALE_MULTIPLIER = 1.15; // overall +10% bump on top of the resolution-based scale
+  var GLOBAL_SCALE_MULTIPLIER = 1.1; // overall +10% bump on top of the resolution-based scale
 
   function getScreenWidth() {
     // window.screen.width reflects the actual monitor resolution,
