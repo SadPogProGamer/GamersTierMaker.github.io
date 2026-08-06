@@ -620,13 +620,13 @@ img {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 15px 20px;
+  padding: 15px 19px;
   border-bottom: 1px solid #444;
 }
 
 .modal-header h2 {
   margin: 0;
-  font-size: 20px;
+  font-size: 19px;
 }
 
 .modal-header {
@@ -647,10 +647,10 @@ img {
 }
 
 .modal-header-image {
-  width: 56px;
-  height: 70px;
+  width: 53px;
+  height: 66px;
   object-fit: cover;
-  border-radius: 6px;
+  border-radius: 5px;
   border: 1px solid #555;
   background: #2b2829;
   flex-shrink: 0;
@@ -660,11 +660,11 @@ img {
   background: none;
   border: none;
   color: var(--button-text);
-  font-size: 24px;
+  font-size: 23px;
   cursor: pointer;
   padding: 0;
-  width: 30px;
-  height: 30px;
+  width: 28px;
+  height: 28px;
 }
 
 .modal-close:hover {
@@ -743,23 +743,25 @@ img {
   margin-bottom: 5px;
   font-weight: bold;
   color: var(--button-text);
+  font-size: 15px;
 }
 
 .form-group input,
 .form-group textarea,
 .form-group select {
-  padding: 8px 12px;
+  padding: 7px 7px;
   background-color: #3d3a3b;
   border: 1px solid #555;
   border-radius: 4px;
   color: var(--button-text);
   font-family: Arial, Helvetica, sans-serif;
   font-size: 14px;
+  box-sizing: border-box;
 }
 
 .form-group textarea {
   resize: vertical;
-  min-height: 205px;
+  min-height: 194px;
 }
 
 .form-group input:focus,
@@ -773,7 +775,7 @@ img {
 .replay-toggle {
   width: 100%;
   box-sizing: border-box;
-  padding: 4px 10px;
+  padding: 4px 9px;
   border: 1px solid transparent;
   color: white;
   border-radius: 6px;
@@ -796,8 +798,8 @@ img {
 .modal-footer {
   display: flex;
   justify-content: flex-end;
-  gap: 10px;
-  padding: 15px 20px;
+  gap: 9px;
+  padding: 15px 19px;
   border-top: 1px solid #444;
 }
 
@@ -805,7 +807,7 @@ img {
   background-color: #ff6b6b;
   color: white;
   border: none;
-  padding: 8px 16px;
+  padding: 7px 15px;
   border-radius: 4px;
   cursor: pointer;
   transition: ease 200ms;
@@ -819,7 +821,7 @@ img {
   background-color: rgb(34, 33, 33);
   color: var(--button-text);
   border: none;
-  padding: 8px 16px;
+  padding: 7px 15px;
   border-radius: 4px;
   cursor: pointer;
   transition: ease 200ms;
@@ -831,14 +833,14 @@ img {
 
 .platform-search {
   width: 100%;
-  padding: 8px 12px;
+  padding: 7px 7px;
   background-color: #3d3a3b;
   border: 1px solid #555;
   border-radius: 4px;
   color: var(--button-text);
   font-family: Arial, Helvetica, sans-serif;
   font-size: 14px;
-  margin-bottom: 10px;
+  margin-bottom: 9px;
   box-sizing: border-box;
 }
 
@@ -850,12 +852,12 @@ img {
 
 .platform-dropdown {
   position: relative;
-  margin-bottom: 10px;
+  margin-bottom: 9px;
 }
 
 .platform-dropdown-btn {
   width: 100%;
-  padding: 8px 12px;
+  padding: 7px 7px;
   background-color: #3d3a3b;
   border: 1px solid #555;
   border-radius: 4px;
@@ -865,6 +867,7 @@ img {
   cursor: pointer;
   text-align: left;
   transition: all 200ms;
+  box-sizing: border-box;
 }
 
 .platform-dropdown-btn:hover {
@@ -882,8 +885,8 @@ img {
   border-top: none;
   border-radius: 0 0 4px 4px;
   z-index: 1001;
-  padding: 10px;
-  max-height: 300px;
+  padding: 9px;
+  max-height: 284px;
   overflow-y: auto;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.5);
   scroll-behavior: auto;
@@ -896,7 +899,7 @@ img {
 .platform-options {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 8px;
+  gap: 7px;
   margin-bottom: 0;
   max-height: none;
   overflow-y: visible;
@@ -1486,7 +1489,7 @@ body.mobile .modal-content {
 
 #image-description {
     width: 100%;
-    min-height: 270px; /* Increase this value as desired */
+    min-height: 194px; /* kept in sync with .form-group textarea min-height above */
     resize: vertical;  /* Allows the user to make it even taller */
     box-sizing: border-box;
 }

@@ -239,17 +239,38 @@ function updateGameTypeUI() {
   const gameTypeSelect = getField("image-game-type");
   const originalGameGroup = getField("original-game-group");
   const originalGameInput = getField("image-original-game");
+  const originalGameLabel = document.querySelector('label[for="image-original-game"]');
 
   if (!gameTypeSelect) return;
 
   gameTypeSelect.value = currentGameType || "Original Game";
 
   const isOriginal = currentGameType === "Original Game";
+  const isFanPort = currentGameType === "Fan Port";
+  const isFanGame = currentGameType === "Fan Game";
+
+  // Original Game box is irrelevant for the base "Original Game" type,
+  // and also for "Fan Port" (a fan port is the same game, just ported
+  // to a new platform, not a different original game).
+  const shouldHideOriginalGame = isOriginal || isFanPort;
+
   if (originalGameGroup) {
-    originalGameGroup.classList.toggle("hidden", isOriginal);
+    originalGameGroup.classList.toggle("hidden", shouldHideOriginalGame);
   }
+
+  if (shouldHideOriginalGame) {
+    currentOriginalGame = "";
+  }
+
   if (originalGameInput) {
     originalGameInput.value = currentOriginalGame || "";
+    originalGameInput.placeholder = isFanGame
+      ? "Enter the original IP name"
+      : "Enter the original game name";
+  }
+
+  if (originalGameLabel) {
+    originalGameLabel.textContent = isFanGame ? "Original IP:" : "Original Game:";
   }
 }
 
