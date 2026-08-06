@@ -39,7 +39,9 @@ const platformOptions = {
   ],
   "Handhelds": [
     "Game Boy",
+    "Game Boy (Via Game Boy Advance Backwards Compatibility)",
     "Game Boy Color",
+    "Game Boy Color (Via Game Boy Advance Backwards Compatibility)",
     "Game Boy Advance",
     "Nintendo DS",
     "Nintendo 3DS",
