@@ -10,6 +10,11 @@
   --buttons-color: #000000;
   --button-hover: #373737;
   --buttons-bg: #20181a;
+  /* Fallback before ModalScale.js runs, and for browsers without JS.
+     ModalScale.js overwrites this based on the user's actual screen
+     resolution (baseline: 1.1 == tuned for 2560x1440, plus the +10%
+     global bump applied on top of the resolution-based scale). */
+  --modal-scale: 1.1;
 }
 body {
   font-family: Arial, Helvetica, sans-serif;
@@ -612,7 +617,7 @@ img {
   border-radius: 8px;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.5);
   width: 100%;
-  max-width: 500px;
+  max-width: calc(500px * var(--modal-scale));
   color: var(--button-text);
 }
 
@@ -620,25 +625,25 @@ img {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 15px 19px;
+  padding: calc(15px * var(--modal-scale)) calc(19px * var(--modal-scale));
   border-bottom: 1px solid #444;
 }
 
 .modal-header h2 {
   margin: 0;
-  font-size: 19px;
+  font-size: calc(19px * var(--modal-scale));
 }
 
 .modal-header {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: calc(12px * var(--modal-scale));
 }
 
 .modal-header-left {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: calc(12px * var(--modal-scale));
   min-width: 0;
 }
 
@@ -647,8 +652,8 @@ img {
 }
 
 .modal-header-image {
-  width: 53px;
-  height: 66px;
+  width: calc(53px * var(--modal-scale));
+  height: calc(66px * var(--modal-scale));
   object-fit: cover;
   border-radius: 5px;
   border: 1px solid #555;
@@ -660,11 +665,11 @@ img {
   background: none;
   border: none;
   color: var(--button-text);
-  font-size: 23px;
+  font-size: calc(23px * var(--modal-scale));
   cursor: pointer;
   padding: 0;
-  width: 28px;
-  height: 28px;
+  width: calc(28px * var(--modal-scale));
+  height: calc(28px * var(--modal-scale));
 }
 
 .modal-close:hover {
@@ -730,38 +735,38 @@ img {
 }
 
 .modal-body {
-  padding: 12px 14px;
+  padding: calc(12px * var(--modal-scale)) calc(14px * var(--modal-scale));
 }
 
 .form-group {
-  margin-bottom: 12px;
+  margin-bottom: calc(12px * var(--modal-scale));
   display: flex;
   flex-direction: column;
 }
 
 .form-group label {
-  margin-bottom: 5px;
+  margin-bottom: calc(5px * var(--modal-scale));
   font-weight: bold;
   color: var(--button-text);
-  font-size: 15px;
+  font-size: calc(15px * var(--modal-scale));
 }
 
 .form-group input,
 .form-group textarea,
 .form-group select {
-  padding: 7px 7px;
+  padding: calc(7px * var(--modal-scale)) calc(7px * var(--modal-scale));
   background-color: #3d3a3b;
   border: 1px solid #555;
   border-radius: 4px;
   color: var(--button-text);
   font-family: Arial, Helvetica, sans-serif;
-  font-size: 14px;
+  font-size: calc(14px * var(--modal-scale));
   box-sizing: border-box;
 }
 
 .form-group textarea {
   resize: vertical;
-  min-height: 194px;
+  min-height: calc(194px * var(--modal-scale));
 }
 
 .form-group input:focus,
@@ -775,11 +780,11 @@ img {
 .replay-toggle {
   width: 100%;
   box-sizing: border-box;
-  padding: 4px 9px;
+  padding: calc(4px * var(--modal-scale)) calc(9px * var(--modal-scale));
   border: 1px solid transparent;
   color: white;
   border-radius: 6px;
-  font-size: 13px;
+  font-size: calc(13px * var(--modal-scale));
   line-height: 1.2;
   cursor: pointer;
   transition: background-color 0.2s ease, border-color 0.2s ease;
@@ -798,8 +803,8 @@ img {
 .modal-footer {
   display: flex;
   justify-content: flex-end;
-  gap: 9px;
-  padding: 15px 19px;
+  gap: calc(9px * var(--modal-scale));
+  padding: calc(15px * var(--modal-scale)) calc(19px * var(--modal-scale));
   border-top: 1px solid #444;
 }
 
@@ -807,7 +812,7 @@ img {
   background-color: #ff6b6b;
   color: white;
   border: none;
-  padding: 7px 15px;
+  padding: calc(7px * var(--modal-scale)) calc(15px * var(--modal-scale));
   border-radius: 4px;
   cursor: pointer;
   transition: ease 200ms;
@@ -821,7 +826,7 @@ img {
   background-color: rgb(34, 33, 33);
   color: var(--button-text);
   border: none;
-  padding: 7px 15px;
+  padding: calc(7px * var(--modal-scale)) calc(15px * var(--modal-scale));
   border-radius: 4px;
   cursor: pointer;
   transition: ease 200ms;
@@ -833,14 +838,14 @@ img {
 
 .platform-search {
   width: 100%;
-  padding: 7px 7px;
+  padding: calc(7px * var(--modal-scale)) calc(7px * var(--modal-scale));
   background-color: #3d3a3b;
   border: 1px solid #555;
   border-radius: 4px;
   color: var(--button-text);
   font-family: Arial, Helvetica, sans-serif;
-  font-size: 14px;
-  margin-bottom: 9px;
+  font-size: calc(14px * var(--modal-scale));
+  margin-bottom: calc(9px * var(--modal-scale));
   box-sizing: border-box;
 }
 
@@ -852,18 +857,18 @@ img {
 
 .platform-dropdown {
   position: relative;
-  margin-bottom: 9px;
+  margin-bottom: calc(9px * var(--modal-scale));
 }
 
 .platform-dropdown-btn {
   width: 100%;
-  padding: 7px 7px;
+  padding: calc(7px * var(--modal-scale)) calc(7px * var(--modal-scale));
   background-color: #3d3a3b;
   border: 1px solid #555;
   border-radius: 4px;
   color: var(--button-text);
   font-family: Arial, Helvetica, sans-serif;
-  font-size: 14px;
+  font-size: calc(14px * var(--modal-scale));
   cursor: pointer;
   text-align: left;
   transition: all 200ms;
@@ -885,8 +890,8 @@ img {
   border-top: none;
   border-radius: 0 0 4px 4px;
   z-index: 1001;
-  padding: 9px;
-  max-height: 284px;
+  padding: calc(9px * var(--modal-scale));
+  max-height: calc(284px * var(--modal-scale));
   overflow-y: auto;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.5);
   scroll-behavior: auto;
@@ -899,7 +904,7 @@ img {
 .platform-options {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 7px;
+  gap: calc(7px * var(--modal-scale));
   margin-bottom: 0;
   max-height: none;
   overflow-y: visible;
@@ -1489,7 +1494,7 @@ body.mobile .modal-content {
 
 #image-description {
     width: 100%;
-    min-height: 194px; /* kept in sync with .form-group textarea min-height above */
+    min-height: calc(194px * var(--modal-scale)); /* kept in sync with .form-group textarea min-height above */
     resize: vertical;  /* Allows the user to make it even taller */
     box-sizing: border-box;
 }
