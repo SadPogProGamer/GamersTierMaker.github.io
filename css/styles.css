@@ -1494,7 +1494,7 @@ body.mobile .modal-content {
 
 #image-description {
     width: 100%;
-    min-height: calc(250px * var(--modal-scale)); /* kept in sync with .form-group textarea min-height above */
+    min-height: calc(260px * var(--modal-scale)); /* kept in sync with .form-group textarea min-height above */
     resize: vertical;  /* Allows the user to make it even taller */
     box-sizing: border-box;
 }
