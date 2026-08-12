@@ -953,6 +953,9 @@ img {
   text-align: center;
   font-size: 13px;
   color: var(--button-text);
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .platform-option.draggable {
@@ -1494,7 +1497,7 @@ body.mobile .modal-content {
 
 #image-description {
     width: 100%;
-    min-height: calc(270px * var(--modal-scale)); /* kept in sync with .form-group textarea min-height above */
+    min-height: calc(194px * var(--modal-scale)); /* kept in sync with .form-group textarea min-height above */
     resize: vertical;  /* Allows the user to make it even taller */
     box-sizing: border-box;
 }
