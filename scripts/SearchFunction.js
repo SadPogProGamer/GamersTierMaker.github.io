@@ -246,6 +246,10 @@ async function filterImages(searchQuery) {
     }
 
     updateSearchResultCount(showCounts, filteredQuery);
+
+    if (typeof updateTierLimitBadges === "function") {
+      updateTierLimitBadges(filteredQuery);
+    }
   } catch (err) {
     if (requestId !== latestSearchRequestId) {
       return;
@@ -269,6 +273,10 @@ async function filterImages(searchQuery) {
     }
 
     updateSearchResultCount(false, "");
+
+    if (typeof updateTierLimitBadges === "function") {
+      updateTierLimitBadges("");
+    }
   } finally {
     updateClearButtonVisibility();
   }

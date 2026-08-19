@@ -253,6 +253,14 @@ function openRowMenu(element, event) {
       await applyTierRulesFromIndex(tierIndex);
     }
     // NO save to storage - only update in-memory state
+
+    // If a search filter is currently active, refresh the position badges
+    // to reflect the tier's new limit state right away.
+    const searchInputEl = document.getElementById("search-input");
+    if (searchInputEl && typeof parseSearchQuery === "function" && typeof updateTierLimitBadges === "function") {
+      const { filteredQuery } = parseSearchQuery(searchInputEl.value);
+      updateTierLimitBadges(filteredQuery);
+    }
   });
 
   const limitText = document.createElement("span");
@@ -741,6 +749,77 @@ function enforceTierLimitForRow(rows, tierIndex, imagesBar) {
 
   return true;
 }
+
+// ---- Tier-limit position badges ----
+// When a tier has "Limit to 10" enabled, its images are already kept in
+// top-10 priority order (see enforceTierLimitForRow above: image 1 is the
+// first child, image 10 is the tenth). While a search filter is hiding some
+// of those images, the ones still visible show a small badge with their
+// original 1-10 position, so you don't lose track of where a game ranked
+// once the list gets filtered down.
+
+function clearTierLimitBadges(tierContainer) {
+  if (!tierContainer) return;
+  tierContainer.querySelectorAll(".tier-limit-badge").forEach((badge) => badge.remove());
+}
+
+function renderTierLimitBadgesForRow(tierContainer) {
+  if (!tierContainer) return;
+
+  const tierImages = Array.from(tierContainer.querySelectorAll(".image"));
+
+  tierImages.forEach((img, index) => {
+    const position = index + 1;
+    if (position > 10) return; // only the top-10 slots get a position number
+    if (img.style.display === "none") return; // only badge images still visible after filtering
+
+    const badge = document.createElement("div");
+    badge.className = "tier-limit-badge";
+    badge.textContent = String(position);
+
+    const badgeHeight = Math.max(11, Math.round(img.offsetHeight * 0.22));
+    badge.style.left = `${img.offsetLeft}px`;
+    badge.style.top = `${img.offsetTop + img.offsetHeight - badgeHeight}px`;
+    badge.style.width = `${img.offsetWidth}px`;
+    badge.style.height = `${badgeHeight}px`;
+
+    tierContainer.appendChild(badge);
+  });
+}
+
+// Called from SearchFunction.js after every filter pass. `filteredQuery`
+// is the same normalized/command-stripped query filterImages() computes,
+// so badges only appear while an actual filter is narrowing the results.
+function updateTierLimitBadges(filteredQuery) {
+  const hasActiveFilter = !!(filteredQuery && String(filteredQuery).trim() !== "");
+  const rows = getTierRows();
+
+  rows.forEach((row, tierIndex) => {
+    const tierContainer = getTierContainerForIndex(rows, tierIndex);
+    if (!tierContainer) return;
+
+    clearTierLimitBadges(tierContainer);
+
+    if (hasActiveFilter && tierLimitStates[tierIndex]) {
+      renderTierLimitBadgesForRow(tierContainer);
+    }
+  });
+}
+
+// Layout (and therefore each image's offsetLeft/offsetTop) can shift on
+// resize since tiers wrap with flexbox. Re-run with whatever query was
+// last applied so badges stay aligned with their images.
+window.addEventListener("resize", () => {
+  if (typeof latestSearchRequestId === "undefined") return;
+  const searchInput = document.getElementById("search-input");
+  if (!searchInput) return;
+
+  const { filteredQuery } = typeof parseSearchQuery === "function"
+    ? parseSearchQuery(searchInput.value)
+    : { filteredQuery: "" };
+
+  updateTierLimitBadges(filteredQuery);
+});
 
 async function sortAllEnabledTiersFromIndex(rows, startTierIndex) {
   for (let tierIndex = startTierIndex; tierIndex < rows.length; tierIndex += 1) {
