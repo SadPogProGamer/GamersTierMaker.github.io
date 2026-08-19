@@ -213,6 +213,7 @@ main {
 }
 
 .row {
+  position: relative;
   display: flex;
 }
 
@@ -299,7 +300,6 @@ p {
 }
 
 .tier {
-  position: relative;
   flex-grow: 1;
   background-color: var(--tier-bg);
   border-top: 1px solid var(--black);
@@ -313,6 +313,13 @@ p {
   min-height: 85px;
 }
 
+.tier-limit-badge-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 5;
+}
+
 .tier-limit-badge {
   position: absolute;
   display: flex;
@@ -324,8 +331,6 @@ p {
   font-weight: bold;
   font-size: 12px;
   line-height: 1;
-  pointer-events: none;
-  z-index: 5;
 }
 
 .tier-options {

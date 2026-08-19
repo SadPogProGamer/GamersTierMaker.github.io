@@ -757,14 +757,41 @@ function enforceTierLimitForRow(rows, tierIndex, imagesBar) {
 // of those images, the ones still visible show a small badge with their
 // original 1-10 position, so you don't lose track of where a game ranked
 // once the list gets filtered down.
+//
+// IMPORTANT: the badges must never be appended inside a tier's ".tier.sort"
+// element — that element is a Dragula drag container (see initializeDragula
+// in script.js, which collects every ".sort" element). Adding foreign child
+// nodes to a Dragula container corrupts its internal DOM bookkeeping and can
+// leave a tier stuck mid-drag or throw errors on the next reinit. Instead,
+// badges are rendered on a separate ".tier-limit-badge-layer" overlay that's
+// a sibling of ".tier" (a direct child of ".row", which is why ".row" is the
+// positioned ancestor in styles.css) and is purely decorative
+// (pointer-events: none), so Dragula never sees it.
 
-function clearTierLimitBadges(tierContainer) {
-  if (!tierContainer) return;
-  tierContainer.querySelectorAll(".tier-limit-badge").forEach((badge) => badge.remove());
+function getTierBadgeLayer(row) {
+  if (!row) return null;
+
+  let layer = row.querySelector(".tier-limit-badge-layer");
+  if (!layer) {
+    layer = document.createElement("div");
+    layer.className = "tier-limit-badge-layer";
+    row.appendChild(layer);
+  }
+
+  return layer;
 }
 
-function renderTierLimitBadgesForRow(tierContainer) {
-  if (!tierContainer) return;
+function clearTierLimitBadges(row) {
+  if (!row) return;
+  const layer = row.querySelector(".tier-limit-badge-layer");
+  if (layer) layer.innerHTML = "";
+}
+
+function renderTierLimitBadgesForRow(row, tierContainer) {
+  if (!row || !tierContainer) return;
+
+  const layer = getTierBadgeLayer(row);
+  if (!layer) return;
 
   const tierImages = Array.from(tierContainer.querySelectorAll(".image"));
 
@@ -777,13 +804,16 @@ function renderTierLimitBadgesForRow(tierContainer) {
     badge.className = "tier-limit-badge";
     badge.textContent = String(position);
 
+    // img.offsetLeft/offsetTop are relative to .row (the nearest positioned
+    // ancestor for both the image and this badge layer), so they can be
+    // used directly without any extra coordinate math.
     const badgeHeight = Math.max(11, Math.round(img.offsetHeight * 0.22));
     badge.style.left = `${img.offsetLeft}px`;
     badge.style.top = `${img.offsetTop + img.offsetHeight - badgeHeight}px`;
     badge.style.width = `${img.offsetWidth}px`;
     badge.style.height = `${badgeHeight}px`;
 
-    tierContainer.appendChild(badge);
+    layer.appendChild(badge);
   });
 }
 
@@ -795,14 +825,14 @@ function updateTierLimitBadges(filteredQuery) {
   const rows = getTierRows();
 
   rows.forEach((row, tierIndex) => {
+    clearTierLimitBadges(row);
+
+    if (!hasActiveFilter || !tierLimitStates[tierIndex]) return;
+
     const tierContainer = getTierContainerForIndex(rows, tierIndex);
     if (!tierContainer) return;
 
-    clearTierLimitBadges(tierContainer);
-
-    if (hasActiveFilter && tierLimitStates[tierIndex]) {
-      renderTierLimitBadgesForRow(tierContainer);
-    }
+    renderTierLimitBadgesForRow(row, tierContainer);
   });
 }
 
@@ -810,7 +840,6 @@ function updateTierLimitBadges(filteredQuery) {
 // resize since tiers wrap with flexbox. Re-run with whatever query was
 // last applied so badges stay aligned with their images.
 window.addEventListener("resize", () => {
-  if (typeof latestSearchRequestId === "undefined") return;
   const searchInput = document.getElementById("search-input");
   if (!searchInput) return;
 
