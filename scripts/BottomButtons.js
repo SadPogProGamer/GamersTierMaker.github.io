@@ -93,20 +93,22 @@ function buildImportedEntryMetadata(entry) {
     console.warn("Invalid imported status:", entry.status);
   }
 
+  const trimText = (value) => String(value || "").trim();
+
   return {
-    name: entry.name || "",
-    developer: entry.developer || "",
-    date: entry.date || "",
-    date100: normalizedStatus === "100% complete" ? (entry.date100 || "") : "",
-    description: entry.description || "",
+    name: trimText(entry.name),
+    developer: trimText(entry.developer),
+    date: trimText(entry.date),
+    date100: normalizedStatus === "100% complete" ? trimText(entry.date100) : "",
+    description: trimText(entry.description),
     platform: entry.platform || null,
     originalPlatform: entry.originalPlatform || null,
     status: normalizedStatus,
     has100Replay: normalizedStatus === "100% complete" ? !!entry.has100Replay : false,
     gameKey: entry.gameKey || makeGameKey(entry.name, entry.developer),
     gameType: entry.gameType || "Original Game",
-    originalGame: entry.originalGame || "",
-    originalDeveloper: entry.originalDeveloper || "",
+    originalGame: trimText(entry.originalGame),
+    originalDeveloper: trimText(entry.originalDeveloper),
   };
 }
 
@@ -489,23 +491,25 @@ async function getGameDetailsForExport() {
       metadata.gameKey ||
       makeGameKey(metadata.name, metadata.developer);
 
+    const trimText = (value) => String(value || "").trim();
+
     entries.push({
       imageId: image.imageId,
       imageSrc: image.imageSrc,
       gameKey,
       tier: image.tier,
-      name: metadata.name || "",
-      developer: metadata.developer || "",
-      date: metadata.date || "",
-      description: metadata.description || "",
+      name: trimText(metadata.name),
+      developer: trimText(metadata.developer),
+      date: trimText(metadata.date),
+      description: trimText(metadata.description),
       platform: metadata.platform || null,
       originalPlatform: metadata.originalPlatform || null,
       status: metadata.status || "",
-      date100: metadata.date100 || "",
+      date100: trimText(metadata.date100),
       has100Replay: !!metadata.has100Replay,
       gameType: metadata.gameType || "Original Game",
-      originalGame: metadata.originalGame || "",
-      originalDeveloper: metadata.originalDeveloper || "",
+      originalGame: trimText(metadata.originalGame),
+      originalDeveloper: trimText(metadata.originalDeveloper),
     });
   }
 

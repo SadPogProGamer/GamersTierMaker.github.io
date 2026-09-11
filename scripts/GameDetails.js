@@ -134,18 +134,18 @@ function getSearchQueryValue() {
 
 function getCurrentMetadataFromForm() {
   return {
-    name: getField("image-name")?.value || "",
-    developer: getField("image-developer")?.value || "",
-    date: getField("image-date")?.value || "",
-    date100: getField("image-date-100")?.value || "",
-    description: getField("image-description")?.value || "",
+    name: (getField("image-name")?.value || "").trim(),
+    developer: (getField("image-developer")?.value || "").trim(),
+    date: (getField("image-date")?.value || "").trim(),
+    date100: (getField("image-date-100")?.value || "").trim(),
+    description: (getField("image-description")?.value || "").trim(),
     status: getField("image-status")?.value || "",
     platform: currentSelectedPlatform || null,
     originalPlatform: shouldUseOriginalPlatform() ? (currentSelectedOriginalPlatform || null) : null,
     has100Replay: !!currentHas100Replay,
     gameType: currentGameType || "Original Game",
-    originalGame: currentOriginalGame || "",
-    originalDeveloper: currentOriginalDeveloper || ""
+    originalGame: (currentOriginalGame || "").trim(),
+    originalDeveloper: (currentOriginalDeveloper || "").trim()
   };
 }
 
@@ -785,6 +785,46 @@ function updateMetadataField() {
   // No auto-save - metadata only saves when modal closes
 }
 
+// Strips leading whitespace from a text field as the user types (so a
+// query/value that starts with a space is treated as if it never had
+// one), then fully trims both ends once the field loses focus. Mirrors
+// the same behavior added to the search bar.
+function stripLeadingFieldWhitespace(inputElement) {
+  if (!inputElement) return;
+
+  const value = inputElement.value;
+  const trimmedStart = value.replace(/^\s+/, "");
+
+  if (trimmedStart === value) return;
+
+  const removedCount = value.length - trimmedStart.length;
+  const cursorPos = inputElement.selectionStart ?? trimmedStart.length;
+
+  inputElement.value = trimmedStart;
+
+  const newCursorPos = Math.max(0, cursorPos - removedCount);
+  inputElement.setSelectionRange(newCursorPos, newCursorPos);
+}
+
+function bindTrimmedTextField(inputElement, onChange) {
+  if (!inputElement) return;
+
+  inputElement.addEventListener("input", () => {
+    stripLeadingFieldWhitespace(inputElement);
+    if (typeof onChange === "function") onChange();
+  });
+
+  // Trailing whitespace is left alone while actively typing (so spaces
+  // between words still work), then cleaned up once the field is left.
+  inputElement.addEventListener("blur", () => {
+    const trimmedValue = inputElement.value.trim();
+    if (trimmedValue !== inputElement.value) {
+      inputElement.value = trimmedValue;
+      if (typeof onChange === "function") onChange();
+    }
+  });
+}
+
 function bindModalFieldEvents() {
   if (modalBindingsInitialized) return;
   modalBindingsInitialized = true;
@@ -818,13 +858,21 @@ function bindModalFieldEvents() {
 
   const originalGameInput = getField("image-original-game");
   if (originalGameInput) {
-    originalGameInput.addEventListener("input", handleOriginalGameInput);
+    bindTrimmedTextField(originalGameInput, handleOriginalGameInput);
   }
 
   const originalDeveloperInput = getField("image-original-developer");
   if (originalDeveloperInput) {
-    originalDeveloperInput.addEventListener("input", handleOriginalDeveloperInput);
+    bindTrimmedTextField(originalDeveloperInput, handleOriginalDeveloperInput);
   }
+
+  // Same live-trim behavior for the rest of the modal's free-text
+  // fields. They don't have their own change handlers - the final
+  // values are simply read (and trimmed again defensively) when the
+  // modal closes and metadata is saved.
+  ["image-name", "image-developer", "image-date", "image-date-100", "image-description"].forEach((id) => {
+    bindTrimmedTextField(getField(id));
+  });
 }
 
 document.addEventListener("DOMContentLoaded", () => {

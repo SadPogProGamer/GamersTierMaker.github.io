@@ -180,20 +180,25 @@ function normalizeImageMetadata(record) {
       ? [record.genre]
       : [];
 
+  // Free-text fields get trimmed here so leading/trailing spaces never
+  // stick around no matter where they were entered from: the modal
+  // form, a synced Firebase payload, or an imported/exported JSON file.
+  const trimText = (value) => String(value || "").trim();
+
   return {
-    name: record.name || "",
-    developer: record.developer || "",
-    date: record.date || "",
-    date100: record.date100 || record.date_100 || "",
-    description: record.description || "",
+    name: trimText(record.name),
+    developer: trimText(record.developer),
+    date: trimText(record.date),
+    date100: trimText(record.date100 || record.date_100),
+    description: trimText(record.description),
     status: record.status || "",
     platform: record.platform || null,
     originalPlatform: record.originalPlatform || null,
     genres,
     has100Replay: !!record.has100Replay || !!record.has100,
     gameType: record.gameType || "Original Game",
-    originalGame: record.originalGame || "",
-    originalDeveloper: record.originalDeveloper || "",
+    originalGame: trimText(record.originalGame),
+    originalDeveloper: trimText(record.originalDeveloper),
   };
 }
 
