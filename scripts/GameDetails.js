@@ -785,37 +785,16 @@ function updateMetadataField() {
   // No auto-save - metadata only saves when modal closes
 }
 
-// Strips leading whitespace from a text field as the user types (so a
-// query/value that starts with a space is treated as if it never had
-// one), then fully trims both ends once the field loses focus. Mirrors
-// the same behavior added to the search bar.
-function stripLeadingFieldWhitespace(inputElement) {
-  if (!inputElement) return;
-
-  const value = inputElement.value;
-  const trimmedStart = value.replace(/^\s+/, "");
-
-  if (trimmedStart === value) return;
-
-  const removedCount = value.length - trimmedStart.length;
-  const cursorPos = inputElement.selectionStart ?? trimmedStart.length;
-
-  inputElement.value = trimmedStart;
-
-  const newCursorPos = Math.max(0, cursorPos - removedCount);
-  inputElement.setSelectionRange(newCursorPos, newCursorPos);
-}
-
 function bindTrimmedTextField(inputElement, onChange) {
   if (!inputElement) return;
 
-  inputElement.addEventListener("input", () => {
-    stripLeadingFieldWhitespace(inputElement);
-    if (typeof onChange === "function") onChange();
-  });
+  // No live stripping while typing - a leading space is left alone so
+  // it's still possible to type a space first and then fill in text
+  // before it. Both ends only get trimmed once the field loses focus.
+  if (typeof onChange === "function") {
+    inputElement.addEventListener("input", onChange);
+  }
 
-  // Trailing whitespace is left alone while actively typing (so spaces
-  // between words still work), then cleaned up once the field is left.
   inputElement.addEventListener("blur", () => {
     const trimmedValue = inputElement.value.trim();
     if (trimmedValue !== inputElement.value) {
