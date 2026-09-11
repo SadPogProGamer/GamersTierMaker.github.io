@@ -156,7 +156,18 @@ function evaluateImageAgainstQuery(metadata, filteredQuery) {
     );
   }
 
-  return matchesQuery(metadata.imageName, filteredQuery);
+  if (matchesQuery(metadata.imageName, filteredQuery)) {
+    return true;
+  }
+
+  // Fan Remakes can also be found by searching for the original game
+  // they're remaking (e.g. searching "Link's Awakening" finds a fan
+  // remake named something else entirely).
+  if (metadata.imageGameType === "Fan Remake" && metadata.imageOriginalGame) {
+    return matchesQuery(metadata.imageOriginalGame, filteredQuery);
+  }
+
+  return false;
 }
 
 function applySearchVisibilityToContainer(container, metadataMap, filteredQuery) {

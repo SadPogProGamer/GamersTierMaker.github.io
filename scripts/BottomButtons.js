@@ -106,6 +106,7 @@ function buildImportedEntryMetadata(entry) {
     gameKey: entry.gameKey || makeGameKey(entry.name, entry.developer),
     gameType: entry.gameType || "Original Game",
     originalGame: entry.originalGame || "",
+    originalDeveloper: entry.originalDeveloper || "",
   };
 }
 
@@ -183,6 +184,7 @@ function updateManualImportOverlay() {
     <div>Tier: ${typeof current.tier === "number" ? current.tier : "Unknown"}</div>
     <div>Game Type: ${current.gameType || "Original Game"}</div>
     <div>Original Game: ${current.originalGame || "N/A"}</div>
+    <div>Original Developer: ${current.originalDeveloper || "N/A"}</div>
   `;
 
   skipBtn.onclick = () => {
@@ -465,6 +467,7 @@ async function getGameDetailsForExport() {
       gameKey: "",
       gameType: "Original Game",
       originalGame: "",
+      originalDeveloper: "",
     };
 
     try {
@@ -502,6 +505,7 @@ async function getGameDetailsForExport() {
       has100Replay: !!metadata.has100Replay,
       gameType: metadata.gameType || "Original Game",
       originalGame: metadata.originalGame || "",
+      originalDeveloper: metadata.originalDeveloper || "",
     });
   }
 

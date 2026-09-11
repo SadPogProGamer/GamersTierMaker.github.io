@@ -14,7 +14,7 @@
      ModalScale.js overwrites this based on the user's actual screen
      resolution (baseline: 1.1 == tuned for 2560x1440, plus the +10%
      global bump applied on top of the resolution-based scale). */
-  --modal-scale: 1.1;
+  --modal-scale: 0.95;
 }
 body {
   font-family: Arial, Helvetica, sans-serif;

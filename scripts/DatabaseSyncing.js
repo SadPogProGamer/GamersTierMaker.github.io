@@ -167,6 +167,7 @@ function getDefaultImageMetadata() {
     has100Replay: false,
     gameType: "Original Game",
     originalGame: "",
+    originalDeveloper: "",
   };
 }
 
@@ -192,6 +193,7 @@ function normalizeImageMetadata(record) {
     has100Replay: !!record.has100Replay || !!record.has100,
     gameType: record.gameType || "Original Game",
     originalGame: record.originalGame || "",
+    originalDeveloper: record.originalDeveloper || "",
   };
 }
 

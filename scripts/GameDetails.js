@@ -108,6 +108,7 @@ let currentSelectedOriginalPlatform = null;
 let currentHas100Replay = false;
 let currentGameType = "Original Game";
 let currentOriginalGame = "";
+let currentOriginalDeveloper = "";
 let modalBindingsInitialized = false;
 let currentModalEscapeHandler = null;
 
@@ -143,7 +144,8 @@ function getCurrentMetadataFromForm() {
     originalPlatform: shouldUseOriginalPlatform() ? (currentSelectedOriginalPlatform || null) : null,
     has100Replay: !!currentHas100Replay,
     gameType: currentGameType || "Original Game",
-    originalGame: currentOriginalGame || ""
+    originalGame: currentOriginalGame || "",
+    originalDeveloper: currentOriginalDeveloper || ""
   };
 }
 
@@ -176,6 +178,7 @@ function setFormFromMetadata(metadata) {
   currentHas100Replay = !!metadata.has100Replay;
   currentGameType = metadata.gameType || "Original Game";
   currentOriginalGame = metadata.originalGame || "";
+  currentOriginalDeveloper = metadata.originalDeveloper || "";
 
   const platformSearch = getField("platform-search");
   const dropdown = getField("platform-dropdown-menu");
@@ -243,6 +246,8 @@ function updateGameTypeUI() {
   const originalGameGroup = getField("original-game-group");
   const originalGameInput = getField("image-original-game");
   const originalGameLabel = document.querySelector('label[for="image-original-game"]');
+  const originalDeveloperGroup = getField("original-developer-group");
+  const originalDeveloperInput = getField("image-original-developer");
 
   if (!gameTypeSelect) return;
 
@@ -251,6 +256,7 @@ function updateGameTypeUI() {
   const isOriginal = currentGameType === "Original Game";
   const isFanPort = currentGameType === "Fan Port";
   const isFanGame = currentGameType === "Fan Game";
+  const isFanRemake = currentGameType === "Fan Remake";
 
   // Original Game box is irrelevant for the base "Original Game" type,
   // and also for "Fan Port" (a fan port is the same game, just ported
@@ -275,6 +281,22 @@ function updateGameTypeUI() {
   if (originalGameLabel) {
     originalGameLabel.textContent = isFanGame ? "Original IP:" : "Original Game:";
   }
+
+  // Original Developer only applies to Fan Remake (the studio that made
+  // the original game being remade).
+  const shouldHideOriginalDeveloper = !isFanRemake;
+
+  if (originalDeveloperGroup) {
+    originalDeveloperGroup.classList.toggle("hidden", shouldHideOriginalDeveloper);
+  }
+
+  if (shouldHideOriginalDeveloper) {
+    currentOriginalDeveloper = "";
+  }
+
+  if (originalDeveloperInput) {
+    originalDeveloperInput.value = currentOriginalDeveloper || "";
+  }
 }
 
 function handleGameTypeChange() {
@@ -289,6 +311,13 @@ function handleOriginalGameInput() {
   const input = getField("image-original-game");
   if (input) {
     currentOriginalGame = input.value || "";
+  }
+}
+
+function handleOriginalDeveloperInput() {
+  const input = getField("image-original-developer");
+  if (input) {
+    currentOriginalDeveloper = input.value || "";
   }
 }
 
@@ -549,6 +578,7 @@ function finalizeModalClose() {
   currentHas100Replay = false;
   currentGameType = "Original Game";
   currentOriginalGame = "";
+  currentOriginalDeveloper = "";
 
   if (typeof flushPendingRealtimeSync === "function") {
     flushPendingRealtimeSync().catch((err) => {
@@ -765,6 +795,11 @@ function bindModalFieldEvents() {
   const originalGameInput = getField("image-original-game");
   if (originalGameInput) {
     originalGameInput.addEventListener("input", handleOriginalGameInput);
+  }
+
+  const originalDeveloperInput = getField("image-original-developer");
+  if (originalDeveloperInput) {
+    originalDeveloperInput.addEventListener("input", handleOriginalDeveloperInput);
   }
 }
 
