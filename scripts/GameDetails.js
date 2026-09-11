@@ -241,6 +241,28 @@ function toggleReplayStatus() {
   updateReplayVisibility();
 }
 
+// Fan Remake puts Developer above Original Game / Original Developer,
+// since for a remake the "developer" is the team that made the remake
+// itself, and it reads more naturally before the original-game context.
+// Every other game type keeps Developer in its normal spot (below
+// Original Game / Original Developer, right above the date field).
+function reorderDeveloperFieldForGameType(isFanRemake) {
+  const modalBody = document.querySelector(".modal-body");
+  const developerGroup = getField("image-developer")?.closest(".form-group");
+  const originalGameGroup = getField("original-game-group");
+  const dateGroup = document.querySelector('label[for="image-date"]')?.closest(".form-group");
+
+  if (!modalBody || !developerGroup) return;
+
+  if (isFanRemake) {
+    if (originalGameGroup && developerGroup.nextElementSibling !== originalGameGroup) {
+      modalBody.insertBefore(developerGroup, originalGameGroup);
+    }
+  } else if (dateGroup && developerGroup.nextElementSibling !== dateGroup) {
+    modalBody.insertBefore(developerGroup, dateGroup);
+  }
+}
+
 function updateGameTypeUI() {
   const gameTypeSelect = getField("image-game-type");
   const originalGameGroup = getField("original-game-group");
@@ -257,6 +279,8 @@ function updateGameTypeUI() {
   const isFanPort = currentGameType === "Fan Port";
   const isFanGame = currentGameType === "Fan Game";
   const isFanRemake = currentGameType === "Fan Remake";
+
+  reorderDeveloperFieldForGameType(isFanRemake);
 
   // Original Game box is irrelevant for the base "Original Game" type,
   // and also for "Fan Port" (a fan port is the same game, just ported

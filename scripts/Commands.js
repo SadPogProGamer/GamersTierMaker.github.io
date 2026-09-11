@@ -18,6 +18,9 @@ const SEARCH_COMMANDS = {
   "/Exclude": "Hide games whose name contains the given text (e.g. /Exclude Mario)",
   "/GameType": "Show games with specific game type: Original Game, Romhack, Fan Game, Fan Port, Fan Remake, Mod (e.g. /GameType Romhack)",
   "/ExcludeGameType": "Hide games with specific game type: Original Game, Romhack, Fan Game, Fan Port, Fan Remake, Mod (e.g. /ExcludeGameType Mod)",
+  "/NoOriginalGame": "Show games with no Original Game filled in",
+  "/NoOriginalDeveloper": "Show games with no Original Developer filled in",
+  "/NoOriginalIP": "Show games with no Original IP filled in",
 };
 
 // GAME_TYPES is defined in GameDetails.js - use it globally
@@ -225,7 +228,7 @@ function parseGameTypeList(query) {
   return result;
 }
 
-function processCommandFilter(filteredQuery, imageName, imagePlatform, imageDescription, imageDate, imageStatus, imageDeveloper, imageGameType, imageOriginalGame) {
+function processCommandFilter(filteredQuery, imageName, imagePlatform, imageDescription, imageDate, imageStatus, imageDeveloper, imageGameType, imageOriginalGame, imageOriginalDeveloper) {
   const command = normalizeCommandText(filteredQuery);
   const normalizedName = String(imageName || "").trim();
   const normalizedPlatform = normalizeCommandText(imagePlatform);
@@ -235,6 +238,7 @@ function processCommandFilter(filteredQuery, imageName, imagePlatform, imageDesc
   const normalizedDeveloper = normalizeCommandText(imageDeveloper);
   const normalizedGameType = String(imageGameType || "").trim();
   const normalizedOriginalGame = String(imageOriginalGame || "").trim();
+  const normalizedOriginalDeveloper = String(imageOriginalDeveloper || "").trim();
 
   if (!command) return true;
 
@@ -309,6 +313,21 @@ if (command.startsWith("/completion")) {
 
   if (command === "/nostatus") {
     return normalizedStatus === "";
+  }
+
+  // Original Game / Original IP are the same underlying field, just
+  // labeled differently depending on Game Type: "Fan Game" shows it as
+  // "Original IP", every other type that shows it calls it "Original Game".
+  if (command === "/nooriginalgame") {
+    return normalizedOriginalGame === "" && normalizedGameType !== "Fan Game";
+  }
+
+  if (command === "/nooriginalip") {
+    return normalizedOriginalGame === "" && normalizedGameType === "Fan Game";
+  }
+
+  if (command === "/nooriginaldeveloper") {
+    return normalizedOriginalDeveloper === "";
   }
 
   if (command.startsWith("/developer ")) {

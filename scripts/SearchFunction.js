@@ -41,6 +41,7 @@ function getDefaultSearchMetadata() {
     has100Replay: false,
     gameType: "Original Game",
     originalGame: "",
+    originalDeveloper: "",
   };
 }
 
@@ -130,6 +131,7 @@ function extractMetadataForSearch(imageElement, metadataMap) {
     imageDeveloper: metadata.developer || "",
     imageGameType: metadata.gameType || "Original Game",
     imageOriginalGame: metadata.originalGame || "",
+    imageOriginalDeveloper: metadata.originalDeveloper || "",
   };
 }
 
@@ -152,7 +154,8 @@ function evaluateImageAgainstQuery(metadata, filteredQuery) {
       metadata.imageStatus,
       metadata.imageDeveloper,
       metadata.imageGameType,
-      metadata.imageOriginalGame
+      metadata.imageOriginalGame,
+      metadata.imageOriginalDeveloper
     );
   }
 
