@@ -40,6 +40,7 @@ const platformPriority = {
   "GameCube": 13,
   "GameCube (Via Backwards Compatibility)": 13,
   "Nintendo DS": 14,
+  "Nintendo DS (Via Backwards Compatibility)": 14,
   "Nintendo 3DS": 15,
   "Nintendo Wii": 16,
   "Nintendo Wii U": 17,

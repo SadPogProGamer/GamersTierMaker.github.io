@@ -45,6 +45,7 @@ const platformOptions = {
     "Game Boy Color (Via Backwards Compatibility)",
     "Game Boy Advance",
     "Nintendo DS",
+    "Nintendo DS (Via Backwards Compatibility)",
     "Nintendo 3DS",
     "PlayStation Portable",
     "PlayStation Vita",
