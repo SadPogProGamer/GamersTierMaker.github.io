@@ -638,7 +638,7 @@ img {
   border-radius: 8px;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.5);
   width: 100%;
-  max-width: calc(500px * var(--modal-scale));
+  max-width: calc(525px * var(--modal-scale));
   color: var(--button-text);
 }
 
