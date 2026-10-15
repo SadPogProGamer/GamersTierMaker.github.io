@@ -7,7 +7,8 @@ const platformOptions = {
   "PC": [
     "PC",
     "PC (Via Decompilation)",
-    "PC (Via Recompilation)"
+    "PC (Via Recompilation)",
+    "PC (Via Custom Emulator)"
   ],
   "Console": [
     "PlayStation 1",
@@ -353,7 +354,11 @@ function updatePlatformButton() {
 }
 
 function shouldUseOriginalPlatform(platform = currentSelectedPlatform) {
-  return platform === "PC (Via Decompilation)" || platform === "PC (Via Recompilation)";
+  return (
+    platform === "PC (Via Decompilation)" ||
+    platform === "PC (Via Recompilation)" ||
+    platform === "PC (Via Custom Emulator)"
+  );
 }
 
 function updateOriginalPlatformVisibility() {
