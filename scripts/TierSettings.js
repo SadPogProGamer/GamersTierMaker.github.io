@@ -671,11 +671,12 @@ function loadTierColors() {
 function getSortingPlatformFromMetadata(metadata) {
   if (!metadata) return null;
 
-  const isPcDecompOrRecomp =
+  const isPcEmulatedVariant =
     metadata.platform === "PC (Via Decompilation)" ||
-    metadata.platform === "PC (Via Recompilation)";
+    metadata.platform === "PC (Via Recompilation)" ||
+    metadata.platform === "PC (Via Custom Emulator)";
 
-  if (isPcDecompOrRecomp && metadata.originalPlatform) {
+  if (isPcEmulatedVariant && metadata.originalPlatform) {
     return metadata.originalPlatform;
   }
 
