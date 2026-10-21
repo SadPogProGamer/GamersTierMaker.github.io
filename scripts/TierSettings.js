@@ -1,5 +1,6 @@
 // TierSettings.js
 // Handles tier rows, color pickers, row menu actions, tier ordering, tier limits, and tier setting persistence.
+// UPDATED: Added "Delete tier and images" menu option
 // Designed to stay compatible with index.html, script.js, GameDetails.js, and DatabaseSyncing.js.
 
 const defaultColors = [
@@ -271,6 +272,16 @@ function openRowMenu(element, event) {
   limitCheckboxRow.appendChild(limitCheckbox);
   limitCheckboxRow.appendChild(limitText);
   menu.appendChild(limitCheckboxRow);
+
+  // NEW: Delete Tier and Images option
+  menu.appendChild(
+    createActionRow("Delete Tier and Images", () => {
+      if (typeof promptDeleteTierAndImages === "function") {
+        promptDeleteTierAndImages(row);
+      }
+      menu.remove();
+    }, true)
+  );
 
   menu.appendChild(
     createActionRow("Delete Tier", () => {
@@ -614,6 +625,133 @@ function deleteRowVisualOnly(element) {
   updateTierColorsInMemory();
 }
 
+// NEW: Delete tier AND its images (permanent removal)
+async function deleteRowAndImages(row) {
+  if (!row) return;
+
+  const tierContainer = row.children?.[1];
+  const imagesInTier = tierContainer ? Array.from(tierContainer.querySelectorAll(".image")) : [];
+
+  // Confirm with user before permanent deletion
+  if (imagesInTier.length > 0) {
+    const confirmed = confirm(`This will permanently delete ${imagesInTier.length} image(s) along with this tier. This cannot be undone.`);
+    if (!confirmed) return;
+  }
+
+  // Delete images permanently
+  const deletePromises = imagesInTier.map(async (img) => {
+    const imageId = img.dataset.imageId;
+    const cloudinaryUrl = img.dataset.cloudinaryUrl || img.dataset.imageSrc || img.src;
+
+    try {
+      // Delete from IndexedDB
+      await deleteImageMetadataFromIndexedDB(imageId).catch((err) => {
+        tierSettingsLogError(`Failed deleting metadata for ${imageId}.`, err);
+      });
+
+      await deleteImageFromIndexedDB(imageId).catch((err) => {
+        tierSettingsLogError(`Failed deleting IndexedDB image for ${imageId}.`, err);
+      });
+
+      // Try to delete from Cloudinary if configured
+      if (typeof deleteFromCloudinary === "function") {
+        await deleteFromCloudinary(cloudinaryUrl).catch((err) => {
+          tierSettingsLogError(`Remote delete failed for ${imageId}.`, err);
+        });
+      }
+
+      // Remove from DOM
+      img.remove();
+    } catch (err) {
+      tierSettingsLogError(`Failed deleting image ${imageId}.`, err);
+    }
+  });
+
+  await Promise.all(deletePromises);
+
+  // Remove the tier row
+  destroyRowPickers(row);
+  row.remove();
+
+  // Rebuild indexes and cleanup
+  rebuildTierStateIndexes();
+
+  try {
+    initializeDragula?.();
+  } catch (err) {
+    tierSettingsLogError("Failed reinitializing dragula after deleting row and images.", err);
+  }
+
+  updateTierColorsInMemory();
+
+  // Save tier list state after deletion
+  await saveImagePositions().catch((err) => {
+    tierSettingsLogError("Failed saving image positions after tier+image delete.", err);
+  });
+
+  await saveTierListLocally().catch((err) => {
+    tierSettingsLogError("Failed local save after tier+image delete.", err);
+  });
+
+  // Update counts
+  if (typeof updateTierCounts === "function") {
+    try {
+      updateTierCounts(typeof countsAreShown === "function" ? countsAreShown() : false);
+    } catch (err) {
+      tierSettingsLogError("Failed updating tier counts after deleting tier and images.", err);
+    }
+  }
+
+  if (typeof setDropHintVisibility === "function") {
+    try {
+      setDropHintVisibility();
+    } catch (err) {
+      tierSettingsLogError("Failed updating drop hint visibility after deleting tier and images.", err);
+    }
+  }
+
+  // Re-run any active search filters
+  try {
+    const searchInput = document.getElementById("search-input");
+    if (typeof filterImages === "function" && searchInput) {
+      filterImages(searchInput.value);
+    }
+  } catch (err) {
+    tierSettingsLogError("Failed re-running search after deleting tier and images.", err);
+  }
+}
+
+function hasRemoteDeleteEndpoint() {
+  return !!(
+    typeof CLOUDINARY_CONFIG !== "undefined" &&
+    CLOUDINARY_CONFIG &&
+    typeof CLOUDINARY_CONFIG.deleteEndpoint === "string" &&
+    CLOUDINARY_CONFIG.deleteEndpoint.trim() !== ""
+  );
+}
+
+function promptDeleteTierAndImages(row) {
+  if (!row) return;
+
+  const tierContainer = row.children?.[1];
+  const imagesInTier = tierContainer ? Array.from(tierContainer.querySelectorAll(".image")) : [];
+
+  const firstMessage = hasRemoteDeleteEndpoint()
+    ? `Delete this tier and permanently remove ${imagesInTier.length} image(s)? This will delete the images from local storage and request remote Cloudinary deletion where possible. This action cannot be undone.`
+    : `Delete this tier and permanently remove ${imagesInTier.length} image(s)? This will delete the images from local storage, but remote Cloudinary deletion is not configured. This action cannot be undone.`;
+
+  const confirmed = confirm(firstMessage);
+  if (!confirmed) return;
+
+  const secondMessage = hasRemoteDeleteEndpoint()
+    ? `This may also delete the images from Cloudinary through your backend. Are you absolutely sure?`
+    : `This will permanently delete the tier and images from this app, but remote Cloudinary files may remain. Are you absolutely sure?`;
+
+  if (confirm(secondMessage)) {
+    deleteRowAndImages(row);
+  }
+}
+
 function saveTierColorsToStorage() {
   const tiers = getTierRows().map((row) => {
     const tierLabel = row.querySelector(".tier-label");
@@ -634,7 +772,7 @@ function updateTierColorsInMemory() {
     const tierLabel = row.querySelector(".tier-label");
     return {
       name: tierLabel?.querySelector("p")?.textContent || "New tier",
-      color: tierLabel?.style?.backgroundColor || "lightslategray",
+      color: tierLabel?.style?.backgroundColor || "lightsallegray",
     };
   });
 }
