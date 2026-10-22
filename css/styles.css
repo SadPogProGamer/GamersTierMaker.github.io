@@ -384,6 +384,96 @@ p {
   filter: contrast(0%);
 }
 
+/* ---------- Combined date picker: one box, two invisible dropdowns ---------- */
+
+.date-picker-container {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  width: 100%;                      /* Match other input field widths */
+  min-width: 200px;
+  max-width: none;
+  border: 1px solid #555;
+  border-radius: 4px;
+  background-color: #3d3a3b;
+  overflow: hidden;
+  box-sizing: border-box;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.date-picker-container:focus-within {
+  border-color: #7fffff;
+  background-color: #454243;
+}
+
+/* The selects carry NO border and NO background of their own - the parent
+   box is the only thing that looks like an input. */
+.date-picker-container .date-dropdown {
+  flex: 1 1 50%;
+  min-width: 0;
+  margin: 0;
+  padding: calc(8px * var(--modal-scale)) calc(15px * var(--modal-scale));
+  border: none;
+  border-radius: 0;
+  background-color: transparent;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='9' height='6'%3E%3Cpath d='M0 0l4.5 6L9 0z' fill='%237fffff'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right calc(8px * var(--modal-scale)) center;
+  background-size: 9px 6px;
+  color: var(--button-text);
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: calc(14px * var(--modal-scale));
+  line-height: 1.2;
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  text-overflow: ellipsis;
+  text-align: center;
+}
+
+/* Vertical divider between month and year - ONLY on the left element */
+.date-picker-container .month-dropdown {
+  flex: 1.4 1 55%;                  /* Month gets slightly more space */
+  text-align: center;
+}
+
+/* Right side has no right border, but gets the divider from its left neighbor */
+.date-picker-container .year-dropdown {
+  flex: 1 1 45%;                    /* Year gets slightly less space */
+  text-align: center;
+}
+
+/* Each half lights up on hover so it's obvious they're two controls */
+.date-picker-container .date-dropdown:hover {
+  background-color: rgba(255, 255, 255, 0.07);
+}
+
+.date-picker-container .date-dropdown:focus {
+  outline: none;
+  background-color: rgba(127, 255, 255, 0.08);
+}
+
+.date-picker-container .date-dropdown option {
+  background-color: #2d292a;
+  color: var(--button-text);
+  padding: 8px 12px;
+}
+
+/* Optional: if you want to add a subtle vertical divider line between them,
+   uncomment this: */
+/*
+.date-picker-container .month-dropdown::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background-color: #555;
+}
+*/
+
 #buttons-container {
   margin-top: 0;
   text-align: center;

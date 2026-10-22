@@ -134,12 +134,49 @@ function getSearchQueryValue() {
   return getField("search-input")?.value || "";
 }
 
+function buildCombinedDateFromDropdowns(monthId, yearId) {
+  const month = (getField(monthId)?.value || "").trim();
+  const year = (getField(yearId)?.value || "").trim();
+  
+  if (!month && !year) return "";
+  if (!month) return year;
+  if (!year) return month;
+  return `${month} ${year}`;
+}
+
+function parseCombinedDate(combinedDate) {
+  if (!combinedDate) return { month: "", year: "" };
+  
+  const trimmed = combinedDate.trim();
+  const parts = trimmed.split(" ");
+  
+  if (parts.length >= 2) {
+    // Format: "June 2024" or similar
+    return { month: parts[0], year: parts[1] };
+  } else if (parts.length === 1) {
+    // Could be just month or just year
+    const firstPart = parts[0];
+    if (/^\d{4}$/.test(firstPart)) {
+      return { month: "", year: firstPart };
+    } else {
+      return { month: firstPart, year: "" };
+    }
+  }
+  
+  return { month: "", year: "" };
+}
+
 function getCurrentMetadataFromForm() {
+  const dateMonth = getField("image-date-month")?.value || "";
+  const dateYear = getField("image-date-year")?.value || "";
+  const date100Month = getField("image-date-100-month")?.value || "";
+  const date100Year = getField("image-date-100-year")?.value || "";
+
   return {
     name: (getField("image-name")?.value || "").trim(),
     developer: (getField("image-developer")?.value || "").trim(),
-    date: (getField("image-date")?.value || "").trim(),
-    date100: (getField("image-date-100")?.value || "").trim(),
+    date: buildCombinedDateFromDropdowns("image-date-month", "image-date-year"),
+    date100: buildCombinedDateFromDropdowns("image-date-100-month", "image-date-100-year"),
     description: (getField("image-description")?.value || "").trim(),
     status: getField("image-status")?.value || "",
     platform: currentSelectedPlatform || null,
@@ -170,8 +207,24 @@ function unlockBackgroundScroll() {
 function setFormFromMetadata(metadata) {
   getField("image-name").value = metadata.name || "";
   getField("image-developer").value = metadata.developer || "";
-  getField("image-date").value = metadata.date || "";
-  getField("image-date-100").value = metadata.date100 || "";
+  
+  // Parse and set Date Beaten dropdowns
+  const dateParsed = parseCombinedDate(metadata.date || "");
+  if (getField("image-date-month")) {
+    getField("image-date-month").value = dateParsed.month || "";
+  }
+  if (getField("image-date-year")) {
+    getField("image-date-year").value = dateParsed.year || "";
+  }
+  
+  // Parse and set Date 100% dropdowns
+  const date100Parsed = parseCombinedDate(metadata.date100 || "");
+  if (getField("image-date-100-month")) {
+    getField("image-date-100-month").value = date100Parsed.month || "";
+  }
+  if (getField("image-date-100-year")) {
+    getField("image-date-100-year").value = date100Parsed.year || "";
+  }
   getField("image-description").value = metadata.description || "";
   getField("image-status").value = metadata.status || "";
 
@@ -851,12 +904,22 @@ function bindModalFieldEvents() {
     bindTrimmedTextField(originalDeveloperInput, handleOriginalDeveloperInput);
   }
 
-  // Same live-trim behavior for the rest of the modal's free-text
+    // Same live-trim behavior for the rest of the modal's free-text
   // fields. They don't have their own change handlers - the final
   // values are simply read (and trimmed again defensively) when the
   // modal closes and metadata is saved.
-  ["image-name", "image-developer", "image-date", "image-date-100", "image-description"].forEach((id) => {
+  ["image-name", "image-developer", "image-description"].forEach((id) => {
     bindTrimmedTextField(getField(id));
+  });
+
+  // Add change listeners for date dropdowns (no trim needed for selects)
+  ["image-date-month", "image-date-year", "image-date-100-month", "image-date-100-year"].forEach((id) => {
+    const field = getField(id);
+    if (field) {
+      field.addEventListener("change", () => {
+        // Trigger save on modal close, no immediate action
+      });
+    }
   });
 }
 
