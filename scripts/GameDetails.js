@@ -146,10 +146,15 @@ function buildCombinedDateFromDropdowns(monthId, yearId) {
 
 function parseCombinedDate(combinedDate) {
   if (!combinedDate) return { month: "", year: "" };
-  
-  const trimmed = combinedDate.trim();
-  const parts = trimmed.split(" ");
-  
+
+  const trimmed = String(combinedDate).trim();
+
+  // Drop stray placeholder words (e.g. a literal "Year" option label) so
+  // they can never be mistaken for a month name.
+  const parts = trimmed
+    .split(/\s+/)
+    .filter((part) => part && !/^(year|month)$/i.test(part));
+
   if (parts.length >= 2) {
     // Format: "June 2024" or similar
     return { month: parts[0], year: parts[1] };
@@ -162,8 +167,33 @@ function parseCombinedDate(combinedDate) {
       return { month: firstPart, year: "" };
     }
   }
-  
+
   return { month: "", year: "" };
+}
+
+// Puts a "Year" placeholder option (value "") at the top of the year
+// dropdowns, so an untouched year box reads as "Year" rather than silently
+// showing the first real year. Skips any select that already has a
+// blank-valued first option, relabelling it to "Year" instead of duplicating.
+function ensureYearPlaceholderOptions() {
+  ["image-date-year", "image-date-100-year"].forEach((id) => {
+    const select = getField(id);
+    if (!select) return;
+
+    const firstOption = select.options && select.options[0];
+
+    if (firstOption && firstOption.value === "") {
+      if ((firstOption.textContent || "").trim() !== "Year") {
+        firstOption.textContent = "Year";
+      }
+      return;
+    }
+
+    const placeholder = document.createElement("option");
+    placeholder.value = "";
+    placeholder.textContent = "Year";
+    select.insertBefore(placeholder, select.firstChild);
+  });
 }
 
 function getCurrentMetadataFromForm() {
@@ -924,6 +954,7 @@ function bindModalFieldEvents() {
 }
 
 document.addEventListener("DOMContentLoaded", () => {
+  ensureYearPlaceholderOptions();   
   bindModalFieldEvents();
   renderPlatformOptions();
   renderOriginalPlatformOptions();
