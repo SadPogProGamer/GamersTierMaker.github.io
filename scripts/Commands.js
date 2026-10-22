@@ -2,13 +2,14 @@
 // Handles slash-command suggestions, command filtering, and count badge helpers.
 // ADDED: /GameType and /ExcludeGameType commands with multi-select support
 // FIXED: Search dropdown shows all commands when typing "/"
+// UPDATED: /nodate now checks for incomplete dates (missing month OR missing year)
 
 const SEARCH_COMMANDS = {
   "/Platform": "Show games with specific platform",
   "/DateBeaten": "Show games with specific date beaten",
   "/Completion": "Show games with specific completion status",
   "/NoName": "Show games with no name",
-  "/NoDate": "Show games with no date",
+  "/NoDate": "Show games with no complete date (missing month or year)",
   "/NoDescription": "Show games with no description",
   "/NoPlatform": "Show games with no platform",
   "/NoDeveloper": "Show games with no developer",
@@ -24,7 +25,7 @@ const SEARCH_COMMANDS = {
 };
 
 // GAME_TYPES is defined in GameDetails.js - use it globally
-// No need to redeclare it here
+// No need to redeclare here
 
 let searchCommandHighlightedIndex = -1;
 
@@ -228,6 +229,32 @@ function parseGameTypeList(query) {
   return result;
 }
 
+// Helper: Check if a date string has both month AND year
+// Returns true if the date is INCOMPLETE (missing month OR missing year)
+function isDateIncomplete(combinedDate) {
+  if (!combinedDate || !String(combinedDate).trim()) {
+    return true; // Completely empty
+  }
+  
+  const trimmed = String(combinedDate).trim();
+  const parts = trimmed.split(/\s+/);
+  
+  // Empty or whitespace-only
+  if (parts.length === 0 || (parts.length === 1 && !parts[0])) {
+    return true;
+  }
+  
+  // Check if there's both a month-like part AND a year-like part
+  const hasYear = parts.some(part => /^\d{4}$/.test(part));
+  const hasMonth = parts.some(part => {
+    // Non-digit word (like "June", "Jan", etc.)
+    return /^[a-zA-Z]+$/.test(part);
+  });
+  
+  // Date is incomplete if it's missing EITHER month OR year
+  return !(hasMonth && hasYear);
+}
+
 function processCommandFilter(filteredQuery, imageName, imagePlatform, imageDescription, imageDate, imageStatus, imageDeveloper, imageGameType, imageOriginalGame, imageOriginalDeveloper) {
   const command = normalizeCommandText(filteredQuery);
   const normalizedName = String(imageName || "").trim();
@@ -255,48 +282,46 @@ function processCommandFilter(filteredQuery, imageName, imagePlatform, imageDesc
   }
 
   if (command.startsWith("/datebeaten")) {
+    // Just "/DateBeaten"
+    if (command === "/datebeaten") {
+      return normalizedDate !== "";
+    }
 
-  // Just "/DateBeaten"
-  if (command === "/datebeaten") {
-    return normalizedDate !== "";
+    // "/DateBeaten something"
+    if (command.startsWith("/datebeaten ")) {
+      const dateQuery = command
+        .substring("/datebeaten ".length)
+        .trim()
+        .toLowerCase();
+
+      return normalizedDate.toLowerCase().includes(dateQuery);
+    }
   }
 
-  // "/DateBeaten something"
-  if (command.startsWith("/datebeaten ")) {
-    const dateQuery = command
-      .substring("/datebeaten ".length)
-      .trim()
-      .toLowerCase();
+  if (command.startsWith("/completion")) {
+    // Just "/Completion"
+    if (command === "/completion") {
+      return normalizedStatus !== "";
+    }
 
-    return normalizedDate.toLowerCase().includes(dateQuery);
+    // "/Completion something"
+    if (command.startsWith("/completion ")) {
+      const statusQuery = command
+        .substring("/completion ".length)
+        .trim()
+        .toLowerCase();
+
+      return normalizedStatus.toLowerCase().includes(statusQuery);
+    }
   }
-}
-
-if (command.startsWith("/completion")) {
-
-  // Just "/Completion"
-  if (command === "/completion") {
-    return normalizedStatus !== "";
-  }
-
-  // "/Completion something"
-  if (command.startsWith("/completion ")) {
-
-    const statusQuery = command
-      .substring("/completion ".length)
-      .trim()
-      .toLowerCase();
-
-    return normalizedStatus.toLowerCase().includes(statusQuery);
-  }
-}
 
   if (command === "/noname") {
     return normalizedName === "";
   }
 
+  // UPDATED: /nodate shows games where date is incomplete (missing month OR year)
   if (command === "/nodate") {
-    return normalizedDate === "";
+    return isDateIncomplete(normalizedDate);
   }
 
   if (command === "/nodescription") {
@@ -336,23 +361,22 @@ if (command.startsWith("/completion")) {
     return developerQuery ? normalizedDeveloper.includes(developerQuery) : true;
   }
 
-if (command.startsWith("/exclude")) {
+  if (command.startsWith("/exclude")) {
+    // Just "/Exclude"
+    if (command === "/exclude") {
+      return true;
+    }
 
-  // Just "/Exclude"
-  if (command === "/exclude") {
-    return true;
+    // "/Exclude something"
+    if (command.startsWith("/exclude ")) {
+      const excludeQuery = command
+        .substring("/exclude ".length)
+        .trim()
+        .toLowerCase();
+
+      return !normalizedName.toLowerCase().includes(excludeQuery);
+    }
   }
-
-  // "/Exclude something"
-  if (command.startsWith("/exclude ")) {
-    const excludeQuery = command
-      .substring("/exclude ".length)
-      .trim()
-      .toLowerCase();
-
-    return !normalizedName.toLowerCase().includes(excludeQuery);
-  }
-}
 
   // NEW: /GameType command - show games with specific game type
   if (command.startsWith("/gametype")) {
@@ -401,7 +425,7 @@ function updateTierCounts(show) {
     if (!badge) {
       badge = document.createElement("div");
       badge.className = "tier-count";
-      label.insertBefore(badge, label.firstChild);
+      label.insertBefore(badge, badge.firstChild);
     }
 
     const count = Array.from(tierContainer.querySelectorAll(".image")).filter(
