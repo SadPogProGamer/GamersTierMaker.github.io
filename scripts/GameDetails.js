@@ -283,18 +283,19 @@ function setFormFromMetadata(metadata) {
   updateGameTypeUI();
 }
 
+
 function updateDateLabel() {
   const status = getField("image-status")?.value || "";
-  const dateLabel = document.querySelector('label[for="image-date"]');
+  const dateLabel = document.querySelector('label[for="image-date-month"]');
 
   if (!dateLabel) return;
 
   if (status === "Played") {
-    dateLabel.textContent = "Date Last Played:";
+    dateLabel.parentElement.querySelector("label").textContent = "Date Last Played:";
   } else if (status === "Dropped") {
-    dateLabel.textContent = "Date Dropped:";
+    dateLabel.parentElement.querySelector("label").textContent = "Date Dropped:";
   } else {
-    dateLabel.textContent = "Date Finished:";
+    dateLabel.parentElement.querySelector("label").textContent = "Date Finished:";
   }
 }
 
