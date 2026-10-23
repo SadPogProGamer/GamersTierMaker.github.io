@@ -132,6 +132,8 @@ function extractMetadataForSearch(imageElement, metadataMap) {
     imageGameType: metadata.gameType || "Original Game",
     imageOriginalGame: metadata.originalGame || "",
     imageOriginalDeveloper: metadata.originalDeveloper || "",
+    imageDate100: metadata.date100 || "",
+    imageHas100Replay: !!metadata.has100Replay,
   };
 }
 
@@ -145,7 +147,7 @@ function evaluateImageAgainstQuery(metadata, filteredQuery) {
       return true;
     }
 
-    return processCommandFilter(
+      return processCommandFilter(
       filteredQuery,
       metadata.imageName,
       metadata.imagePlatform,
@@ -155,7 +157,9 @@ function evaluateImageAgainstQuery(metadata, filteredQuery) {
       metadata.imageDeveloper,
       metadata.imageGameType,
       metadata.imageOriginalGame,
-      metadata.imageOriginalDeveloper
+      metadata.imageOriginalDeveloper,
+      metadata.imageDate100,
+      metadata.imageHas100Replay
     );
   }
 

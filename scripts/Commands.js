@@ -10,6 +10,7 @@ const SEARCH_COMMANDS = {
   "/Completion": "Show games with specific completion status",
   "/NoName": "Show games with no name",
   "/NoDate": "Show games with no complete date (missing month or year)",
+  "/NoDate100%": "Show games with 100% replay marked but no Date 100% Completed",
   "/NoDescription": "Show games with no description",
   "/NoPlatform": "Show games with no platform",
   "/NoDeveloper": "Show games with no developer",
@@ -255,7 +256,7 @@ function isDateIncomplete(combinedDate) {
   return !(hasMonth && hasYear);
 }
 
-function processCommandFilter(filteredQuery, imageName, imagePlatform, imageDescription, imageDate, imageStatus, imageDeveloper, imageGameType, imageOriginalGame, imageOriginalDeveloper) {
+function processCommandFilter(filteredQuery, imageName, imagePlatform, imageDescription, imageDate, imageStatus, imageDeveloper, imageGameType, imageOriginalGame, imageOriginalDeveloper, imageDate100, imageHas100Replay) {
   const command = normalizeCommandText(filteredQuery);
   const normalizedName = String(imageName || "").trim();
   const normalizedPlatform = normalizeCommandText(imagePlatform);
@@ -266,6 +267,7 @@ function processCommandFilter(filteredQuery, imageName, imagePlatform, imageDesc
   const normalizedGameType = String(imageGameType || "").trim();
   const normalizedOriginalGame = String(imageOriginalGame || "").trim();
   const normalizedOriginalDeveloper = String(imageOriginalDeveloper || "").trim();
+  const normalizedDate100 = String(imageDate100 || "").trim();
 
   if (!command) return true;
 
@@ -294,11 +296,31 @@ function processCommandFilter(filteredQuery, imageName, imagePlatform, imageDesc
         .trim()
         .toLowerCase();
 
+      // Special case: looking specifically for Month Unknown games.
+      // Prefix matches: "m", "un", "no", "unkn", etc. all work
+      const isMonthUnknownQuery =
+        dateQuery.startsWith("unknown") ||
+        dateQuery.startsWith("month unknown") ||
+        dateQuery.startsWith("unknown month") ||
+        // Single-letter shortcuts
+        dateQuery === "m" ||
+        dateQuery.startsWith("mo");
+
+      if (isMonthUnknownQuery) {
+        return isMonthUnknown(normalizedDate);
+      }
+
       return normalizedDate.toLowerCase().includes(dateQuery);
     }
   }
 
-  if (command.startsWith("/completion")) {
+    // /NoDate100% - 100% replay is flagged, but the Date 100% Completed
+    // boxes were never filled in.
+    if (command.startsWith("/nodate100")) {
+      return !!imageHas100Replay && normalizedDate100 === "";
+    }
+
+     if (command.startsWith("/completion")) {
     // Just "/Completion"
     if (command === "/completion") {
       return normalizedStatus !== "";
@@ -462,6 +484,27 @@ function countsAreShown() {
   }
 
   return false;
+}
+
+const MONTH_NAMES = [
+  "january", "february", "march", "april", "may", "june",
+  "july", "august", "september", "october", "november", "december"
+];
+
+// Returns true when a game HAS a date recorded, but no real month
+// (e.g. "Unknown 2024", "2024", or a month word that isn't a real month).
+// Games with an actual month ("June 2024") return false, so they never
+// leak into Month Unknown results.
+function isMonthUnknown(combinedDate) {
+  const trimmed = String(combinedDate || "").trim();
+  if (!trimmed) return false; // completely empty -> that's /NoDate territory
+
+  const parts = trimmed.toLowerCase().split(/\s+/);
+  const hasRealMonth = parts.some(
+    (part) => MONTH_NAMES.includes(part)
+  );
+
+  return !hasRealMonth;
 }
 
 function bindSearchCommandKeyboardNavigation() {
