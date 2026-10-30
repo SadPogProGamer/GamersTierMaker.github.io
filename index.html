@@ -349,7 +349,7 @@
 
       <div class="modal-body">
         <div class="form-group">
-          <label for="image-name">Name:</label>
+          <label for="image-name">Game Name:</label>
           <input type="text" id="image-name" placeholder="Enter game name" />
         </div>
 
@@ -372,18 +372,37 @@
           <input type="text" id="image-original-game" placeholder="Enter the original game name" />
         </div>
 
-        <!-- NEW: Original Developer field (shown only for Fan Remake, hidden by default) -->
-        <div class="form-group hidden" id="original-developer-group">
-          <label for="image-original-developer">Original Developer:</label>
-          <input type="text" id="image-original-developer" placeholder="Enter the original developer" />
+        <div class="form-group dp-group hidden" id="original-developer-group">
+          <label class="dp-group-label">
+            <span>Original Developer:</span>
+            <span>Original Publisher:</span>
+          </label>
+          <div class="dp-row">
+            <div class="dp-col">
+              <input type="text" id="image-original-developer" placeholder="Enter the original developer" />
+            </div>
+            <div class="dp-col">
+              <input type="text" id="image-original-publisher" placeholder="Enter the original publisher" />
+            </div>
+          </div>
         </div>
 
-        <div class="form-group">
-          <label for="image-developer">Developer:</label>
-          <input type="text" id="image-developer" placeholder="Enter developer" />
+        <div class="form-group dp-group" id="developer-publisher-group">
+          <label class="dp-group-label">
+            <span class="dp-label-dev">Developer:</span>
+            <span class="dp-label-pub">Publisher:</span>
+          </label>
+          <div class="dp-row">
+            <div class="dp-col">
+              <input type="text" id="image-developer" placeholder="Enter developer" />
+            </div>
+            <div class="dp-col dp-col-publisher">
+              <input type="text" id="image-publisher" placeholder="Enter publisher" />
+            </div>
+          </div>
         </div>
 
-                <!-- Date Beaten - Combined Month/Year Dropdown -->
+        <!-- Date Beaten - Combined Month/Year Dropdown -->
         <div class="form-group">
           <label for="image-date-month">Date Finished:</label>
           <div class="date-picker-container">
@@ -488,13 +507,13 @@
 
   <script>
     // Populate year dropdowns (2006-2100)
-    document.addEventListener('DOMContentLoaded', function() {
+    document.addEventListener('DOMContentLoaded', function () {
       const yearDropdowns = ['image-date-year', 'image-date-100-year'];
-      
+
       yearDropdowns.forEach(id => {
         const yearSelect = document.getElementById(id);
         if (!yearSelect) return;
-        
+
         for (let year = 2006; year <= 2100; year++) {
           const option = document.createElement('option');
           option.value = year;
@@ -505,4 +524,5 @@
     });
   </script>
 </body>
+
 </html>

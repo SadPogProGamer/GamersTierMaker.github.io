@@ -291,7 +291,7 @@ async function handleDeleteTierList(id, name) {
     }
 
     // Also clear any matching per-list IndexedDB cache, if present.
-    await saveSetting(`localTierList:${id}`, null).catch(() => {});
+    await saveSetting(`localTierList:${id}`, null).catch(() => { });
 
     await renderTierListGrid();
   } catch (err) {

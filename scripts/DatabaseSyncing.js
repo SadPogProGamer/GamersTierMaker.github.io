@@ -157,17 +157,18 @@ function getDefaultImageMetadata() {
   return {
     name: "",
     developer: "",
+    publisher: "",
     date: "",
     date100: "",
     description: "",
     status: "",
     platform: null,
     originalPlatform: null,
-    genres: [],
     has100Replay: false,
     gameType: "Original Game",
     originalGame: "",
     originalDeveloper: "",
+    originalPublisher: ""          // ← ADD THIS
   };
 }
 
@@ -188,17 +189,18 @@ function normalizeImageMetadata(record) {
   return {
     name: trimText(record.name),
     developer: trimText(record.developer),
+    publisher: trimText(record.publisher || ""),
     date: trimText(record.date),
-    date100: trimText(record.date100 || record.date_100),
+    date100: trimText(record.date100),
     description: trimText(record.description),
-    status: record.status || "",
-    platform: record.platform || null,
-    originalPlatform: record.originalPlatform || null,
-    genres,
-    has100Replay: !!record.has100Replay || !!record.has100,
-    gameType: record.gameType || "Original Game",
+    status: trimText(record.status),
+    platform: record.platform,
+    originalPlatform: record.originalPlatform,
+    has100Replay: !!record.has100Replay,
+    gameType: trimText(record.gameType) || "Original Game",
     originalGame: trimText(record.originalGame),
     originalDeveloper: trimText(record.originalDeveloper),
+    originalPublisher: trimText(record.originalPublisher || "")   // ← ADD THIS
   };
 }
 

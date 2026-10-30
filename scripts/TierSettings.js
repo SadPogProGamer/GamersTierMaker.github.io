@@ -798,7 +798,7 @@ function loadTierColors() {
         const tier = storedTiers[i];
         addRow(tier.name || "New tier", tier.color || "lightslategray");
       }
-      
+
       updateTierColorsInMemory();
     })
     .catch((err) => {

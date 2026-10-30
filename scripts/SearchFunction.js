@@ -33,6 +33,25 @@ function getDefaultSearchMetadata() {
   return {
     name: "",
     developer: "",
+    publisher: "",
+    date: "",
+    description: "",
+    status: "",
+    platform: null,
+    date100: "",
+    has100Replay: false,
+    gameType: "Original Game",
+    originalGame: "",
+    originalDeveloper: "",
+    originalPublisher: ""          // ← ADD THIS
+  };
+}
+
+function getDefaultSearchMetadata() {
+  return {
+    name: "",
+    developer: "",
+    publisher: "",           // ← ADD THIS
     date: "",
     description: "",
     status: "",
@@ -129,9 +148,11 @@ function extractMetadataForSearch(imageElement, metadataMap) {
     imageDate: metadata.date || "",
     imageStatus: metadata.status || "",
     imageDeveloper: metadata.developer || "",
+    imagePublisher: metadata.publisher || "",
     imageGameType: metadata.gameType || "Original Game",
     imageOriginalGame: metadata.originalGame || "",
     imageOriginalDeveloper: metadata.originalDeveloper || "",
+    imageOriginalPublisher: metadata.originalPublisher || "",   // ← ADD THIS
     imageDate100: metadata.date100 || "",
     imageHas100Replay: !!metadata.has100Replay,
   };
@@ -147,7 +168,7 @@ function evaluateImageAgainstQuery(metadata, filteredQuery) {
       return true;
     }
 
-      return processCommandFilter(
+    return processCommandFilter(
       filteredQuery,
       metadata.imageName,
       metadata.imagePlatform,
@@ -159,7 +180,9 @@ function evaluateImageAgainstQuery(metadata, filteredQuery) {
       metadata.imageOriginalGame,
       metadata.imageOriginalDeveloper,
       metadata.imageDate100,
-      metadata.imageHas100Replay
+      metadata.imageHas100Replay,
+      metadata.imagePublisher,        // already added earlier
+      metadata.imageOriginalPublisher  // ← ADD THIS (14th arg)
     );
   }
 

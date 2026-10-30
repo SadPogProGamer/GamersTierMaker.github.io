@@ -15,7 +15,7 @@ const SEARCH_COMMANDS = {
   "/NoPlatform": "Show games with no platform",
   "/NoDeveloper": "Show games with no developer",
   "/NoStatus": "Show games with no status",
-  "/Developer": "Search by developer name (e.g. /Developer Rockstar)",
+  "/Developer": "Search by developer OR publisher name (e.g. /Developer Rockstar)",
   "/ShowAmount": "Show number of images in each tier (can combine with other commands or search)",
   "/Exclude": "Hide games whose name contains the given text (e.g. /Exclude Mario)",
   "/GameType": "Show games with specific game type: Original Game, Romhack, Fan Game, Fan Port, Fan Remake, Mod (e.g. /GameType Romhack)",
@@ -48,12 +48,12 @@ function normalizeCommandText(value) {
 
 function getFilteredSearchCommands(query) {
   const normalized = normalizeCommandText(query);
-  
+
   // If the query is just "/" or empty, return all commands
   if (normalized === "/" || normalized === "") {
     return Object.keys(SEARCH_COMMANDS);
   }
-  
+
   return Object.keys(SEARCH_COMMANDS).filter((cmd) => {
     return cmd.toLowerCase().includes(normalized);
   });
@@ -207,8 +207,8 @@ function parseGameTypeQuery(value) {
   const normalized = normalizeCommandText(value);
   // Use the global GAME_TYPES from GameDetails.js
   const gameTypes = typeof GAME_TYPES !== 'undefined' ? GAME_TYPES : ["Original Game", "Romhack", "Fan Game", "Fan Port", "Fan Remake", "Mod"];
-  const matchingTypes = gameTypes.filter(type => 
-    normalizeCommandText(type).includes(normalized) || 
+  const matchingTypes = gameTypes.filter(type =>
+    normalizeCommandText(type).includes(normalized) ||
     normalized.includes(normalizeCommandText(type))
   );
   return matchingTypes;
@@ -236,27 +236,27 @@ function isDateIncomplete(combinedDate) {
   if (!combinedDate || !String(combinedDate).trim()) {
     return true; // Completely empty
   }
-  
+
   const trimmed = String(combinedDate).trim();
   const parts = trimmed.split(/\s+/);
-  
+
   // Empty or whitespace-only
   if (parts.length === 0 || (parts.length === 1 && !parts[0])) {
     return true;
   }
-  
+
   // Check if there's both a month-like part AND a year-like part
   const hasYear = parts.some(part => /^\d{4}$/.test(part));
   const hasMonth = parts.some(part => {
     // Non-digit word (like "June", "Jan", etc.)
     return /^[a-zA-Z]+$/.test(part);
   });
-  
+
   // Date is incomplete if it's missing EITHER month OR year
   return !(hasMonth && hasYear);
 }
 
-function processCommandFilter(filteredQuery, imageName, imagePlatform, imageDescription, imageDate, imageStatus, imageDeveloper, imageGameType, imageOriginalGame, imageOriginalDeveloper, imageDate100, imageHas100Replay) {
+function processCommandFilter(filteredQuery, imageName, imagePlatform, imageDescription, imageDate, imageStatus, imageDeveloper, imageGameType, imageOriginalGame, imageOriginalDeveloper, imageDate100, imageHas100Replay, imagePublisher, imageOriginalPublisher) {
   const command = normalizeCommandText(filteredQuery);
   const normalizedName = String(imageName || "").trim();
   const normalizedPlatform = normalizeCommandText(imagePlatform);
@@ -264,9 +264,11 @@ function processCommandFilter(filteredQuery, imageName, imagePlatform, imageDesc
   const normalizedDate = String(imageDate || "").trim();
   const normalizedStatus = String(imageStatus || "").trim();
   const normalizedDeveloper = normalizeCommandText(imageDeveloper);
+  const normalizedPublisher = normalizeCommandText(imagePublisher);
+  const normalizedOriginalDeveloper = String(imageOriginalDeveloper || "").trim();
+  const normalizedOriginalPublisher = normalizeCommandText(imageOriginalPublisher);
   const normalizedGameType = String(imageGameType || "").trim();
   const normalizedOriginalGame = String(imageOriginalGame || "").trim();
-  const normalizedOriginalDeveloper = String(imageOriginalDeveloper || "").trim();
   const normalizedDate100 = String(imageDate100 || "").trim();
 
   if (!command) return true;
@@ -314,13 +316,13 @@ function processCommandFilter(filteredQuery, imageName, imagePlatform, imageDesc
     }
   }
 
-    // /NoDate100% - 100% replay is flagged, but the Date 100% Completed
-    // boxes were never filled in.
-    if (command.startsWith("/nodate100")) {
-      return !!imageHas100Replay && normalizedDate100 === "";
-    }
+  // /NoDate100% - 100% replay is flagged, but the Date 100% Completed
+  // boxes were never filled in.
+  if (command.startsWith("/nodate100")) {
+    return !!imageHas100Replay && normalizedDate100 === "";
+  }
 
-     if (command.startsWith("/completion")) {
+  if (command.startsWith("/completion")) {
     // Just "/Completion"
     if (command === "/completion") {
       return normalizedStatus !== "";
@@ -380,7 +382,13 @@ function processCommandFilter(filteredQuery, imageName, imagePlatform, imageDesc
   if (command.startsWith("/developer ")) {
     const rawDeveloperQuery = command.substring("/developer ".length).trim();
     const developerQuery = mapDeveloperCommandAlias(rawDeveloperQuery);
-    return developerQuery ? normalizedDeveloper.includes(developerQuery) : true;
+    if (!developerQuery) return true;
+
+    // Match against developer OR publisher
+    return (
+      normalizedDeveloper.includes(developerQuery) ||
+      normalizedPublisher.includes(developerQuery)
+    );
   }
 
   if (command.startsWith("/exclude")) {
@@ -410,7 +418,7 @@ function processCommandFilter(filteredQuery, imageName, imagePlatform, imageDesc
       const rawGameTypeQuery = command.substring("/gametype ".length).trim();
       const gameTypes = parseGameTypeList(rawGameTypeQuery);
       if (gameTypes.length === 0) return true;
-      return gameTypes.some(type => 
+      return gameTypes.some(type =>
         normalizeCommandText(normalizedGameType) === normalizeCommandText(type)
       );
     }
@@ -426,7 +434,7 @@ function processCommandFilter(filteredQuery, imageName, imagePlatform, imageDesc
       const rawExcludeQuery = command.substring("/excludegametype ".length).trim();
       const excludeTypes = parseGameTypeList(rawExcludeQuery);
       if (excludeTypes.length === 0) return true;
-      return !excludeTypes.some(type => 
+      return !excludeTypes.some(type =>
         normalizeCommandText(normalizedGameType) === normalizeCommandText(type)
       );
     }

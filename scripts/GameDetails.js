@@ -113,6 +113,7 @@ let currentOriginalGame = "";
 let currentOriginalDeveloper = "";
 let modalBindingsInitialized = false;
 let currentModalEscapeHandler = null;
+let currentOriginalPublisher = "";
 
 function gameDetailsLogError(context, err) {
   console.error(`[GameDetails] ${context}`, err);
@@ -137,7 +138,7 @@ function getSearchQueryValue() {
 function buildCombinedDateFromDropdowns(monthId, yearId) {
   const month = (getField(monthId)?.value || "").trim();
   const year = (getField(yearId)?.value || "").trim();
-  
+
   if (!month && !year) return "";
   if (!month) return year;
   if (!year) return month;
@@ -205,6 +206,7 @@ function getCurrentMetadataFromForm() {
   return {
     name: (getField("image-name")?.value || "").trim(),
     developer: (getField("image-developer")?.value || "").trim(),
+    publisher: (getField("image-publisher")?.value || "").trim(),
     date: buildCombinedDateFromDropdowns("image-date-month", "image-date-year"),
     date100: buildCombinedDateFromDropdowns("image-date-100-month", "image-date-100-year"),
     description: (getField("image-description")?.value || "").trim(),
@@ -214,7 +216,8 @@ function getCurrentMetadataFromForm() {
     has100Replay: !!currentHas100Replay,
     gameType: currentGameType || "Original Game",
     originalGame: (currentOriginalGame || "").trim(),
-    originalDeveloper: (currentOriginalDeveloper || "").trim()
+    originalDeveloper: (currentOriginalDeveloper || "").trim(),
+    originalPublisher: (currentOriginalPublisher || "").trim()  // ← ADD THIS
   };
 }
 
@@ -237,7 +240,7 @@ function unlockBackgroundScroll() {
 function setFormFromMetadata(metadata) {
   getField("image-name").value = metadata.name || "";
   getField("image-developer").value = metadata.developer || "";
-  
+  getField("image-publisher").value = metadata.publisher || ""; // NEW
   // Parse and set Date Beaten dropdowns
   const dateParsed = parseCombinedDate(metadata.date || "");
   if (getField("image-date-month")) {
@@ -246,7 +249,7 @@ function setFormFromMetadata(metadata) {
   if (getField("image-date-year")) {
     getField("image-date-year").value = dateParsed.year || "";
   }
-  
+
   // Parse and set Date 100% dropdowns
   const date100Parsed = parseCombinedDate(metadata.date100 || "");
   if (getField("image-date-100-month")) {
@@ -264,6 +267,7 @@ function setFormFromMetadata(metadata) {
   currentGameType = metadata.gameType || "Original Game";
   currentOriginalGame = metadata.originalGame || "";
   currentOriginalDeveloper = metadata.originalDeveloper || "";
+  currentOriginalPublisher = metadata.originalPublisher || "";  // ← ADD THIS
 
   const platformSearch = getField("platform-search");
   const dropdown = getField("platform-dropdown-menu");
@@ -356,6 +360,10 @@ function updateGameTypeUI() {
   const originalGameLabel = document.querySelector('label[for="image-original-game"]');
   const originalDeveloperGroup = getField("original-developer-group");
   const originalDeveloperInput = getField("image-original-developer");
+  const originalPublisherInput = getField("image-original-publisher");
+  const dpGroup = getField("developer-publisher-group");
+  const developerInput = getField("image-developer");
+  const developerLabelSpan = document.querySelector("#developer-publisher-group .dp-label-dev");
 
   if (!gameTypeSelect) return;
 
@@ -366,7 +374,10 @@ function updateGameTypeUI() {
   const isFanGame = currentGameType === "Fan Game";
   const isFanRemake = currentGameType === "Fan Remake";
 
-  reorderDeveloperFieldForGameType(isFanRemake);
+  // The Developer/Porter box moves above the original-game context for
+  // Fan Remake and Fan Port, since whoever made the fan version reads
+  // more naturally before the original game's details.
+  reorderDeveloperFieldForGameType(isFanRemake || isFanPort);
 
   // Original Game box is irrelevant for the base "Original Game" type,
   // and also for "Fan Port" (a fan port is the same game, just ported
@@ -392,20 +403,48 @@ function updateGameTypeUI() {
     originalGameLabel.textContent = isFanGame ? "Original IP:" : "Original Game:";
   }
 
-  // Original Developer only applies to Fan Remake (the studio that made
-  // the original game being remade).
-  const shouldHideOriginalDeveloper = !isFanRemake;
+  // Original Developer/Publisher row applies to Fan Remake AND Fan Port -
+  // both are fan-made versions of someone else's game, so the original
+  // studio and publisher are worth recording.
+  const shouldShowOriginalRow = isFanRemake || isFanPort;
 
   if (originalDeveloperGroup) {
-    originalDeveloperGroup.classList.toggle("hidden", shouldHideOriginalDeveloper);
+    originalDeveloperGroup.classList.toggle("hidden", !shouldShowOriginalRow);
   }
 
-  if (shouldHideOriginalDeveloper) {
+  if (!shouldShowOriginalRow) {
     currentOriginalDeveloper = "";
+    currentOriginalPublisher = "";
   }
 
   if (originalDeveloperInput) {
     originalDeveloperInput.value = currentOriginalDeveloper || "";
+  }
+
+  if (originalPublisherInput) {
+    originalPublisherInput.value = currentOriginalPublisher || "";
+  }
+
+  // Fan Port calls the main box "Porter"; every other type says "Developer".
+  if (developerLabelSpan) {
+    developerLabelSpan.textContent = isFanPort ? "Porter:" : "Developer:";
+  }
+
+  if (developerInput) {
+    developerInput.placeholder = isFanPort ? "Enter porter" : "Enter developer";
+  }
+
+  // Single-column mode: hide the Publisher box.
+  // - Original Game = two columns (Developer + Publisher)
+  // - Romhack / Fan Game / Fan Port / Fan Remake / Mod = one column
+  const shouldUseSingleColumn = !isOriginal;
+
+  if (dpGroup) {
+    dpGroup.classList.toggle("single-column", shouldUseSingleColumn);
+    if (shouldUseSingleColumn) {
+      const pub = getField("image-publisher");
+      if (pub) pub.value = "";
+    }
   }
 }
 
@@ -693,6 +732,8 @@ function finalizeModalClose() {
   currentGameType = "Original Game";
   currentOriginalGame = "";
   currentOriginalDeveloper = "";
+  currentOriginalPublisher = "";
+  // Publisher doesn't need special reset - handled via form read
 
   if (typeof flushPendingRealtimeSync === "function") {
     flushPendingRealtimeSync().catch((err) => {
@@ -935,14 +976,20 @@ function bindModalFieldEvents() {
     bindTrimmedTextField(originalDeveloperInput, handleOriginalDeveloperInput);
   }
 
-    // Same live-trim behavior for the rest of the modal's free-text
+  const originalPublisherInput = getField("image-original-publisher");
+  if (originalPublisherInput) {
+    bindTrimmedTextField(originalPublisherInput, () => {
+      currentOriginalPublisher = originalPublisherInput.value || "";
+    });
+  }
+
+  // Same live-trim behavior for the rest of the modal's free-text
   // fields. They don't have their own change handlers - the final
   // values are simply read (and trimmed again defensively) when the
   // modal closes and metadata is saved.
-  ["image-name", "image-developer", "image-description"].forEach((id) => {
+  ["image-name", "image-developer", "image-publisher", "image-description"].forEach((id) => {
     bindTrimmedTextField(getField(id));
   });
-
   // Add change listeners for date dropdowns (no trim needed for selects)
   ["image-date-month", "image-date-year", "image-date-100-month", "image-date-100-year"].forEach((id) => {
     const field = getField(id);
@@ -955,7 +1002,7 @@ function bindModalFieldEvents() {
 }
 
 document.addEventListener("DOMContentLoaded", () => {
-  ensureYearPlaceholderOptions();   
+  ensureYearPlaceholderOptions();
   bindModalFieldEvents();
   renderPlatformOptions();
   renderOriginalPlatformOptions();

@@ -16,6 +16,7 @@
      global bump applied on top of the resolution-based scale). */
   --modal-scale: 0.95;
 }
+
 body {
   font-family: Arial, Helvetica, sans-serif;
   margin: 0;
@@ -195,9 +196,12 @@ body.global-file-drag::after {
 }
 
 @keyframes pulse {
-  0%, 100% {
+
+  0%,
+  100% {
     opacity: 1;
   }
+
   50% {
     opacity: 0.7;
   }
@@ -232,7 +236,7 @@ main {
   left: -34px;
   top: 50%;
   transform: translateY(-50%);
-  background-color: rgba(0,0,0,0.45);
+  background-color: rgba(0, 0, 0, 0.45);
   color: #fff;
   padding: 4px 6px;
   border-radius: 6px;
@@ -241,6 +245,7 @@ main {
   text-align: center;
   display: none;
 }
+
 .tier-label:focus-visible {
   outline: none;
   border: 1px solid var(--white);
@@ -362,7 +367,8 @@ p {
 .option.delete {
   grid-row: 1 / span 2;
   grid-column: 1;
-  transform: translateY(20px); /* 👈 adjust this */
+  transform: translateY(20px);
+  /* 👈 adjust this */
 }
 
 /* arrows on the right */
@@ -390,7 +396,8 @@ p {
   display: flex;
   align-items: stretch;
   gap: 0;
-  width: 100%;                      /* Match other input field widths */
+  width: 100%;
+  /* Match other input field widths */
   min-width: 200px;
   max-width: none;
   border: 1px solid #555;
@@ -434,13 +441,15 @@ p {
 
 /* Vertical divider between month and year - ONLY on the left element */
 .date-picker-container .month-dropdown {
-  flex: 1.4 1 55%;                  /* Month gets slightly more space */
+  flex: 1.4 1 55%;
+  /* Month gets slightly more space */
   text-align: center;
 }
 
 /* Right side has no right border, but gets the divider from its left neighbor */
 .date-picker-container .year-dropdown {
-  flex: 1 1 45%;                    /* Year gets slightly less space */
+  flex: 1 1 45%;
+  /* Year gets slightly less space */
   text-align: center;
 }
 
@@ -728,7 +737,7 @@ img {
   border-radius: 8px;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.5);
   width: 100%;
-  max-width: calc(525px * var(--modal-scale));
+  max-width: calc(600px * var(--modal-scale));
   color: var(--button-text);
 }
 
@@ -841,8 +850,13 @@ img {
 }
 
 @keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+  0% {
+    transform: rotate(0deg);
+  }
+
+  100% {
+    transform: rotate(360deg);
+  }
 }
 
 .modal-body {
@@ -1240,7 +1254,7 @@ img {
   background-color: rgba(255, 255, 255, 0.06);
 }
 
-.row-menu-item + .row-menu-item {
+.row-menu-item+.row-menu-item {
   border-top: 1px solid rgba(255, 255, 255, 0.14);
 }
 
@@ -1412,6 +1426,7 @@ img {
   font-size: 12px;
   margin-top: 4px;
 }
+
 /* Profile Dropdown Styles */
 .profile-dropdown {
   position: relative;
@@ -1506,7 +1521,7 @@ img {
   font-size: 14px;
 }
 
-.row-menu-item + .row-menu-item {
+.row-menu-item+.row-menu-item {
   border-top: 1px solid #555;
 }
 
@@ -1589,7 +1604,8 @@ body.mobile #image-modal {
 /* prevent clipping */
 body.mobile .modal-inner {
   min-height: 100%;
-  padding-bottom: 40px; /* breathing room */
+  padding-bottom: 40px;
+  /* breathing room */
 }
 
 body.mobile .modal-content {
@@ -1784,10 +1800,12 @@ body.mobile .option-hover {
 }
 
 #image-description {
-    width: 100%;
-    min-height: calc(260px * var(--modal-scale)); /* kept in sync with .form-group textarea min-height above */
-    resize: vertical;  /* Allows the user to make it even taller */
-    box-sizing: border-box;
+  width: 100%;
+  min-height: calc(260px * var(--modal-scale));
+  /* kept in sync with .form-group textarea min-height above */
+  resize: vertical;
+  /* Allows the user to make it even taller */
+  box-sizing: border-box;
 }
 
 /* ==========================================================
@@ -1926,6 +1944,7 @@ body.mobile .option-hover {
 .mytl-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+
   gap: 18px;
 }
 
@@ -2159,4 +2178,76 @@ body.mobile .option-hover {
   .mytl-grid {
     grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
   }
+}
+
+/* FORCE Developer/Publisher Side-by-Side */
+.dp-group {
+  margin-bottom: calc(12px * var(--modal-scale));
+}
+
+.dp-group>label {
+  display: block !important;
+  margin-bottom: calc(5px * var(--modal-scale));
+  font-weight: bold;
+  color: var(--button-text);
+  font-size: calc(15px * var(--modal-scale));
+}
+
+.dp-row {
+  display: flex !important;
+  flex-direction: row !important;
+  width: 100%;
+  border: 1px solid #555;
+  border-radius: 4px;
+  background-color: #3d3a3b;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.dp-col {
+  flex: 1 1 0;
+  min-width: 0;
+  position: relative;
+}
+
+.dp-col+.dp-col {
+  border-left: 1px solid #555;
+}
+
+/* Keep this for the inputs */
+.dp-group .dp-col input[type="text"] {
+  width: 100% !important;
+  margin: 0 !important;
+  padding: calc(9px * var(--modal-scale)) calc(12px * var(--modal-scale));
+  border: none !important;
+  border-radius: 0 !important;
+  background-color: transparent !important;
+  color: var(--button-text) !important;
+  font-family: Arial, Helvetica, sans-serif !important;
+  font-size: calc(14px * var(--modal-scale)) !important;
+}
+
+.dp-group .dp-col input[type="text"]:focus {
+  outline: none !important;
+  background-color: rgba(127, 255, 255, 0.08) !important;
+}
+
+.dp-group > label.dp-group-label {
+  display: flex !important;
+  width: 100%;
+  margin-bottom: calc(5px * var(--modal-scale));
+  font-weight: bold;
+  color: var(--button-text);
+  font-size: calc(15px * var(--modal-scale));
+}
+
+.dp-group > label.dp-group-label > span {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+/* Hide Publisher column in single-column mode */
+.dp-group.single-column .dp-col-publisher,
+.dp-group.single-column .dp-label-pub {
+  display: none;
 }

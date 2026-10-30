@@ -98,17 +98,18 @@ function buildImportedEntryMetadata(entry) {
   return {
     name: trimText(entry.name),
     developer: trimText(entry.developer),
+    publisher: trimText(entry.publisher || ""),
     date: trimText(entry.date),
-    date100: normalizedStatus === "100% complete" ? trimText(entry.date100) : "",
+    date100: trimText(entry.date100),
     description: trimText(entry.description),
-    platform: entry.platform || null,
-    originalPlatform: entry.originalPlatform || null,
-    status: normalizedStatus,
-    has100Replay: normalizedStatus === "100% complete" ? !!entry.has100Replay : false,
-    gameKey: entry.gameKey || makeGameKey(entry.name, entry.developer),
-    gameType: entry.gameType || "Original Game",
+    status: trimText(entry.status),
+    platform: entry.platform,
+    originalPlatform: entry.originalPlatform,
+    has100Replay: !!entry.has100Replay,
+    gameType: trimText(entry.gameType) || "Original Game",
     originalGame: trimText(entry.originalGame),
     originalDeveloper: trimText(entry.originalDeveloper),
+    originalPublisher: trimText(entry.originalPublisher || "")   // ← ADD THIS
   };
 }
 
@@ -459,17 +460,18 @@ async function getGameDetailsForExport() {
     let metadata = {
       name: "",
       developer: "",
+      publisher: "",
       date: "",
+      date100: "",
       description: "",
       status: "",
       platform: null,
       originalPlatform: null,
-      date100: "",
       has100Replay: false,
-      gameKey: "",
       gameType: "Original Game",
       originalGame: "",
       originalDeveloper: "",
+      originalPublisher: ""         // ← ADD THIS
     };
 
     try {
@@ -500,6 +502,7 @@ async function getGameDetailsForExport() {
       tier: image.tier,
       name: trimText(metadata.name),
       developer: trimText(metadata.developer),
+      publisher: trimText(metadata.publisher), // NEW
       date: trimText(metadata.date),
       description: trimText(metadata.description),
       platform: metadata.platform || null,
@@ -510,6 +513,7 @@ async function getGameDetailsForExport() {
       gameType: metadata.gameType || "Original Game",
       originalGame: trimText(metadata.originalGame),
       originalDeveloper: trimText(metadata.originalDeveloper),
+      originalPublisher: trimText(metadata.originalPublisher),
     });
   }
 
@@ -839,7 +843,7 @@ async function deleteTierList() {
       }
     }
     // Clean up legacy single-list keys too, in case they still linger.
-    await saveSetting("localTierList", null).catch(() => {});
+    await saveSetting("localTierList", null).catch(() => { });
     localStorage.removeItem("savedTierList");
 
     if (currentUser && firebaseDb && firebaseAvailable && currentId) {
@@ -1180,7 +1184,7 @@ async function saveTierList() {
 
   const button = document.getElementById("save-tierlist-btn");
   const originalText = button?.textContent || "Save Tierlist";
-  
+
   if (button) {
     button.textContent = "Saving...";
     button.disabled = true;
@@ -1191,9 +1195,9 @@ async function saveTierList() {
     if (typeof saveTierSettingsToStorage === "function") {
       await saveTierSettingsToStorage();
     }
-    
+
     await saveTierListLocally();
-    
+
     if (currentUser && firebaseDb && firebaseAvailable) {
       await saveTierListToFirebase();
       alert("Tierlist saved to your account and locally!");
