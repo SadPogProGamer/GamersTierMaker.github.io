@@ -364,16 +364,14 @@ function processCommandFilter(filteredQuery, imageName, imagePlatform, imageDesc
   }
 
   if (command === "/nopublisher") {
-    return normalizedPublisher === "";
+    const publisherBoxVisible = normalizedGameType === "Original Game";
+    return publisherBoxVisible && normalizedPublisher === "";
   }
 
   if (command === "/nostatus") {
     return normalizedStatus === "";
   }
 
-  // Original Game / Original IP are the same underlying field, just
-  // labeled differently depending on Game Type: "Fan Game" shows it as
-  // "Original IP", every other type that shows it calls it "Original Game".
   if (command === "/nooriginalgame") {
     return normalizedOriginalGame === "" && normalizedGameType !== "Fan Game";
   }
