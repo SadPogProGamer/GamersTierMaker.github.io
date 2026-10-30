@@ -181,8 +181,8 @@ function evaluateImageAgainstQuery(metadata, filteredQuery) {
       metadata.imageOriginalDeveloper,
       metadata.imageDate100,
       metadata.imageHas100Replay,
-      metadata.imagePublisher,        // already added earlier
-      metadata.imageOriginalPublisher  // ← ADD THIS (14th arg)
+      metadata.imagePublisher,
+      metadata.imageOriginalPublisher  // ← Already added earlier, confirm this is here
     );
   }
 

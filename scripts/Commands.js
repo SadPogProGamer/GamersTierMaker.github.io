@@ -14,14 +14,17 @@ const SEARCH_COMMANDS = {
   "/NoDescription": "Show games with no description",
   "/NoPlatform": "Show games with no platform",
   "/NoDeveloper": "Show games with no developer",
+  "/NoPublisher": "Show games with no publisher",
   "/NoStatus": "Show games with no status",
-  "/Developer": "Search by developer OR publisher name (e.g. /Developer Rockstar)",
+  "/Developer": "Search by developer name only (e.g. /Developer Rockstar)",
+  "/Publisher": "Search by publisher name only (e.g. /Publisher Ubisoft)",
   "/ShowAmount": "Show number of images in each tier (can combine with other commands or search)",
   "/Exclude": "Hide games whose name contains the given text (e.g. /Exclude Mario)",
   "/GameType": "Show games with specific game type: Original Game, Romhack, Fan Game, Fan Port, Fan Remake, Mod (e.g. /GameType Romhack)",
   "/ExcludeGameType": "Hide games with specific game type: Original Game, Romhack, Fan Game, Fan Port, Fan Remake, Mod (e.g. /ExcludeGameType Mod)",
   "/NoOriginalGame": "Show games with no Original Game filled in",
   "/NoOriginalDeveloper": "Show games with no Original Developer filled in",
+  "/NoOriginalPublisher": "Show games with no Original Publisher filled in",
   "/NoOriginalIP": "Show games with no Original IP filled in",
 };
 
@@ -265,8 +268,8 @@ function processCommandFilter(filteredQuery, imageName, imagePlatform, imageDesc
   const normalizedStatus = String(imageStatus || "").trim();
   const normalizedDeveloper = normalizeCommandText(imageDeveloper);
   const normalizedPublisher = normalizeCommandText(imagePublisher);
-  const normalizedOriginalDeveloper = String(imageOriginalDeveloper || "").trim();
-  const normalizedOriginalPublisher = normalizeCommandText(imageOriginalPublisher);
+  const normalizedOriginalDeveloper = normalizeCommandText(imageOriginalDeveloper);
+  const normalizedOriginalPublisher = normalizeCommandText(imageOriginalPublisher);  // ← ADD THIS
   const normalizedGameType = String(imageGameType || "").trim();
   const normalizedOriginalGame = String(imageOriginalGame || "").trim();
   const normalizedDate100 = String(imageDate100 || "").trim();
@@ -360,6 +363,10 @@ function processCommandFilter(filteredQuery, imageName, imagePlatform, imageDesc
     return normalizedDeveloper === "";
   }
 
+  if (command === "/nopublisher") {
+    return normalizedPublisher === "";
+  }
+
   if (command === "/nostatus") {
     return normalizedStatus === "";
   }
@@ -379,16 +386,31 @@ function processCommandFilter(filteredQuery, imageName, imagePlatform, imageDesc
     return normalizedOriginalDeveloper === "";
   }
 
+  // /NoOriginalPublisher - only applies when original publisher box is visible
+  // (Fan Remake and Fan Port are the only types that show it)
+  if (command === "/nooriginalpublisher") {
+    // Only flag if original publisher box IS visible for this game type
+    const originalPublisherBoxVisible = normalizedGameType === "Fan Remake" || normalizedGameType === "Fan Port";
+
+    // Only match if box is visible AND the field is blank
+    return originalPublisherBoxVisible && normalizedOriginalPublisher === "";
+  }
+
+  // NEW (checks developer only)
   if (command.startsWith("/developer ")) {
     const rawDeveloperQuery = command.substring("/developer ".length).trim();
     const developerQuery = mapDeveloperCommandAlias(rawDeveloperQuery);
     if (!developerQuery) return true;
 
-    // Match against developer OR publisher
-    return (
-      normalizedDeveloper.includes(developerQuery) ||
-      normalizedPublisher.includes(developerQuery)
-    );
+    return normalizedDeveloper.includes(developerQuery);
+  }
+
+  if (command.startsWith("/publisher ")) {
+    const rawPublisherQuery = command.substring("/publisher ".length).trim();
+    const publisherQuery = normalizeCommandText(rawPublisherQuery);
+    if (!publisherQuery) return true;
+
+    return normalizedPublisher.includes(publisherQuery);
   }
 
   if (command.startsWith("/exclude")) {
