@@ -77,7 +77,7 @@ const platformOptions = {
     "NES (Nintendo Switch Online)",
     "SNES (Nintendo Switch Online)",
     "Nintendo 64 (Nintendo Switch Online)",
-    "Sega Genesis (Nintendo Switch Online)",
+    "Sega Genesis / Mega Drive (Nintendo Switch Online)",
     "Game Boy (Nintendo Switch Online)",
     "Game Boy Advance (Nintendo Switch Online)"
   ],
