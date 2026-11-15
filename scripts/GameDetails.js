@@ -30,7 +30,7 @@ const platformOptions = {
     "Nintendo Switch",
     "Nintendo Switch (Via Backwards Compatibility)",
     "Nintendo Switch 2",
-    "Sega Genesis",
+    "Sega Genesis / Mega Drive",
     "Sega Saturn",
     "Sega Dreamcast",
     "Atari 2600",
