@@ -27,6 +27,7 @@ const platformPriority = {
   "Atari 7800": 3,
   "Atari Jaguar": 4,
   "V.Smile": 5,
+  "CD-i": 5.5,
   "Sega Genesis / Mega Drive": 6,
   "Sega Saturn": 7,
   "Sega Dreamcast": 8,

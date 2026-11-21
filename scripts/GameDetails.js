@@ -99,6 +99,9 @@ const platformOptions = {
   ],
   "Mobile": [
     "Mobile"
+  ],
+  "Misc": [
+    "CD-i"
   ]
 };
 
